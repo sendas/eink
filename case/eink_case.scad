@@ -69,7 +69,17 @@ module shell() {
     }
 }
 
+// Montagem fechada (só para pré-visualização), com vidro e ecrã de exemplo
+module assembled() {
+    color("WhiteSmoke") shell();
+    color("WhiteSmoke") translate([0, 0, SHELL_D + BEZEL_T]) mirror([0, 0, 1]) bezel();
+    color("LightSkyBlue", 0.5) translate([-53, -36.5, SHELL_D + 0.0]) cube([106, 73, 2]);
+    color("White") translate([-49.5 + 0, -33, SHELL_D - 1.2]) cube([99, 66, 1]);
+    color("Black") translate([-42.3, -28.2, SHELL_D - 1.1]) cube([84.6, 56.4, 1.0]);
+}
+
 if (part == "bezel") bezel();
+else if (part == "assembled") assembled();
 else if (part == "shell") shell();
 else {
     shell();
