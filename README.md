@@ -31,6 +31,13 @@ O ecrã e a placa HAT ficam juntos no exterior. O Pi fica dentro de casa, ligado
 
 Este é o mapeamento padrão da Waveshare; confirme na wiki do produto ("Hardware connection").
 
+## 2b. Caixa slim impressa em 3D (`case/`)
+Duas peças (`bezel.stl` e `shell.stl`, geradas por `case/eink_case.scad`), 26 mm de espessura total, 124×91 mm, com orelhas para fixar à porta.
+- Material: **ASA** (melhor) ou PETG, cor clara. Evitar PLA (deforma ao sol). Imprimir a moldura com a face da frente na mesa e o corpo com o piso na mesa.
+- Vidro: lâmina de **policarbonato ou acrílico (metacrilato) de 2 mm**, cortada a 106×73 mm. Colar ao alojamento da moldura com silicone.
+- Junta: cordão de borracha de 1,5 mm no sulco do corpo. 4 parafusos M3×14 (rosca direta nos pilares).
+- As medidas são parametrizáveis no topo do ficheiro `.scad` (janela, posição do furo dos fios, etc.). Imprima primeiro só a moldura e confira a janela com o ecrã.
+
 ## 3. NAS
 1. Copiar este repositório para o NAS.
 2. Editar `UI_PASSWORD` e `DEVICE_TOKEN` em `docker-compose.yml` (valores longos e aleatórios).
