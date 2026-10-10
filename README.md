@@ -3,40 +3,28 @@
 Painel de informações e avisos num Waveshare 4" e-Paper (E6 / Spectra 6, 600×400), editado numa página web alojada no NAS.
 
 ```
-Browser ──HTTPS──> NAS (Docker, eink.techpro.pt) <──pede a imagem── Raspberry Pi ──8 fios── ecrã (HAT)
+Browser ──HTTPS──> NAS (Docker, eink.techpro.pt) <──pede a imagem── Raspberry Pi + HAT ──fita── painel
                                                                      (dentro de casa)      (exterior)
 ```
 
 ## 1. Material
 - Raspberry Pi Zero 2 **WH** (com pinos soldados) e fonte USB 5 V / 2,5 A (micro-USB).
 - Cartão microSD de 16 GB ou mais ("high endurance").
-- Cabos fêmea-fêmea de 30 a 50 cm (9 fios) ou o cabo PH2.0 incluído com o ecrã.
 - Para o exterior: caixa estanque IP65 com tampa transparente e **interior de pelo menos 120×85×40 mm** (a placa HAT mede 101×68 mm; o painel 99×66 mm), silicone, saquinho de sílica.
 - Alternativa sem furo: colar o ecrã por dentro de um vidro da porta ou janela.
 
-## 2. Ligações (ecrã → Raspberry Pi)
-O ecrã e a placa HAT ficam juntos no exterior. O Pi fica dentro de casa, ligado por 9 fios. Mantenha o cabo o mais curto possível (SPI com cabos longos é pouco fiável).
+## 2. Ligações
+O painel liga-se à placa HAT por uma **fita flexível**. A placa HAT encaixa diretamente nos 40 pinos do Raspberry Pi (dentro de casa) e só o painel, com o pequeno adaptador da fita, fica no exterior. A fita passa por uma fenda fina na porta. Não são precisos fios dupont.
 
-| Ecrã | Pi (pino) |
-|---|---|
-| VCC | 3,3 V (pino 1) |
-| GND | GND (pino 6) |
-| DIN | GPIO10 / MOSI (pino 19) |
-| CLK | GPIO11 / SCLK (pino 23) |
-| CS | GPIO8 / CE0 (pino 24) |
-| DC | GPIO25 (pino 22) |
-| RST | GPIO17 (pino 11) |
-| BUSY | GPIO24 (pino 18) |
-| PWR | GPIO18 (pino 12) |
+Antes de furar, meça o comprimento da fita incluída: tem de ir do painel, atravessar a porta (cerca de 4 cm) e chegar à placa HAT. Se for curta, pode ser preciso uma extensão FFC com os mesmos contactos e passo.
 
-Este é o mapeamento padrão da Waveshare; confirme na wiki do produto ("Hardware connection").
-
-## 2b. Caixa slim impressa em 3D (`case/`)
-Duas peças (`bezel.stl` e `shell.stl`, geradas por `case/eink_case.scad`), 26 mm de espessura total, 124×91 mm, com orelhas para fixar à porta.
-- Material: **ASA** (melhor) ou PETG, cor clara. Evitar PLA (deforma ao sol). Imprimir a moldura com a face da frente na mesa e o corpo com o piso na mesa.
-- Vidro: lâmina de **policarbonato ou acrílico (metacrilato) de 2 mm**, cortada a 106×73 mm. Colar ao alojamento da moldura com silicone.
-- Junta: cordão de borracha de 1,5 mm no sulco do corpo. 4 parafusos M3×14 (rosca direta nos pilares).
-- As medidas são parametrizáveis no topo do ficheiro `.scad` (janela, posição do furo dos fios, etc.). Imprima primeiro só a moldura e confira a janela com o ecrã.
+## 2b. Moldura slim impressa em 3D (`case/`)
+Duas peças (`slim_bezel.stl` e `slim_back.stl`, geradas por `case/eink_case_slim.scad`), cerca de 10 mm de espessura e 118×85 mm. Só o painel e o adaptador da fita ficam no exterior.
+- Material: **ASA** (melhor) ou PETG, cor clara. Evitar PLA (deforma ao sol).
+- Vidro: lâmina de **acrílico ou policarbonato de 1,5 mm**, 103×70 mm, colada à moldura com silicone.
+- Os 4 parafusos (3 mm, com 25 a 30 mm) prendem a moldura à porta; vedar com silicone entre as peças e à volta da fenda.
+- Fenda de 18×2,4 mm na porta para a fita (furos em fila com broca de 3 mm e limar), vedada com silicone depois de passar a fita.
+- As medidas do adaptador e a posição da fenda são estimativas: imprima primeiro e confira com o ecrã real. Há também uma caixa mais grossa (`eink_case.scad`, 26 mm) para a placa no exterior.
 
 ## 3. NAS
 1. Copiar este repositório para o NAS.
