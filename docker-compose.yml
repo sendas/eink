@@ -1,0 +1,14 @@
+services:
+  eink:
+    build: ./server
+    container_name: eink
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # o proxy inverso do NAS aponta para aqui
+    environment:
+      UI_USER: admin
+      UI_PASSWORD: muda-isto          # palavra-passe da interface web
+      DEVICE_TOKEN: muda-este-token   # segredo usado pelo Raspberry Pi
+      TZ: Europe/Lisbon
+    volumes:
+      - ./data:/data

@@ -1,0 +1,8 @@
+[Unit]
+Description=Atualiza o ecrã e-ink a partir do NAS
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/eink.env
+ExecStart=/opt/eink/venv/bin/python /opt/eink/client.py
