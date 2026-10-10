@@ -10,12 +10,12 @@ Browser ──HTTPS──> NAS (Docker, eink.techpro.pt) <──pede a imagem─
 ## 1. Material
 - Raspberry Pi Zero 2 **WH** (com pinos soldados) e fonte USB 5 V / 2,5 A (micro-USB).
 - Cartão microSD de 16 GB ou mais ("high endurance").
-- Cabos fêmea-fêmea de 30 a 50 cm (8 fios) ou o cabo PH2.0 incluído com o ecrã.
-- Para o exterior: caixa estanque IP65 com janela transparente, silicone, saquinho de sílica.
+- Cabos fêmea-fêmea de 30 a 50 cm (9 fios) ou o cabo PH2.0 incluído com o ecrã.
+- Para o exterior: caixa estanque IP65 com tampa transparente e **interior de pelo menos 120×85×40 mm** (a placa HAT mede 101×68 mm; o painel 99×66 mm), silicone, saquinho de sílica.
 - Alternativa sem furo: colar o ecrã por dentro de um vidro da porta ou janela.
 
 ## 2. Ligações (ecrã → Raspberry Pi)
-O ecrã e a placa HAT ficam juntos no exterior. O Pi fica dentro de casa, ligado por 8 fios. Mantenha o cabo o mais curto possível (SPI com cabos longos é pouco fiável).
+O ecrã e a placa HAT ficam juntos no exterior. O Pi fica dentro de casa, ligado por 9 fios. Mantenha o cabo o mais curto possível (SPI com cabos longos é pouco fiável).
 
 | Ecrã | Pi (pino) |
 |---|---|
@@ -27,6 +27,7 @@ O ecrã e a placa HAT ficam juntos no exterior. O Pi fica dentro de casa, ligado
 | DC | GPIO25 (pino 22) |
 | RST | GPIO17 (pino 11) |
 | BUSY | GPIO24 (pino 18) |
+| PWR | GPIO18 (pino 12) |
 
 Este é o mapeamento padrão da Waveshare; confirme na wiki do produto ("Hardware connection").
 
