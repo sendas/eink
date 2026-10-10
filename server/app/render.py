@@ -71,7 +71,64 @@ def _fit(draw, text, path, size, max_w):
     return _font(path, size)
 
 
+def aviso_ativo(cfg: dict) -> bool:
+    import time
+    a = cfg.get("aviso") or {}
+    if not a.get("on") or not a.get("text", "").strip():
+        return False
+    exp = a.get("expires")
+    return exp is None or exp > time.time()
+
+
+def _wrap(d, text, path, size, max_w):
+    lines = []
+    for par in text.split("\n"):
+        cur = ""
+        for word in par.split():
+            test = (cur + " " + word).strip()
+            if d.textlength(test, font=_font(path, size)) <= max_w or not cur:
+                cur = test
+            else:
+                lines.append(cur)
+                cur = word
+        lines.append(cur)
+    return lines
+
+
+def render_aviso(cfg: dict, stamp: bool) -> Image.Image:
+    a = cfg["aviso"]
+    cor = COLORS.get(a.get("color", "vermelho"), COLORS["vermelho"])
+    # texto branco sobre cores escuras; preto sobre amarelo/verde
+    on_cor = COLORS["preto"] if a.get("color") in ("amarelo", "verde") else COLORS["branco"]
+    img = Image.new("RGB", (W, H), COLORS["branco"])
+    d = ImageDraw.Draw(img)
+    d.fontmode = "1"
+
+    d.rectangle([0, 0, W, 120], fill=cor)
+    titulo = a.get("title", "AVISO").strip() or "AVISO"
+    d.text((W // 2, 60), titulo, font=_fit(d, titulo, FONT_BOLD, 72, W - 40), fill=on_cor, anchor="mm")
+
+    # corpo: maior tamanho de letra que cabe na área abaixo da faixa
+    top, bottom = 130, H - 24
+    for size in range(80, 17, -2):
+        lines = _wrap(d, a["text"], FONT_BOLD, size, W - 40)
+        if len(lines) * int(size * 1.2) <= bottom - top:
+            break
+    lh = int(size * 1.2)
+    y = top + (bottom - top - lh * len(lines)) // 2
+    for ln in lines:
+        d.text((W // 2, y), ln, font=_font(FONT_BOLD, size), fill=COLORS["preto"], anchor="mt")
+        y += lh
+    d.rectangle([0, H - 12, W, H], fill=cor)
+    if stamp:
+        d.text((W - 10, H - 16), "Atualizado %s" % datetime.now(ZoneInfo(cfg.get("timezone", "Europe/Lisbon"))).strftime("%H:%M"),
+               font=_font(FONT, 12), fill=COLORS["preto"], anchor="rb")
+    return img
+
+
 def render(cfg: dict, stamp: bool = False) -> Image.Image:
+    if aviso_ativo(cfg):
+        return render_aviso(cfg, stamp)
     """Devolve a imagem. Com stamp=False não leva a hora da última atualização,
     para o hash só mudar quando o conteúdo muda."""
     tz = ZoneInfo(cfg.get("timezone", "Europe/Lisbon"))
