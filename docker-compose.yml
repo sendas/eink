@@ -1,0 +1,24 @@
+# VPS Ubuntu/Debian com Docker. O Caddy trata do HTTPS (certificado automático) e fala com a aplicação por dentro da rede do Docker.
+services:
+  eink:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - eink-dados:/data
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp"]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMINIO: ${DOMINIO:?define DOMINIO no .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+    depends_on: [eink]
+volumes:
+  eink-dados:
+  caddy-dados:

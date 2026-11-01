@@ -1,0 +1,13 @@
+{
+  "name": "eink",
+  "version": "0.1.0",
+  "description": "Ferramentas de sala de aula e avaliação para docentes, com entrada pela conta da escola (Microsoft Entra ID)",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "DEV_LOGIN=1 ADMIN_USERS=admin@escola.pt node server.js",
+    "test": "node --test \"testes/*.test.js\""
+  },
+  "engines": { "node": ">=22.13" }
+}
