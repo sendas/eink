@@ -28,7 +28,7 @@
       <td class="num" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
 
-    mostrar(`<p><a href="#/turma/${d.periodo.turma_id}">← Turma</a></p><h1>${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)}</small></h1>
+    mostrar(`<p><a href="#/turma/${d.periodo.turma_id}">← Turma</a></p><h1>${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
       <form class="painel linha" id="f-aval">
         <label>Título<input name="titulo" required maxlength="80" placeholder="Teste 1"></label>
         <label>Critério<select name="criterio">${testes.map((k) => `<option value="${k.id}">${esc(k.nome)} (${k.peso} %)</option>`).join("")}</select></label>

@@ -35,6 +35,6 @@ para copiar a base, `docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine tar
 
 - O domínio da escola inclui alunos. Por isso o domínio, sozinho, **não** dá acesso: só entra quem pertence ao grupo de docentes (ou foi adicionado em «Docentes», sem grupo configurado).
 - Cada docente só vê as suas turmas (todas as consultas filtram por docente; há testes para isso).
-- Nota final = média ponderada dos critérios do grupo disciplinar (definidos pelo administrador). Dentro de cada critério de testes, os docentes lançam
+- Nota final = média ponderada dos critérios da disciplina e do ano da turma (definidos pelo administrador; sem esquema do ano, vale o de «todos os anos»). Dentro de cada critério de testes, os docentes lançam
   quantos testes quiserem, cada um com o seu peso. Cada teste pode ter uma grelha (questões e cotações) onde se lança a pontuação de cada aluno.
   Níveis 1 a 5 pelos limites 20, 50, 70 e 90 %.

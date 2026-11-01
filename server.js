@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const criarAuth = require("./lib/auth");
-const { abrir } = require("./lib/db");
+const { abrir, criarEsquema } = require("./lib/db");
 const { pauta, lerNota, NIVEIS } = require("./lib/avaliacao");
 const { ehMembro } = require("./lib/grupo");
 
@@ -88,12 +88,18 @@ function criarServidor(env = process.env) {
   const existe = (x, msg = "Não encontrado.") => { if (!x) throw erro(404, msg); return x; };
   const transacao = (fn) => { db.exec("BEGIN"); try { const r = fn(); db.exec("COMMIT"); return r; } catch (e) { db.exec("ROLLBACK"); throw e; } };
 
-  const criteriosDe = (grupoId) => db.prepare("SELECT id, nome, peso, tipo, ordem FROM criterios WHERE grupo_id = ? ORDER BY ordem, id").all(grupoId);
-  const grupoCom = (id) => { const g = db.prepare("SELECT id, nome, casas FROM grupos WHERE id = ?").get(id); return g && { ...g, criterios: criteriosDe(g.id) }; };
+  const criteriosDe = (esquemaId) => db.prepare("SELECT id, nome, peso, tipo, ordem FROM criterios WHERE esquema_id = ? ORDER BY ordem, id").all(esquemaId);
+  const esquemaPorId = (id) => { const e = db.prepare("SELECT e.id, e.grupo_id, e.ano, e.casas, g.nome FROM esquemas e JOIN grupos g ON g.id = e.grupo_id WHERE e.id = ?").get(id); return e && { ...e, criterios: criteriosDe(e.id) }; };
+  // O esquema de uma turma é o do seu grupo para o seu ano; sem esse, o do grupo para «todos os anos» (ano 0).
+  const esquemaDaTurma = (t) => esquemaPorId(db.prepare("SELECT id FROM esquemas WHERE grupo_id = ? AND ano IN (?, 0) ORDER BY ano DESC LIMIT 1").get(t.grupo_id, t.ano).id);
+  const grupoCompleto = (id) => { const g = db.prepare("SELECT id, nome FROM grupos WHERE id = ?").get(id); return g && { ...g, esquemas: db.prepare("SELECT id FROM esquemas WHERE grupo_id = ? ORDER BY ano").all(id).map((e) => { const x = esquemaPorId(e.id); return { id: x.id, ano: x.ano, casas: x.casas, criterios: x.criterios }; }) }; };
+  // Turmas que dependem de um esquema, e se alguma já tem avaliações ou níveis lançados (então os critérios não podem mudar de esquema).
+  const temDados = (turmaId) => !!(db.prepare("SELECT 1 FROM avaliacoes a JOIN periodos d ON d.id = a.periodo_id WHERE d.turma_id = ? LIMIT 1").get(turmaId) || db.prepare("SELECT 1 FROM niveis n JOIN periodos d ON d.id = n.periodo_id WHERE d.turma_id = ? LIMIT 1").get(turmaId));
+  const turmasDoAno = (grupoId, ano) => db.prepare("SELECT id FROM turmas WHERE grupo_id = ? AND ano = ?").all(grupoId, ano);
 
   function dadosPauta(per) {
     const turma = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
-    const grupo = grupoCom(turma.grupo_id);
+    const grupo = esquemaDaTurma(turma);
     const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(per.turma_id);
     const avaliacoes = db.prepare("SELECT a.*, (SELECT COUNT(*) FROM itens WHERE avaliacao_id = a.id) AS n_itens FROM avaliacoes a WHERE periodo_id = ? ORDER BY ordem, id").all(per.id);
     const notas = new Map();
@@ -133,13 +139,15 @@ function criarServidor(env = process.env) {
   rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV }));
   rota("GET", "/api/turmas", (c) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? ORDER BY t.nome").all(c.p.id));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
-  rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCom(g.id)));
+  rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
   rota("POST", "/api/turmas", (c) => {
     const nome = texto(c.b.nome, 60);
     if (!nome) throw erro(400, "Indica o nome da turma.");
     const gid = inteiro(c.b.grupo_id) ?? c.p.grupo_id ?? db.prepare("SELECT id FROM grupos ORDER BY id LIMIT 1").get().id;
     if (!db.prepare("SELECT 1 FROM grupos WHERE id = ?").get(gid)) throw erro(400, "Grupo disciplinar inexistente.");
-    const r = db.prepare("INSERT INTO turmas (prof_id, grupo_id, nome, ano_letivo) VALUES (?, ?, ?, ?)").run(c.p.id, gid, nome, texto(c.b.ano_letivo, 20));
+    const ano = c.b.ano === undefined || c.b.ano === null || c.b.ano === "" ? 0 : inteiro(c.b.ano);
+    if (ano === null || ano < 0 || ano > 12) throw erro(400, "Ano de escolaridade inválido.");
+    const r = db.prepare("INSERT INTO turmas (prof_id, grupo_id, ano, nome, ano_letivo) VALUES (?, ?, ?, ?, ?)").run(c.p.id, gid, ano, nome, texto(c.b.ano_letivo, 20));
     const id = Number(r.lastInsertRowid);
     const ins = db.prepare("INSERT INTO periodos (turma_id, nome, ordem) VALUES (?, ?, ?)");
     ["1.º período", "2.º período", "3.º período"].forEach((n, i) => ins.run(id, n, i));
@@ -150,7 +158,7 @@ function criarServidor(env = process.env) {
     const t = existe(turmaDe(c.p, c.id[0]));
     return {
       ...t,
-      grupo: grupoCom(t.grupo_id),
+      grupo: esquemaDaTurma(t),
       alunos: db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(t.id),
       periodos: db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id),
     };
@@ -177,8 +185,8 @@ function criarServidor(env = process.env) {
   rota("GET", "/api/periodos/:id/pauta", (c) => dadosPauta(existe(periodoDe(c.p, c.id[0]))));
   // O critério tem de ser do tipo «testes» e do grupo disciplinar da turma; sem critério, usa o primeiro desse tipo.
   const criterioDeTestes = (turmaId, id) => {
-    const t = db.prepare("SELECT grupo_id FROM turmas WHERE id = ?").get(turmaId);
-    const lista = criteriosDe(t.grupo_id).filter((k) => k.tipo === "testes");
+    const t = db.prepare("SELECT * FROM turmas WHERE id = ?").get(turmaId);
+    const lista = esquemaDaTurma(t).criterios.filter((k) => k.tipo === "testes");
     const k = id === null || id === undefined ? lista[0] : lista.find((x) => x.id === inteiro(id));
     if (!k) throw erro(400, "Critério inválido para esta turma.");
     return k;
@@ -306,8 +314,8 @@ function criarServidor(env = process.env) {
     const per = existe(periodoDe(c.p, c.id[0]));
     const a = existe(alunoDe(c.p, inteiro(c.b.aluno)));
     if (a.turma_id !== per.turma_id) throw erro(400, "Aluno que não pertence à turma.");
-    const t = db.prepare("SELECT grupo_id FROM turmas WHERE id = ?").get(per.turma_id);
-    const k = criteriosDe(t.grupo_id).find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
+    const t = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
+    const k = esquemaDaTurma(t).criterios.find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
     if (!k) throw erro(400, "Critério inválido para esta turma.");
     const n = c.b.nivel === null || c.b.nivel === "" ? null : inteiro(c.b.nivel);
     if (n !== null && (n < 1 || n > 5)) throw erro(400, "O nível vai de 1 a 5.");
@@ -343,25 +351,38 @@ function criarServidor(env = process.env) {
     const nome = texto(c.b.nome, 60);
     if (!nome) throw erro(400, "Indica o nome do grupo.");
     if (db.prepare("SELECT 1 FROM grupos WHERE nome = ?").get(nome)) throw erro(400, "Já existe um grupo com esse nome.");
-    const g = Number(db.prepare("INSERT INTO grupos (nome) VALUES (?)").run(nome).lastInsertRowid);
-    const ins = db.prepare("INSERT INTO criterios (grupo_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)");
-    ins.run(g, "Testes e trabalhos", 70, "testes", 0);
-    ins.run(g, "Comportamento", 30, "nivel", 1);
-    return { id: g };
+    return transacao(() => { const g = Number(db.prepare("INSERT INTO grupos (nome) VALUES (?)").run(nome).lastInsertRowid); criarEsquema(db, g, 0); return { id: g }; });
   });
-  // Substitui o nome e os critérios do grupo. Os pesos têm de somar 100 %. Um critério com avaliações lançadas não se pode retirar nem mudar de tipo.
   rota("PUT", "/api/admin/grupos/:id", (c) => {
     soAdmin(c);
     const g = existe(db.prepare("SELECT * FROM grupos WHERE id = ?").get(c.id[0]));
-    const nome = c.b.nome === undefined ? g.nome : texto(c.b.nome, 60);
+    const nome = texto(c.b.nome, 60);
     if (!nome) throw erro(400, "Indica o nome do grupo.");
     const outro = db.prepare("SELECT id FROM grupos WHERE nome = ?").get(nome);
     if (outro && outro.id !== g.id) throw erro(400, "Já existe um grupo com esse nome.");
-    const casas = c.b.casas === undefined ? g.casas : inteiro(c.b.casas);
+    db.prepare("UPDATE grupos SET nome = ? WHERE id = ?").run(nome, g.id);
+    return grupoCompleto(g.id);
+  });
+  // Esquema próprio de um ano de escolaridade (1 a 12): começa como cópia do esquema de «todos os anos».
+  rota("POST", "/api/admin/grupos/:id/esquemas", (c) => {
+    soAdmin(c);
+    const g = existe(db.prepare("SELECT * FROM grupos WHERE id = ?").get(c.id[0]));
+    const ano = inteiro(c.b.ano);
+    if (ano === null || ano < 1 || ano > 12) throw erro(400, "Escolhe um ano de escolaridade de 1 a 12.");
+    if (db.prepare("SELECT 1 FROM esquemas WHERE grupo_id = ? AND ano = ?").get(g.id, ano)) throw erro(400, `Já existe um esquema para o ${ano}.º ano.`);
+    if (turmasDoAno(g.id, ano).some((t) => temDados(t.id))) throw erro(409, `Já há turmas do ${ano}.º ano deste grupo com avaliações lançadas pelos docentes: um esquema novo deixaria de se aplicar a elas.`);
+    const base = db.prepare("SELECT id FROM esquemas WHERE grupo_id = ? AND ano = 0").get(g.id).id;
+    return transacao(() => ({ id: criarEsquema(db, g.id, ano, base) }));
+  });
+  // Substitui as casas decimais e os critérios de um esquema. Os pesos têm de somar 100 %. Um critério com avaliações lançadas não se pode retirar nem mudar de tipo.
+  rota("PUT", "/api/admin/esquemas/:id", (c) => {
+    soAdmin(c);
+    const e = existe(esquemaPorId(c.id[0]));
+    const casas = c.b.casas === undefined ? e.casas : inteiro(c.b.casas);
     if (casas !== 1 && casas !== 2) throw erro(400, "A nota final leva 1 ou 2 casas decimais.");
     const lista = Array.isArray(c.b.criterios) ? c.b.criterios : null;
     if (!lista || lista.length < 1 || lista.length > 8) throw erro(400, "Define de 1 a 8 critérios.");
-    const atuais = new Map(criteriosDe(g.id).map((k) => [k.id, k]));
+    const atuais = new Map(e.criterios.map((k) => [k.id, k]));
     const vistos = new Set(), nomes = new Set();
     const novos = lista.map((k, i) => {
       const n = texto(k.nome, 60), peso = Number(k.peso), tipo = k.tipo === "nivel" ? "nivel" : "testes";
@@ -372,7 +393,7 @@ function criarServidor(env = process.env) {
       const id = k.id === undefined || k.id === null ? null : inteiro(k.id);
       if (id !== null) {
         const a = atuais.get(id);
-        if (!a || vistos.has(id)) throw erro(400, "Critério que não pertence a este grupo.");
+        if (!a || vistos.has(id)) throw erro(400, "Critério que não pertence a este esquema.");
         if (a.tipo !== tipo) throw erro(409, `Não se pode mudar o tipo de «${a.nome}»: apaga-o e cria outro.`);
         vistos.add(id);
       }
@@ -388,12 +409,20 @@ function criarServidor(env = process.env) {
         db.prepare("DELETE FROM criterios WHERE id = ?").run(id);
       }
       for (const k of novos) {
-        if (k.id === null) db.prepare("INSERT INTO criterios (grupo_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)").run(g.id, k.nome, k.peso, k.tipo, k.ordem);
+        if (k.id === null) db.prepare("INSERT INTO criterios (esquema_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)").run(e.id, k.nome, k.peso, k.tipo, k.ordem);
         else db.prepare("UPDATE criterios SET nome = ?, peso = ?, ordem = ? WHERE id = ?").run(k.nome, k.peso, k.ordem, k.id);
       }
-      db.prepare("UPDATE grupos SET nome = ?, casas = ? WHERE id = ?").run(nome, casas, g.id);
+      db.prepare("UPDATE esquemas SET casas = ? WHERE id = ?").run(casas, e.id);
     });
-    return grupoCom(g.id);
+    return grupoCompleto(e.grupo_id);
+  });
+  rota("DELETE", "/api/admin/esquemas/:id", (c) => {
+    soAdmin(c);
+    const e = existe(esquemaPorId(c.id[0]));
+    if (e.ano === 0) throw erro(400, "O esquema de «todos os anos» não se apaga.");
+    if (turmasDoAno(e.grupo_id, e.ano).some((t) => temDados(t.id))) throw erro(409, "Há turmas deste ano com avaliações lançadas: o esquema não se pode apagar.");
+    db.prepare("DELETE FROM esquemas WHERE id = ?").run(e.id);
+    return grupoCompleto(e.grupo_id);
   });
   rota("DELETE", "/api/admin/grupos/:id", (c) => {
     soAdmin(c);

@@ -53,14 +53,15 @@ async function turmas() {
     <form class="painel linha" id="f-turma">
       <label>Nome da turma<input name="nome" required maxlength="60" placeholder="7.º A"></label>
       <label>Ano letivo<input name="ano_letivo" maxlength="20" placeholder="2026/2027"></label>
-      <label>Grupo disciplinar<select name="grupo_id">${grupos.map((g) => `<option value="${g.id}" ${g.id === EINK.eu.grupo_id ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>
+      <label>Ano de escolaridade<select name="ano" required><option value="">Escolhe</option>${[5, 6, 7, 8, 9, 10, 11, 12].map((a) => `<option value="${a}">${a}.º ano</option>`).join("")}</select></label>
+      <label>Disciplina / grupo disciplinar<select name="grupo_id">${grupos.map((g) => `<option value="${g.id}" ${g.id === EINK.eu.grupo_id ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>
       <button>Criar turma</button>
     </form>
-    <div class="painel"><ul class="lista">${l.map((t) => `<li><a href="#/turma/${t.id}"><strong>${esc(t.nome)}</strong></a><span class="pequeno">${esc(t.ano_letivo)} · ${esc(t.grupo)} · ${t.alunos} alunos</span></li>`).join("") || '<li class="pequeno">Ainda não tens turmas.</li>'}</ul></div>`);
+    <div class="painel"><ul class="lista">${l.map((t) => `<li><a href="#/turma/${t.id}"><strong>${esc(t.nome)}</strong></a><span class="pequeno">${esc(t.ano_letivo)} · ${esc(t.grupo)}${t.ano ? " · " + t.ano + ".º ano" : ""} · ${t.alunos} alunos</span></li>`).join("") || '<li class="pequeno">Ainda não tens turmas.</li>'}</ul></div>`);
   $("#f-turma").onsubmit = async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const r = await api("POST", "/api/turmas", { nome: f.get("nome"), ano_letivo: f.get("ano_letivo"), grupo_id: Number(f.get("grupo_id")) });
+    const r = await api("POST", "/api/turmas", { nome: f.get("nome"), ano_letivo: f.get("ano_letivo"), ano: Number(f.get("ano")), grupo_id: Number(f.get("grupo_id")) });
     location.hash = "#/turma/" + r.id;
   };
 }
@@ -68,9 +69,9 @@ async function turmas() {
 async function turma(id) {
   const t = await api("GET", "/api/turmas/" + id);
   mostrar(`<p><a href="#/turmas">← Turmas</a></p><h1>${esc(t.nome)} <small class="pequeno">${esc(t.ano_letivo)}</small></h1>
-    <h2>Critérios de avaliação · ${esc(t.grupo.nome)}</h2>
+    <h2>Critérios de avaliação · ${esc(t.grupo.nome)} · ${t.grupo.ano ? t.grupo.ano + ".º ano" : "todos os anos"}</h2>
     <div class="painel"><ul class="lista">${t.grupo.criterios.map((k) => `<li><span>${esc(k.nome)} <span class="pequeno">${k.tipo === "nivel" ? "nível 1 a 5, dado por ti" : "média dos testes e trabalhos que lançares"}</span></span><strong>${k.peso} %</strong></li>`).join("")}</ul>
-      <p class="pequeno">Definidos pelo administrador para o grupo disciplinar. A nota final é a média destes critérios pelos seus pesos.</p></div>
+      <p class="pequeno">Definidos pelo administrador para esta disciplina e ano. A nota final é a média destes critérios pelos seus pesos.</p></div>
     <h2>Períodos e avaliação</h2>
     <div class="painel"><ul class="lista">${t.periodos.map((p) => `<li><a href="#/pauta/${p.id}"><strong>${esc(p.nome)}</strong></a><a class="botao sec" href="#/pauta/${p.id}">Abrir pauta</a></li>`).join("")}</ul>
       <form class="linha" id="f-periodo"><label>Novo período<input name="nome" required maxlength="60" placeholder="Intercalar"></label><button class="sec">Adicionar</button></form></div>

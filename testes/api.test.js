@@ -50,7 +50,7 @@ test("API: docentes, turmas, notas e pauta", async (t) => {
   assert.strictEqual(p.alunos[1].final, 42.5);
   assert.strictEqual(p.alunos[1].nivel, 2);
 
-  const gerais = (await ana.chamar("GET", "/api/grupos")).d[0].criterios; // grupo «Geral»: testes e trabalhos 70 %, comportamento 30 %
+  const gerais = (await ana.chamar("GET", "/api/grupos")).d[0].esquemas[0].criterios; // grupo «Geral»: testes e trabalhos 70 %, comportamento 30 %
   const comp = gerais.find((k) => k.tipo === "nivel").id;
   await ana.chamar("PUT", `/api/periodos/${per}/niveis`, { criterio: comp, aluno: a1.id, nivel: 5 });
   assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].final, Math.round(75 * 0.7 + 95 * 0.3));
@@ -96,17 +96,19 @@ test("API: critérios por grupo disciplinar e média ponderada com vários teste
   assert.strictEqual((await ana.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).estado, 403);
   const { d: { id: gid } } = await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" });
   assert.strictEqual((await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).estado, 400, "nome repetido");
-  const cri = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.id === gid).criterios;
+  const esq = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.id === gid).esquemas[0];
+  const cri = esq.criterios, eid = esq.id;
+  assert.strictEqual(esq.ano, 0, "o esquema base é o de todos os anos");
 
   // Os pesos têm de somar 100 %.
   const lista = (extra) => ({ criterios: [{ id: cri[0].id, nome: "Testes", peso: 60, tipo: "testes" }, { nome: "Trabalhos", peso: 20, tipo: "testes" }, { id: cri[1].id, nome: "Atitudes", peso: 20 + extra, tipo: "nivel" }] });
-  const mau = await adm.chamar("PUT", "/api/admin/grupos/" + gid, lista(5));
+  const mau = await adm.chamar("PUT", "/api/admin/esquemas/" + eid, lista(5));
   assert.strictEqual(mau.estado, 400);
   assert.match(mau.d.erro, /100 %/);
-  const bom = await adm.chamar("PUT", "/api/admin/grupos/" + gid, lista(0));
+  const bom = await adm.chamar("PUT", "/api/admin/esquemas/" + eid, lista(0));
   assert.strictEqual(bom.estado, 200);
-  const [kTestes, kTrab, kAtit] = bom.d.criterios;
-  assert.deepStrictEqual(bom.d.criterios.map((k) => k.peso), [60, 20, 20]);
+  const [kTestes, kTrab, kAtit] = bom.d.esquemas[0].criterios;
+  assert.deepStrictEqual(bom.d.esquemas[0].criterios.map((k) => k.peso), [60, 20, 20]);
 
   // A docente cria a turma nesse grupo e lança vários testes.
   const { d: { id: tid } } = await ana.chamar("POST", "/api/turmas", { nome: "7.º B", grupo_id: gid });
@@ -132,14 +134,14 @@ test("API: critérios por grupo disciplinar e média ponderada com vários teste
   assert.strictEqual(r2.parcial, true);
 
   // Um critério com avaliações lançadas não se retira; o administrador altera os pesos e a pauta acompanha.
-  const semTrab = await adm.chamar("PUT", "/api/admin/grupos/" + gid, { criterios: [{ id: kTestes.id, nome: "Testes", peso: 80, tipo: "testes" }, { id: kAtit.id, nome: "Atitudes", peso: 20, tipo: "nivel" }] });
+  const semTrab = await adm.chamar("PUT", "/api/admin/esquemas/" + eid, { criterios: [{ id: kTestes.id, nome: "Testes", peso: 80, tipo: "testes" }, { id: kAtit.id, nome: "Atitudes", peso: 20, tipo: "nivel" }] });
   assert.strictEqual(semTrab.estado, 409);
-  await adm.chamar("PUT", "/api/admin/grupos/" + gid, { criterios: [{ id: kTestes.id, nome: "Testes", peso: 40, tipo: "testes" }, { id: kTrab.id, nome: "Trabalhos", peso: 40, tipo: "testes" }, { id: kAtit.id, nome: "Atitudes", peso: 20, tipo: "nivel" }] });
+  await adm.chamar("PUT", "/api/admin/esquemas/" + eid, { criterios: [{ id: kTestes.id, nome: "Testes", peso: 40, tipo: "testes" }, { id: kTrab.id, nome: "Trabalhos", peso: 40, tipo: "testes" }, { id: kAtit.id, nome: "Atitudes", peso: 20, tipo: "nivel" }] });
   assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].final, Math.round(60 * 0.4 + 90 * 0.4 + 80 * 0.2)); // 76
-  assert.strictEqual((await adm.chamar("PUT", "/api/admin/grupos/" + gid, { criterios: [{ id: kAtit.id, nome: "Atitudes", peso: 100, tipo: "testes" }] })).estado, 409, "não muda o tipo");
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/esquemas/" + eid, { criterios: [{ id: kAtit.id, nome: "Atitudes", peso: 100, tipo: "testes" }] })).estado, 409, "não muda o tipo");
 
   // Um docente não usa critérios de outro grupo, e o grupo com turmas não se apaga.
-  const outro = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.nome === "Geral").criterios[0].id;
+  const outro = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.nome === "Geral").esquemas[0].criterios[0].id;
   assert.strictEqual((await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Y", criterio: outro })).estado, 400);
   assert.strictEqual((await adm.chamar("DELETE", "/api/admin/grupos/" + gid)).estado, 409);
 
@@ -197,9 +199,9 @@ test("API: grelha de um teste, casas decimais e entrada pelo grupo do Entra ID",
   assert.strictEqual((await rui.chamar("PUT", `/api/avaliacoes/${av}/grelha/notas`, { linhas: [] })).estado, 404);
 
   // Duas casas decimais, escolhidas pelo administrador no grupo.
-  const geral = (await adm.chamar("GET", "/api/grupos")).d[0];
-  assert.strictEqual((await adm.chamar("PUT", "/api/admin/grupos/" + geral.id, { casas: 3, criterios: geral.criterios })).estado, 400);
-  assert.strictEqual((await adm.chamar("PUT", "/api/admin/grupos/" + geral.id, { casas: 2, criterios: geral.criterios })).d.casas, 2);
+  const geral = (await adm.chamar("GET", "/api/grupos")).d[0].esquemas[0];
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/esquemas/" + geral.id, { casas: 3, criterios: geral.criterios })).estado, 400);
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/esquemas/" + geral.id, { casas: 2, criterios: geral.criterios })).d.esquemas[0].casas, 2);
   const { d: { id: av2 } } = await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Ficha", peso: 1, maximo: 3 });
   await ana.chamar("PUT", `/api/avaliacoes/${av2}/notas`, { linhas: [{ aluno: a3.id, nota: "2" }] }); // 66,666...
   p = (await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d;
@@ -243,4 +245,63 @@ test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async 
   await assert.rejects(ehMembro("erro", GID, { graphUrl }), /Graph/);
   await assert.rejects(ehMembro("bom", "nao-e-guid", { graphUrl }), /GUID/);
   assert.strictEqual(await ehMembro("", GID, { graphUrl }), false);
+});
+
+test("API: critérios por disciplina e por ano de escolaridade", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt" });
+  const ana = await entrar("ana@escola.pt");
+  const { d: { id: gid } } = await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" });
+  const base = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.id === gid).esquemas[0];
+
+  // Turmas do 7.º e do 8.º ano, ainda sem esquema próprio: ambas usam o de «todos os anos».
+  const nova = async (nome, ano) => (await ana.chamar("POST", "/api/turmas", { nome, ano, grupo_id: gid })).d.id;
+  const t7 = await nova("7.º A", 7), t8 = await nova("8.º A", 8), t0 = await nova("Outra", undefined);
+  assert.strictEqual((await ana.chamar("POST", "/api/turmas", { nome: "X", ano: 13, grupo_id: gid })).estado, 400);
+  assert.strictEqual((await ana.chamar("GET", "/api/turmas/" + t8)).d.grupo.ano, 0);
+
+  // O administrador cria o esquema do 8.º ano (cópia do base) e muda-lhe os pesos: só as turmas do 8.º ano o usam.
+  assert.strictEqual((await ana.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 8 })).estado, 403);
+  assert.strictEqual((await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 0 })).estado, 400);
+  const { d: { id: e8 } } = await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 8 });
+  assert.strictEqual((await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 8 })).estado, 400, "já existe");
+  const g = (await adm.chamar("GET", "/api/grupos")).d.find((x) => x.id === gid);
+  assert.deepStrictEqual(g.esquemas.map((e) => e.ano), [0, 8]);
+  const c8 = g.esquemas[1].criterios;
+  assert.deepStrictEqual(c8.map((k) => k.peso), [70, 30], "começa como cópia do base");
+  assert.notDeepStrictEqual(c8.map((k) => k.id), base.criterios.map((k) => k.id), "critérios próprios");
+  const r = await adm.chamar("PUT", "/api/admin/esquemas/" + e8, { casas: 2, criterios: [{ id: c8[0].id, nome: "Testes", peso: 50, tipo: "testes" }, { nome: "Fichas", peso: 30, tipo: "testes" }, { id: c8[1].id, nome: "Atitudes", peso: 20, tipo: "nivel" }] });
+  assert.strictEqual(r.estado, 200);
+  const turma8 = (await ana.chamar("GET", "/api/turmas/" + t8)).d, turma7 = (await ana.chamar("GET", "/api/turmas/" + t7)).d, turma0 = (await ana.chamar("GET", "/api/turmas/" + t0)).d;
+  assert.strictEqual(turma8.grupo.ano, 8);
+  assert.strictEqual(turma8.grupo.casas, 2);
+  assert.deepStrictEqual(turma8.grupo.criterios.map((k) => k.peso), [50, 30, 20]);
+  assert.strictEqual(turma7.grupo.ano, 0);
+  assert.deepStrictEqual(turma7.grupo.criterios.map((k) => k.peso), [70, 30]);
+  assert.strictEqual(turma0.grupo.ano, 0);
+
+  // A pauta do 8.º ano calcula pelos pesos do 8.º; a do 7.º, pelos do base.
+  for (const [tid, notaA, notaB] of [[t8, 80, 60], [t7, 80, 60]]) {
+    await ana.chamar("POST", `/api/turmas/${tid}/alunos`, { texto: "1 Ana" });
+    const tu = (await ana.chamar("GET", "/api/turmas/" + tid)).d, per = tu.periodos[0].id, crit = tu.grupo.criterios.filter((k) => k.tipo === "testes");
+    for (const [k, nota] of [[crit[0], notaA], [crit[1], notaB]]) {
+      if (!k) continue;
+      const { d: { id: av } } = await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "T", criterio: k.id, peso: 1, maximo: 100 });
+      await ana.chamar("PUT", `/api/avaliacoes/${av}/notas`, { linhas: [{ aluno: tu.alunos[0].id, nota: String(nota) }] });
+    }
+  }
+  const p8 = (await ana.chamar("GET", `/api/periodos/${turma8.periodos[0].id}/pauta`)).d.alunos[0];
+  assert.strictEqual(p8.final, 72.5); // (80*50 + 60*30) / 80 = 72,5 (2 casas)
+  const p7 = (await ana.chamar("GET", `/api/periodos/${turma7.periodos[0].id}/pauta`)).d.alunos[0];
+  assert.strictEqual(p7.final, 80); // só o critério «Testes e trabalhos» tem notas
+
+  // Com avaliações lançadas, não se cria nem se apaga um esquema que mudaria os critérios dessas turmas.
+  assert.strictEqual((await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 7 })).estado, 409);
+  assert.strictEqual((await adm.chamar("DELETE", "/api/admin/esquemas/" + e8)).estado, 409);
+  assert.strictEqual((await adm.chamar("DELETE", "/api/admin/esquemas/" + base.id)).estado, 400, "o base não se apaga");
+  // Sem turmas com dados nesse ano, apaga-se.
+  const { d: { id: e9 } } = await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 9 });
+  assert.strictEqual((await adm.chamar("DELETE", "/api/admin/esquemas/" + e9)).estado, 200);
 });
