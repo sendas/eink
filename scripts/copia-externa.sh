@@ -3,7 +3,7 @@
 # Uso:   bash scripts/copia-externa.sh <destino> [pasta das cópias]
 #   destino local:   /mnt/user/backups/eink          (usa rsync, ou cp se não houver)
 #   destino rclone:  onedrive:eink                   (usa rclone; configura antes com «rclone config»)
-# Pasta das cópias por defeito: /mnt/user/appdata/eink-dados/copias (Unraid). Noutros sistemas, indica-a.
+# Pasta das cópias por defeito: /mnt/user/appdata/eink-dados/copias (Unraid). No servidor com Docker é /opt/eink/data/copias (indica-a como 2.º argumento).
 # Para correr todos os dias: no Unraid, plugin «User Scripts» (diário); numa VPS, cron: 30 3 * * * /caminho/scripts/copia-externa.sh <destino>
 set -euo pipefail
 DESTINO="${1:?Indica o destino (pasta ou remoto rclone, ex.: onedrive:eink).}"

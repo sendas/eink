@@ -1,0 +1,13 @@
+# Para o Caddy que já serve o site do agrupamento e o Helpdesk: acrescenta só este bloco ao Caddyfile existente
+# (troca o endereço pelo que escolheres) e recarrega o Caddy.
+#   Caddy no sistema:   sudo systemctl reload caddy
+#   Caddy em Docker:    docker exec <nome-do-contentor-caddy> caddy reload --config /etc/caddy/Caddyfile
+
+sala.queiroz.pt {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy 127.0.0.1:8093
+}

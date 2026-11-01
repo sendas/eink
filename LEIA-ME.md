@@ -25,7 +25,7 @@ docker compose -f docker-compose.unraid.yml up -d --build
 docker logs eink
 ```
 No `.env` do Unraid põe: `BASE_URL=https://o-teu-dominio`, `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, `ADMIN_USERS`, `DOMINIOS_PERMITIDOS`, `TRUST_PROXY=1`
-(e, se quiseres, `GRUPO_DOCENTES_ID`). A linha `DOMINIO=` só é precisa na instalação com Caddy (VPS) e pode ficar de fora.
+(e, se quiseres, `GRUPO_DOCENTES_ID`).
 
 **Atualizar** (de cada vez que houver uma versão nova no GitHub):
 ```bash
@@ -35,42 +35,48 @@ docker compose -f docker-compose.unraid.yml up -d --build
 docker logs eink
 ```
 
-## Instalação numa VPS nova (Ubuntu 24 ou Debian 12/13, com Caddy)
+## Instalação no servidor (Docker e Caddy já instalados, como o site do agrupamento e o Helpdesk)
 
-**1. Registar a aplicação no Microsoft Entra ID** (portal.azure.com → Microsoft Entra ID → Registos de aplicações → Novo registo)
-- Nome: eink. Tipos de conta: «apenas neste diretório». URI de redirecionamento: tipo **Web**, `https://<domínio>/auth/callback`.
-- Copia o **ID da aplicação (cliente)** e o **ID do diretório (inquilino)**.
-- Certificados e segredos → Novo segredo do cliente: copia o **valor** (só aparece uma vez) e anota a data de validade; quando expirar, ninguém consegue entrar.
-- Permissões de API: basta a delegada `User.Read` (vem por defeito). Não é preciso consentimento de administrador.
-- Se vais usar o grupo «docentes»: Entra ID → Grupos → o grupo → copia o **ID do objeto**.
+Não é preciso instalar nada no servidor: a plataforma corre num contentor que só fica acessível em `127.0.0.1:8093`, e o Caddy que já existe encaminha um endereço novo para lá.
 
-**2. DNS:** cria um registo **A** do domínio (por exemplo `sala.techpro.pt`) para o IPv4 da VPS.
+**1. Microsoft Entra ID.** Podes usar o **mesmo registo de aplicação** do site do agrupamento: em Registos de aplicações → o registo → Autenticação → Web → *Adicionar URI*,
+acrescenta `https://sala.queiroz.pt/auth/callback` (o endereço que escolheres). Assim usas o mesmo ID do inquilino, o mesmo ID da aplicação e o mesmo segredo. Se preferires um registo à parte, cria-o com esse redirecionamento.
+(O «URI de redirecionamento» é só o endereço para onde a Microsoft devolve o utilizador depois do login; não é nada de rede.)
 
-**3. Na VPS, como root:**
+**2. DNS.** Um registo **A** do endereço novo (por exemplo `sala.queiroz.pt`) para o mesmo IP do servidor, onde já está o `www.queiroz.pt`. Se o domínio estiver no Cloudflare, é o mesmo registo, só com outro nome.
+
+**3. No servidor** (a firewall e as portas 80 e 443 já estão como as do site do agrupamento):
 ```bash
-git clone https://github.com/sendas/eink && cd eink
-sudo bash scripts/instalar.sh
+git clone https://github.com/sendas/eink.git /opt/eink     # repositório privado: com o mesmo token ou chave que usas nos outros
+cd /opt/eink
+cp .env.example .env && nano .env                           # BASE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, ADMIN_USERS, DOMINIOS_PERMITIDOS...
+mkdir -p data && sudo chown 1000:1000 data                  # o contentor corre com o utilizador 1000
+chmod +x deploy.sh scripts/*.sh
+docker compose up -d --build
+docker compose logs -f eink                                 # Ctrl+C para sair
 ```
-O script instala o Docker, ativa a firewall (SSH, 80 e 443) e as atualizações automáticas de segurança, pergunta os dados do passo 1, cria o `.env` (só o root o lê),
-verifica se o DNS aponta para a VPS e arranca tudo. O certificado HTTPS é pedido sozinho pelo Caddy. Se faltar alguma configuração, a aplicação não arranca e diz o que falta
-(`docker compose logs eink`).
 
-**4. Primeira entrada:** abre `https://<domínio>` com um administrador (`ADMIN_USERS`). Em «Gestão → Critérios» define os critérios de cada disciplina e ano,
-e em «Docentes» atribui a disciplina a cada docente.
+**4. Caddy.** Acrescenta ao Caddyfile existente o bloco de `Caddyfile.exemplo` (troca o endereço) e recarrega o Caddy
+(`sudo systemctl reload caddy`, ou `docker exec <contentor-caddy> caddy reload --config /etc/caddy/Caddyfile` se o Caddy corre em Docker). O certificado HTTPS do endereço novo é pedido sozinho.
 
-**Atualizar:** `sudo bash scripts/atualizar.sh` (faz uma cópia de segurança, puxa a versão nova do GitHub e reconstrói).
-O repositório é privado: na VPS, usa uma chave de implementação (deploy key) só de leitura ou um token do GitHub.
+**5. Primeira entrada** com um administrador (`ADMIN_USERS`). Em «Gestão → Critérios» define os critérios de cada disciplina e ano, e em «Docentes» atribui a disciplina a cada docente.
 
-**Configuração manual:** copia `.env.example` para `.env`, preenche e corre `docker compose up -d --build`.
+**Atualizar** (de cada vez que houver uma versão nova no GitHub):
+```bash
+cd /opt/eink && ./deploy.sh
+```
+O `deploy.sh` faz uma cópia de segurança, faz `git pull`, reconstrói o contentor e confirma que responde. Não mexe no `.env` nem nos dados (`./data`).
 
 ### Cópias de segurança e reposição
 
-A plataforma copia a base de dados todos os dias para `copias/` (no volume de dados, `eink.db`) e guarda as 14 mais recentes. Como estão na mesma VPS, descarrega uma de vez em quando
+A plataforma copia a base de dados todos os dias para `data/copias/` (`data/eink.db`) e guarda as 14 mais recentes. Como estão na mesma VPS, descarrega uma de vez em quando
 (Gestão, Cópias de segurança) e guarda-a noutro sítio, por exemplo no OneDrive da escola. Para repor uma cópia:
 
 ```bash
 docker compose stop eink
-docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine sh -c 'gunzip -c /b/eink-AAAA-MM-DD-HHMMSS.db.gz > /d/eink.db && rm -f /d/eink.db-wal /d/eink.db-shm'
+gunzip -c data/copias/eink-AAAA-MM-DD-HHMMSS.db.gz > data/eink.db
+rm -f data/eink.db-wal data/eink.db-shm
+sudo chown 1000:1000 data/eink.db
 docker compose start eink
 ```
 

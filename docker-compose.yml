@@ -1,30 +1,30 @@
-# VPS Ubuntu/Debian com Docker. O Caddy trata do HTTPS (certificado automático) e fala com a aplicação por dentro da rede do Docker.
+# Servidor Linux com Docker e Caddy já instalados (o mesmo padrão do site do agrupamento e do Helpdesk).
+# O contentor só fica acessível em 127.0.0.1:PORTA; o Caddy do servidor encaminha o domínio para aí (ver Caddyfile.exemplo).
+#
+# Arranque:   docker compose up -d --build        Registos:  docker compose logs -f eink
+# Atualizar:  ./deploy.sh
+# Os dados (base de dados SQLite, cópias de segurança e segredo das sessões) ficam em ./data, fora do contentor.
+
 services:
   eink:
     build: .
+    container_name: eink
     restart: unless-stopped
     env_file: .env
+    ports:
+      - "127.0.0.1:${PORTA:-8093}:3000"
     volumes:
-      - eink-dados:/data
-    security_opt: ["no-new-privileges:true"]
-    read_only: true
-    tmpfs: ["/tmp"]
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true
     cap_drop: ["ALL"]
+    read_only: true
+    tmpfs:
+      - /tmp
     mem_limit: 1g
     pids_limit: 200
-    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    environment:
-      DOMINIO: ${DOMINIO:?define DOMINIO no .env}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-dados:/data
-    depends_on:
-      eink: { condition: service_healthy }
-    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
-volumes:
-  eink-dados:
-  caddy-dados:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
