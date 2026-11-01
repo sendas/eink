@@ -63,3 +63,5 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .estados button[aria-pressed="true"] { background: var(--marca); color: #fff; border-color: var(--marca); }
 .grupos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .6rem; text-align: left; }
 @media (max-width: 600px) { .topo { flex-wrap: wrap; } .utilizador { width: 100%; } }
+main:focus { outline: none; }
+th[scope="row"] { position: sticky; left: 0; z-index: 1; }
