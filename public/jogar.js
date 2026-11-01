@@ -37,7 +37,7 @@
     if (v.fase === "sala") { raiz.innerHTML = `${cab}<h1>${esc(v.titulo)}</h1><p class="grande-msg">Estás dentro! À espera que o professor comece…</p><p class="pequeno">${v.jogadores} jogador(es) na sala</p>`; return; }
     if (v.fase === "pergunta") {
       const rest = Math.max(0, v.restante - (performance.now() - recebido));
-      raiz.innerHTML = `${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total}</p><h1>${esc(v.pergunta.texto)}</h1>
+      raiz.innerHTML = `${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total}</p><h1>${esc(v.pergunta.texto)}</h1>${v.pergunta.imagem ? `<img class="img-pergunta" src="/j/img/${pin}/${v.pergunta.imagem}" alt="">` : ""}
         <div class="barra-tempo" aria-hidden="true"><div id="bt"></div></div>
         ${v.respondeu ? `<p class="grande-msg">Resposta enviada. À espera dos colegas…</p><div class="opcoes-publicas">${v.pergunta.opcoes.map((o, i) => opcao(o, i, v.minha === i ? "escolhida" : "apagada", "disabled")).join("")}</div>` : `<div class="opcoes-publicas">${v.pergunta.opcoes.map((o, i) => opcao(o, i)).join("")}</div>`}`;
       raiz.querySelectorAll("button[data-k]:not([disabled])").forEach((b) => { b.onclick = async () => { raiz.querySelectorAll("button").forEach((x) => { x.disabled = true; }); const r = await api({ pergunta: v.pergunta.id, resposta: Number(b.dataset.k) }, "responder"); if (r.ok) mostrar(r.d); else { rev = -1; } }; });

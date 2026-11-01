@@ -708,3 +708,192 @@ test("Configuração de produção: o arranque recusa configurações incompleta
   assert.match(verificarConfig({ ...boa, GRUPO_DOCENTES_ID: "grupo-docentes" }).join(), /GUID/);
   assert.deepStrictEqual(verificarConfig({ ...boa, GRUPO_DOCENTES_ID: "11111111-2222-3333-4444-555555555555" }), []);
 });
+
+test("API: bancos partilhados por disciplina, importar notas do Excel e aviso do segredo", async (t) => {
+  const { base, servidor, entrar } = await arrancar({ CLIENT_SECRET_EXPIRA: new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10) });
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const g1 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).d.id, g2 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "510 Física" })).d.id;
+  const prof = async (upn, g) => { const r = (await adm.chamar("POST", "/api/admin/professores", { upn })); void r; const l = (await adm.chamar("GET", "/api/admin/professores")).d; if (g) await adm.chamar("PUT", `/api/admin/professores/${l.find((x) => x.upn === upn).id}/grupo`, { grupo_id: g }); return entrar(upn); };
+  const ana = await prof("ana@escola.pt", g1), rui = await prof("rui@escola.pt", g1), eva = await prof("eva@escola.pt", g2), sem = await prof("sem@escola.pt", null);
+
+  // Aviso do segredo: só os administradores o veem.
+  const seg = (await adm.chamar("GET", "/api/eu")).d.segredo;
+  assert.ok(seg.dias >= 19 && seg.dias <= 21, "dias: " + seg.dias);
+  assert.strictEqual((await ana.chamar("GET", "/api/eu")).d.segredo, null);
+
+  // Partilhar uma grelha com o grupo
+  const turma = async (u, ano) => { const id = (await u.chamar("POST", "/api/turmas", { nome: "7.º A", grupo_id: ano })).d.id; await u.chamar("POST", `/api/turmas/${id}/alunos`, { texto: "1 Ana Silva\n2 Bruno Costa\n3 Carla Mendes" }); const tt = (await u.chamar("GET", "/api/turmas/" + id)).d; return { id, per: tt.periodos[0].id, alunos: tt.alunos }; };
+  const ta = await turma(ana, g1), tr = await turma(rui, g1), te = await turma(eva, g2);
+  const av = async (u, t0) => (await u.chamar("POST", `/api/periodos/${t0.per}/avaliacoes`, { titulo: "Teste", peso: 1 })).d.id;
+  const aA = await av(ana, ta), aR = await av(rui, tr), aE = await av(eva, te);
+  await ana.chamar("PUT", `/api/avaliacoes/${aA}/grelha`, { itens: [{ grupo: "I", nome: "1.", cotacao: 6 }, { grupo: "II", nome: "2.", cotacao: 14 }] });
+  assert.strictEqual((await ana.chamar("POST", "/api/partilhas", { tipo: "grelha", avaliacao: aR, titulo: "Teste do Rui" })).estado, 404, "só partilha os seus testes");
+  const p1 = await ana.chamar("POST", "/api/partilhas", { tipo: "grelha", avaliacao: aA, titulo: "Teste global 1" });
+  assert.strictEqual(p1.estado, 200);
+  const lista = (await rui.chamar("GET", "/api/partilhas?tipo=grelha")).d;
+  assert.deepStrictEqual(lista.map((x) => [x.titulo, x.n, x.pontos, x.minha]), [["Teste global 1", 2, 20, false]]);
+  assert.strictEqual((await eva.chamar("GET", "/api/partilhas?tipo=grelha")).d.length, 0, "outra disciplina não vê");
+  assert.strictEqual((await sem.chamar("GET", "/api/partilhas?tipo=grelha")).d.length, 0);
+  assert.strictEqual((await sem.chamar("POST", "/api/partilhas", { tipo: "grelha", avaliacao: 1, titulo: "x" })).estado, 400, "sem disciplina atribuída");
+  const copia = await rui.chamar("POST", `/api/avaliacoes/${aR}/grelha/copiar`, { partilha: p1.d.id });
+  assert.deepStrictEqual(copia.d.itens.map((i) => [i.grupo, i.nome, i.cotacao]), [["I", "1.", 6], ["II", "2.", 14]]);
+  assert.strictEqual((await eva.chamar("POST", `/api/avaliacoes/${aE}/grelha/copiar`, { partilha: p1.d.id })).estado, 404, "outra disciplina não copia");
+  assert.strictEqual((await rui.chamar("DELETE", `/api/partilhas/${p1.d.id}`)).estado, 403, "só quem partilhou retira");
+  // Quizzes: partilha-se sem imagens e copia-se para os quizzes do colega.
+  const qid = (await ana.chamar("POST", "/api/quizzes", { titulo: "Revisão", perguntas: [{ texto: "?", opcoes: ["a", "b"], certa: 1 }] })).d.id;
+  const pq = await ana.chamar("POST", "/api/partilhas", { tipo: "quiz", quiz: qid, titulo: "Revisão partilhada" });
+  assert.strictEqual((await rui.chamar("GET", "/api/partilhas?tipo=quiz")).d[0].n, 1);
+  const cq = await rui.chamar("POST", "/api/quizzes/de-partilha", { partilha: pq.d.id });
+  assert.strictEqual((await rui.chamar("GET", `/api/quizzes/${cq.d.id}`)).d.perguntas[0].certa, 1);
+  assert.strictEqual((await eva.chamar("POST", "/api/quizzes/de-partilha", { partilha: pq.d.id })).estado, 404);
+  assert.strictEqual((await ana.chamar("DELETE", `/api/partilhas/${p1.d.id}`)).estado, 200);
+  assert.strictEqual((await adm.chamar("DELETE", `/api/partilhas/${pq.d.id}`)).estado, 200, "o administrador também pode retirar");
+
+  // Importar notas: colado do Excel, associa por número e por nome (sem acentos), avisa dos problemas.
+  const imp = async (u, aval, corpo) => u.chamar("POST", `/api/avaliacoes/${aval}/notas/importar`, corpo);
+  const aN = (await ana.chamar("POST", `/api/periodos/${ta.per}/avaliacoes`, { titulo: "Ficha", peso: 1, maximo: 20 })).d.id;
+  const r = (await imp(ana, aN, { texto: "N.º\tNome\tNota\n1\tAna Silva\t15,5\n2\tbruno costa\t12/20\n3\tCarla Mendes\t25\n9\tFantasma Qualquer\t10\n" })).d;
+  assert.deepStrictEqual(r.linhas.map((l) => [l.nome, l.ok, l.valor]), [["Ana Silva", true, 15.5], ["Bruno Costa", true, 12], ["Carla Mendes", false, null], ["Fantasma Qualquer", false, null]]);
+  assert.match(r.linhas[2].motivo, /nota inválida/);
+  assert.match(r.linhas[3].motivo, /não encontrado/);
+  assert.strictEqual(r.aplicaveis, 2);
+  // Só o nome e a nota, numa coluna só, e sem número
+  assert.deepStrictEqual((await imp(ana, aN, { texto: "Ana Silva 18\nCarla Mendes 7,5" })).d.linhas.map((l) => [l.aluno !== null, l.valor]), [[true, 18], [true, 7.5]]);
+  // Número que não bate com o nome: não troca notas
+  assert.match((await imp(ana, aN, { texto: "1\tBruno Costa\t10" })).d.linhas[0].motivo, /o n\.º 1 é «Ana Silva»/);
+  // Ficheiro .xlsx
+  const { criarXlsx } = require("../lib/xlsx");
+  const xl = criarXlsx([{ nome: "Notas", linhas: [["Número", "Nome", "Nota"], [1, "Ana Silva", 17], [2, "Bruno Costa", 9.5]] }]);
+  const rx = (await imp(ana, aN, { nome: "notas.xlsx", base64: xl.toString("base64") })).d;
+  assert.deepStrictEqual(rx.linhas.map((l) => l.valor), [17, 9.5]);
+  assert.deepStrictEqual(rx.alunosSemLinha, ["Carla Mendes"]);
+  assert.strictEqual((await imp(rui, aN, { texto: "1\tAna\t10" })).estado, 404, "só o dono do teste");
+  assert.strictEqual((await imp(ana, aA, { texto: "1\tAna\t10" })).estado, 409, "teste com grelha");
+  assert.strictEqual((await imp(ana, aN, { texto: "" })).estado, 400);
+  // Aplicar o que o pré-visualizador devolveu usa o pedido normal de notas (valida, regista, respeita o fecho)
+  const ap = await ana.chamar("PUT", `/api/avaliacoes/${aN}/notas`, { linhas: rx.linhas.filter((l) => l.ok).map((l) => ({ aluno: l.aluno, nota: l.nota })) });
+  assert.strictEqual(ap.estado, 200);
+  assert.strictEqual((await ana.chamar("GET", `/api/periodos/${ta.per}/pauta`)).d.notas[`${aN}:${ta.alunos[0].id}`], 17);
+  void base;
+});
+
+test("API: vista do diretor de turma (pauta consolidada, só leitura)", async (t) => {
+  const { servidor, entrar, db } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const g1 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).d.id, g2 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "300 Português" })).d.id;
+  for (const u of ["dt@escola.pt", "inf@escola.pt", "por@escola.pt", "outro@escola.pt"]) await adm.chamar("POST", "/api/admin/professores", { upn: u, nome: u.split("@")[0] });
+  const dt = await entrar("dt@escola.pt"), inf = await entrar("inf@escola.pt"), por = await entrar("por@escola.pt"), outro = await entrar("outro@escola.pt");
+  const nova = async (u, grupo, nome, alunos) => { const id = (await u.chamar("POST", "/api/turmas", { nome, ano_letivo: "2026/2027", grupo_id: grupo })).d.id; await u.chamar("POST", `/api/turmas/${id}/alunos`, { texto: alunos }); return (await u.chamar("GET", "/api/turmas/" + id)).d; };
+  const tI = await nova(inf, g1, "7.º B", "1 Ana Silva\n2 Bruno Costa\n3 Carla Mendes"), tP = await nova(por, g2, "7.º b", "1 Ana Silva\n2 Bruno Costa\n4 Diogo Lopes"), tX = await nova(outro, g1, "9.º C", "1 Zé Ninguém");
+  const teste = async (u, tt, notas) => { const av = (await u.chamar("POST", `/api/periodos/${tt.periodos[0].id}/avaliacoes`, { titulo: "T", peso: 1, maximo: 20 })).d.id; await u.chamar("PUT", `/api/avaliacoes/${av}/notas`, { linhas: tt.alunos.map((a) => ({ aluno: a.id, nota: String(notas[a.nome]) })).filter((l) => l.nota !== "undefined") }); };
+  await teste(inf, tI, { "Ana Silva": 16, "Bruno Costa": 6, "Carla Mendes": 12 });
+  await teste(por, tP, { "Ana Silva": 14, "Bruno Costa": 8, "Diogo Lopes": 18 });
+  await por.chamar("PUT", `/api/turmas/${tP.id}/presencas`, { data: "2026-10-01", estados: { [tP.alunos[1].id]: "F" } });
+  await inf.chamar("PUT", `/api/turmas/${tI.id}/presencas`, { data: "2026-10-02", estados: { [tI.alunos[1].id]: "F" } });
+
+  const url = (extra = "") => `/api/dt/consolidado?ano_letivo=${encodeURIComponent("2026/2027")}&turma=${encodeURIComponent("7.º B")}${extra}`;
+  assert.strictEqual((await dt.chamar("GET", url())).estado, 403, "ainda não é diretor");
+  assert.strictEqual((await dt.chamar("GET", "/api/dt")).d.length, 0);
+  assert.strictEqual((await dt.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: 1 })).estado, 403);
+  const dirs = (await adm.chamar("GET", "/api/admin/direcoes")).d;
+  assert.deepStrictEqual(dirs.map((x) => [x.turma, x.docentes, x.disciplinas]).sort(), [["7.º B", 2, 2], ["9.º C", 1, 1]], "7.º B e 7.º b juntam-se");
+  const dtId = (await adm.chamar("GET", "/api/admin/professores")).d.find((x) => x.upn === "dt@escola.pt").id;
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: dtId })).estado, 200);
+  assert.strictEqual((await dt.chamar("GET", "/api/eu")).d.dt, true);
+  assert.deepStrictEqual((await dt.chamar("GET", "/api/dt")).d.map((x) => [x.turma, x.disciplinas]), [["7.º B", 2]]);
+  assert.strictEqual((await dt.chamar("GET", `/api/dt/consolidado?ano_letivo=${encodeURIComponent("2026/2027")}&turma=${encodeURIComponent("9.º C")}`)).estado, 403, "só a sua turma");
+
+  const c = (await dt.chamar("GET", url())).d;
+  assert.deepStrictEqual(c.disciplinas.map((d) => [d.disciplina, d.docente]).sort(), [["300 Português", "por"], ["550 Informática", "inf"]]);
+  assert.deepStrictEqual(c.alunos.map((a) => a.nome), ["Ana Silva", "Bruno Costa", "Carla Mendes", "Diogo Lopes"], "união dos alunos das duas turmas");
+  const por_ = (n) => c.alunos.find((a) => a.nome === n);
+  const dI = c.disciplinas.find((d) => d.docente === "inf").turma_id, dP = c.disciplinas.find((d) => d.docente === "por").turma_id;
+  assert.deepStrictEqual([por_("Ana Silva").celulas[dI].final, por_("Ana Silva").celulas[dP].final, por_("Ana Silva").media], [80, 70, 75]);
+  assert.deepStrictEqual([por_("Bruno Costa").negativas, por_("Bruno Costa").faltas], [2, 2], "duas disciplinas abaixo de 50 e as faltas somam-se");
+  assert.strictEqual(por_("Carla Mendes").celulas[dP], undefined, "não está na turma de Português");
+  assert.strictEqual(por_("Diogo Lopes").celulas[dI], undefined);
+  assert.deepStrictEqual([por_("Diogo Lopes").media, por_("Diogo Lopes").comNota], [90, 1]);
+  assert.ok(c.periodos.includes("1.º período"));
+  // Só leitura e fica registado
+  assert.strictEqual((await dt.chamar("PUT", `/api/avaliacoes/1/notas`, { linhas: [] })).estado, 404);
+  assert.ok(db.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE acao = 'Vista do diretor de turma' AND quem = 'dt@escola.pt'").get().n >= 1);
+  // O administrador vê qualquer turma; retirar o diretor tira-lhe o acesso
+  assert.strictEqual((await adm.chamar("GET", url())).estado, 200);
+  await adm.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: null });
+  assert.strictEqual((await dt.chamar("GET", url())).estado, 403);
+  void tX;
+});
+
+test("API: imagens nas perguntas dos quizzes e sondagem aberta com nuvem de palavras", async (t) => {
+  const { base, servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt" });
+  await adm.chamar("POST", "/api/admin/professores", { upn: "rui@escola.pt" });
+  const ana = await entrar("ana@escola.pt"), rui = await entrar("rui@escola.pt");
+  const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+
+  const perg = [{ texto: "O que é isto?", opcoes: ["Um gato", "Um pixel"], certa: 1 }];
+  const qid = (await ana.chamar("POST", "/api/quizzes", { titulo: "Imagens", perguntas: perg })).d.id;
+  assert.strictEqual((await rui.chamar("POST", `/api/quizzes/${qid}/imagens`, { base64: PNG.toString("base64") })).estado, 404);
+  assert.strictEqual((await ana.chamar("POST", `/api/quizzes/${qid}/imagens`, { base64: Buffer.from("isto não é uma imagem").toString("base64") })).estado, 400, "confere o conteúdo");
+  assert.strictEqual((await ana.chamar("POST", `/api/quizzes/${qid}/imagens`, { base64: Buffer.concat([PNG, Buffer.alloc(420 * 1024)]).toString("base64") })).estado, 400, "demasiado grande");
+  const img = (await ana.chamar("POST", `/api/quizzes/${qid}/imagens`, { base64: PNG.toString("base64") })).d.id;
+  // Guardar a pergunta com a imagem; um número de imagem que não é deste quiz é ignorado.
+  await ana.chamar("PUT", `/api/quizzes/${qid}`, { titulo: "Imagens", perguntas: [{ ...perg[0], imagem: img }, { texto: "Outra?", opcoes: ["a", "b"], certa: 0, imagem: 9999 }] });
+  const q = (await ana.chamar("GET", `/api/quizzes/${qid}`)).d;
+  assert.strictEqual(q.perguntas[0].imagem, img);
+  assert.strictEqual(q.perguntas[1].imagem, undefined);
+  const propria = await fetch(`${base}/api/quizzes/${qid}/imagens/${img}`, { headers: { cookie: ana.ck } });
+  assert.deepStrictEqual([propria.status, propria.headers.get("content-type")], [200, "image/png"]);
+  assert.strictEqual((await fetch(`${base}/api/quizzes/${qid}/imagens/${img}`, { headers: { cookie: rui.ck } })).status, 404, "só o dono vê");
+  assert.strictEqual((await fetch(`${base}/api/quizzes/${qid}/imagens/${img}`)).status, 401);
+
+  // Num jogo, os alunos só veem as imagens que o jogo usa, e só enquanto a sala existe.
+  const { d: { pin } } = await ana.chamar("POST", `/api/quizzes/${qid}/vivo`, {});
+  const publica = await fetch(`${base}/j/img/${pin}/${img}`);
+  assert.deepStrictEqual([publica.status, publica.headers.get("content-type")], [200, "image/png"]);
+  assert.strictEqual((await fetch(`${base}/j/img/${pin}/${img + 1}`)).status, 404);
+  await fetch(`${base}/j/api/${pin}/entrar`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ alcunha: "Gato" }) });
+  await ana.chamar("POST", `/api/vivo/${pin}/acao`, { acao: "comecar" }).catch(() => {});
+  const vp = (await ana.chamar("GET", `/api/vivo/${pin}`)).d;
+  assert.strictEqual(vp.pergunta.imagem, img);
+  await ana.chamar("POST", `/api/vivo/${pin}/acao`, { acao: "fechar" });
+  assert.strictEqual((await fetch(`${base}/j/img/${pin}/${img}`)).status, 404, "sala fechada");
+
+  // Duplicar copia as imagens (com números novos); apagar a imagem tira-a da pergunta.
+  const dup = (await ana.chamar("POST", `/api/quizzes/${qid}/duplicar`, {})).d.id;
+  const qd = (await ana.chamar("GET", `/api/quizzes/${dup}`)).d;
+  assert.ok(qd.perguntas[0].imagem && qd.perguntas[0].imagem !== img);
+  assert.strictEqual((await fetch(`${base}/api/quizzes/${dup}/imagens/${qd.perguntas[0].imagem}`, { headers: { cookie: ana.ck } })).status, 200);
+  await ana.chamar("DELETE", `/api/quizzes/${qid}/imagens/${img}`);
+  assert.strictEqual((await ana.chamar("GET", `/api/quizzes/${qid}`)).d.perguntas[0].imagem, undefined);
+  assert.strictEqual((await fetch(`${base}/api/quizzes/${dup}/imagens/${qd.perguntas[0].imagem}`, { headers: { cookie: ana.ck } })).status, 200, "a cópia mantém a sua");
+
+  // Sondagem aberta
+  const s = (await ana.chamar("POST", "/api/sondagens", { pergunta: "Uma palavra sobre o teste de hoje", tipo: "aberta" })).d;
+  const info = await (await fetch(`${base}/s/api/${s.codigo}`)).json();
+  assert.deepStrictEqual([info.tipo, info.restantes, info.opcoes.length], ["aberta", 3, 0]);
+  const enviar = (texto, cookie) => fetch(`${base}/s/api/${s.codigo}/votar`, { method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify({ texto }) });
+  const r1 = await enviar("Difícil");
+  assert.strictEqual(r1.status, 200);
+  let ck = (r1.headers.getSetCookie()[0] || "").split(";")[0];
+  assert.strictEqual((await enviar("a", ck)).status, 400, "demasiado curta");
+  assert.strictEqual((await enviar("que merda", ck)).status, 400, "o filtro bloqueia");
+  for (const x of ["difícil de mais", "Fácil"]) { const r = await enviar(x, ck); assert.strictEqual(r.status, 200); ck = (r.headers.getSetCookie()[0] || ck).split(";")[0]; }
+  assert.strictEqual((await enviar("quarta", ck)).status, 409, "só 3 por navegador");
+  await enviar("Difícil"); await enviar("fácil, <b>pois</b>"); await enviar("O teste foi difícil");
+  const t2 = (await ana.chamar("GET", `/api/sondagens/${s.id}`)).d;
+  assert.strictEqual(t2.tipo, "aberta");
+  assert.strictEqual(t2.total, 6);
+  assert.deepStrictEqual(t2.palavras.slice(0, 2).map((p) => [p.palavra, p.n]), [["difícil", 4], ["fácil", 2]]);
+  assert.ok(!t2.palavras.some((p) => ["de", "foi", "mais", "pois", "teste"].includes(p.palavra) && p.palavra !== "teste"), "palavras vazias ficam de fora");
+  assert.ok(!JSON.stringify(t2.respostas).includes("<b>"), "sem marcas HTML");
+  await ana.chamar("DELETE", `/api/sondagens/${s.id}/respostas/${t2.respostas[0].id}`);
+  assert.strictEqual((await ana.chamar("GET", `/api/sondagens/${s.id}`)).d.total, 5);
+  assert.strictEqual((await rui.chamar("DELETE", `/api/sondagens/${s.id}/respostas/${t2.respostas[1].id}`)).estado, 404);
+  await ana.chamar("POST", `/api/sondagens/${s.id}/estado`, { aberta: false });
+  assert.strictEqual((await enviar("tarde")).status, 409);
+});

@@ -14,37 +14,47 @@
     mostrar(`${voltar}<h1>Sondagens</h1>
       <p class="pequeno">Faz uma pergunta rápida à turma. Os alunos votam no telemóvel, abrindo o endereço ou lendo o código QR, sem conta nem nome. Vês os resultados em direto.</p>
       <form class="painel" id="f-sond"><label>Pergunta<input name="pergunta" required maxlength="200" placeholder="Qual destas aplicações usas mais?"></label>
-        <label>Opções (uma por linha, de 2 a 8)<textarea name="opcoes" rows="4" required placeholder="Instagram&#10;TikTok&#10;WhatsApp"></textarea></label>
+        <label class="inline"><input type="checkbox" name="aberta" id="s-aberta"> Resposta aberta (os alunos escrevem uma palavra ou frase curta e vês uma nuvem de palavras)</label>
+        <label id="s-opcoes-l">Opções (uma por linha, de 2 a 8)<textarea name="opcoes" id="s-opcoes" rows="4" required placeholder="Instagram&#10;TikTok&#10;WhatsApp"></textarea></label>
         <p class="linha"><button>Criar sondagem</button><button type="button" class="sec" id="s-simnao">Sim / Não</button><button type="button" class="sec" id="s-escala">Escala 1 a 5</button></p></form>
-      <h2>Anteriores</h2><div class="painel"><ul class="lista">${l.map((s) => `<li><a href="#/sondagem/${s.id}"><strong>${esc(s.pergunta)}</strong></a><span class="pequeno">${s.total} votos · ${s.aberta ? "aberta" : "fechada"}</span></li>`).join("") || '<li class="pequeno">Ainda não fizeste sondagens.</li>'}</ul></div>`);
+      <h2>Anteriores</h2><div class="painel"><ul class="lista">${l.map((s) => `<li><a href="#/sondagem/${s.id}"><strong>${esc(s.pergunta)}</strong></a><span class="pequeno">${s.total} ${s.tipo === "aberta" ? "respostas" : "votos"} · ${s.aberta ? "aberta" : "fechada"}</span></li>`).join("") || '<li class="pequeno">Ainda não fizeste sondagens.</li>'}</ul></div>`);
     $("#s-simnao").onclick = () => { $("#f-sond [name=opcoes]").value = "Sim\nNão"; };
     $("#s-escala").onclick = () => { $("#f-sond [name=opcoes]").value = "1\n2\n3\n4\n5"; };
+    $("#s-aberta").onchange = (e) => { $("#s-opcoes-l").hidden = e.target.checked; $("#s-opcoes").required = !e.target.checked; };
     $("#f-sond").onsubmit = async (e) => {
-      e.preventDefault(); const f = new FormData(e.target);
-      const r = await api("POST", "/api/sondagens", { pergunta: f.get("pergunta"), opcoes: String(f.get("opcoes")).split(/\r?\n/) });
+      e.preventDefault(); const f = new FormData(e.target), aberta = $("#s-aberta").checked;
+      const r = await api("POST", "/api/sondagens", { pergunta: f.get("pergunta"), tipo: aberta ? "aberta" : "escolha", opcoes: aberta ? [] : String(f.get("opcoes")).split(/\r?\n/) });
       location.hash = "#/sondagem/" + r.id;
     };
+  }
+  // Nuvem de palavras: o tamanho de cada palavra cresce com o número de pessoas que a escreveram.
+  function nuvem(s) {
+    const max = Math.max(1, ...s.palavras.map((p) => p.n));
+    const cloud = s.palavras.map((p, i) => `<span class="nv c${i % 5}" style="font-size:${(1 + (p.n / max) * 2.6).toFixed(2)}rem" title="${p.n} resposta(s)">${esc(p.palavra)}</span>`).join(" ");
+    return `<div class="nuvem" role="img" aria-label="Nuvem de palavras">${cloud || '<span class="pequeno">À espera das primeiras respostas…</span>'}</div>
+      <details><summary>Ver as ${s.respostas.length} respostas</summary><ul class="lista">${s.respostas.map((r) => `<li><span>${esc(r.texto)}</span><button class="perigo" data-rm="${r.id}" aria-label="Tirar a resposta ${esc(r.texto)}">✕</button></li>`).join("")}</ul></details>`;
   }
   async function sondagem(id) {
     let primeira = true;
     const url = (c) => `${location.origin}/s/${c}`;
     const desenhar = (s) => {
       const max = Math.max(1, ...s.votos);
-      const barras = s.opcoes.map((o, i) => `<div class="s-linha"><div class="s-nome">${esc(o)}</div><div class="s-barra"><div class="s-enche c${i % 5}" style="width:${(s.votos[i] / max) * 100}%"></div></div><div class="s-valor"><strong>${s.votos[i]}</strong> <span class="pequeno">${s.total ? Math.round((s.votos[i] / s.total) * 100) : 0} %</span></div>
+      const barras = s.tipo === "aberta" ? nuvem(s) : s.opcoes.map((o, i) => `<div class="s-linha"><div class="s-nome">${esc(o)}</div><div class="s-barra"><div class="s-enche c${i % 5}" style="width:${(s.votos[i] / max) * 100}%"></div></div><div class="s-valor"><strong>${s.votos[i]}</strong> <span class="pequeno">${s.total ? Math.round((s.votos[i] / s.total) * 100) : 0} %</span></div>
         <div class="linha"><button class="sec" data-d="-1" data-k="${i}" aria-label="Menos um voto em ${esc(o)}">−</button><button class="sec" data-d="1" data-k="${i}" aria-label="Mais um voto em ${esc(o)}">+</button></div></div>`).join("");
       if (primeira) {
         primeira = false;
         mostrar(`<p><a href="#/sondagens">← Sondagens</a></p><h1>${esc(s.pergunta)}</h1>
           <div class="painel linha s-topo"><div class="s-qr" aria-label="Código QR da sondagem">${qrSvg(url(s.codigo))}</div><div><p class="pequeno">Os alunos abrem:</p><p class="s-url">${esc(url(s.codigo).replace(/^https?:\/\//, ""))}</p><p>Código <strong class="s-codigo">${esc(s.codigo)}</strong></p><p class="pequeno" id="s-estado"></p></div></div>
           <div id="s-res"></div><p class="linha"><button id="s-fechar" class="sec"></button><button id="s-repor" class="sec">Repor votos</button><button id="s-apagar" class="perigo">Apagar</button></p>
-          <p class="pequeno">Os botões − e + servem para contar «mãos no ar» na sala. Os votos são só contagens: não se guarda quem votou.</p>`);
+          <p class="pequeno">${s.tipo === "aberta" ? "Cada aluno pode enviar até 3 respostas curtas. Não se guarda quem respondeu; podes tirar uma resposta imprópria com ✕." : "Os botões − e + servem para contar «mãos no ar» na sala. Os votos são só contagens: não se guarda quem votou."}</p>`);
         $("#s-fechar").onclick = async () => { await api("POST", `/api/sondagens/${id}/estado`, { aberta: !ultima.aberta }); atualizar(); };
         $("#s-repor").onclick = async () => { if (confirm("Voltar a pôr os votos a zero?")) { await api("POST", `/api/sondagens/${id}/repor`, {}); atualizar(); } };
         $("#s-apagar").onclick = async () => { if (confirm("Apagar esta sondagem?")) { await api("DELETE", `/api/sondagens/${id}`); location.hash = "#/sondagens"; } };
-        $("#s-res").onclick = async (e) => { const b = e.target.closest("[data-k]"); if (b) { await api("POST", `/api/sondagens/${id}/voto`, { opcao: Number(b.dataset.k), delta: Number(b.dataset.d) }); atualizar(); } };
+        $("#s-res").onclick = async (e) => {
+          const x = e.target.closest("[data-rm]"); if (x) { await api("DELETE", `/api/sondagens/${id}/respostas/${x.dataset.rm}`); atualizar(); return; } const b = e.target.closest("[data-k]"); if (b) { await api("POST", `/api/sondagens/${id}/voto`, { opcao: Number(b.dataset.k), delta: Number(b.dataset.d) }); atualizar(); } };
       }
       $("#s-res").innerHTML = barras;
-      $("#s-estado").textContent = `${s.total} votos · ${s.aberta ? "votação aberta" : "votação fechada"}`;
+      $("#s-estado").textContent = `${s.total} ${s.tipo === "aberta" ? "respostas" : "votos"} · ${s.aberta ? "votação aberta" : "votação fechada"}`;
       $("#s-fechar").textContent = s.aberta ? "Fechar votação" : "Reabrir votação";
     };
     let ultima = null, parado = false;

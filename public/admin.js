@@ -64,11 +64,11 @@
 
 
   // ---------- gestão: hub, fecho de períodos, alterações, cópias e privacidade ----------
-  const hub = () => mostrar(`<h1>Gestão</h1><p class="pequeno">Só para administradores.</p><div class="cartoes">${[
+  const hub = () => mostrar(`<h1>Gestão</h1>${EINK.avisoSegredo()}<p class="pequeno">Só para administradores.</p><div class="cartoes">${[
     ["👥", "Docentes", "Quem tem acesso e a disciplina de cada um", "#/admin"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
-    ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"],
+    ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
 
   async function fecho() {

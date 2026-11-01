@@ -22,7 +22,7 @@
           <table><thead><tr><th>Grupo (opcional)</th><th>Questão</th><th>Cotação</th><th></th></tr></thead><tbody id="itens">${itens.map((i) => `<tr data-id="${i.id}"><td><input class="i-grupo" value="${esc(i.grupo)}" maxlength="60" placeholder="Grupo I"></td><td><input class="i-nome" value="${esc(i.nome)}" maxlength="80"></td><td><input class="i-cot nota" value="${num(i.cotacao)}" inputmode="decimal"></td><td class="linha"><button class="sec i-sobe" type="button" aria-label="Subir questão">↑</button><button class="sec i-desce" type="button" aria-label="Descer questão">↓</button><button class="perigo i-del" type="button" aria-label="Retirar questão">✕</button></td></tr>`).join("")}</tbody></table>
           <p class="linha"><button class="sec" id="i-add" type="button">+ Questão</button><button class="sec" id="i-varias" type="button">+ Várias de uma vez</button></p>
           <p id="i-total"></p>
-          <p class="linha"><label>Copiar a estrutura de outro teste<select id="i-origem"><option value="">A carregar…</option></select></label><button class="sec" id="i-copiar" type="button">Copiar grelha</button></p>
+          <p class="linha"><label>Copiar a estrutura de outro teste<select id="i-origem"><option value="">A carregar…</option></select></label><button class="sec" id="i-copiar" type="button">Copiar grelha</button><button class="sec" id="i-partilhar" type="button">Partilhar esta grelha com o meu grupo</button></p>
           <p class="pequeno">Copia só as questões, os grupos, as cotações e a ordem. As pontuações dos alunos não se copiam.</p><p><button id="i-gravar" type="button">Guardar grelha</button> <button class="perigo" id="i-limpar" type="button">Remover a grelha</button></p></details>
         ${itens.length ? `<h2>Pontuação dos alunos</h2>
           <div class="tabela-rolagem"><table><thead>${temGrupos ? `<tr><th rowspan="2">N.º</th><th rowspan="2">Aluno</th>${grupos.map((g) => `<th colspan="${g.n}" class="crit">${esc(g.nome || "")}</th>`).join("")}<th rowspan="2" class="num">Total</th><th rowspan="2" class="num">%</th></tr><tr>` : `<tr><th>N.º</th><th>Aluno</th>`}${itens.map((i) => `<th class="num">${esc(i.nome)}<br><span class="pequeno">/ ${num(i.cotacao)}</span></th>`).join("")}${temGrupos ? "" : `<th class="num">Total / ${num(a.maximo)}</th><th class="num">%</th>`}</tr></thead>
@@ -47,11 +47,19 @@
         }
         a.maximo = d.avaliacao.maximo; aviso("Grelha guardada."); desenhar();
       };
-      api("GET", "/api/grelhas").then((l) => { $("#i-origem").innerHTML = `<option value="">Escolhe um teste</option>` + l.filter((x) => x.id !== id).map((x) => `<option value="${x.id}">${esc(x.turma)} · ${esc(x.periodo)} · ${esc(x.titulo)} (${x.n_itens} questões, ${num(x.maximo)} pts)</option>`).join(""); }).catch(() => {});
+      Promise.all([api("GET", "/api/grelhas"), api("GET", "/api/partilhas?tipo=grelha")]).then(([l, p]) => {
+        $("#i-origem").innerHTML = `<option value="">Escolhe um teste</option><optgroup label="Os meus testes">` + l.filter((x) => x.id !== id).map((x) => `<option value="${x.id}">${esc(x.turma)} · ${esc(x.periodo)} · ${esc(x.titulo)} (${x.n_itens} questões, ${num(x.maximo)} pts)</option>`).join("") + `</optgroup>` + (p.length ? `<optgroup label="Partilhadas pelo meu grupo disciplinar">` + p.map((x) => `<option value="p${x.id}">${esc(x.titulo)} · ${esc(x.autor)} (${x.n} questões, ${num(x.pontos)} pts)</option>`).join("") + `</optgroup>` : "");
+      }).catch(() => {});
+      $("#i-partilhar").onclick = async () => {
+        const titulo = prompt("Título da grelha partilhada (os colegas do teu grupo disciplinar vão vê-la):", a.titulo);
+        if (!titulo) return;
+        try { await api("POST", "/api/partilhas", { tipo: "grelha", avaliacao: id, titulo }); aviso("Grelha partilhada com o teu grupo disciplinar."); } catch { /* aviso mostrado */ }
+      };
       $("#i-copiar").onclick = async () => {
-        const de = Number($("#i-origem").value); if (!de) return aviso("Escolhe o teste de que queres copiar a grelha.", true);
-        try { d = await api("POST", `/api/avaliacoes/${id}/grelha/copiar`, { de }); } catch (e) {
-          if (/serão apagadas/.test(e.message) && confirm("Este teste já tem pontuações ou notas. Ao copiar a grelha, são apagadas. Continuar?")) d = await api("POST", `/api/avaliacoes/${id}/grelha/copiar`, { de, substituir: true }); else return;
+        const v = $("#i-origem").value; if (!v) return aviso("Escolhe o teste de que queres copiar a grelha.", true);
+        const origem = v.startsWith("p") ? { partilha: Number(v.slice(1)) } : { de: Number(v) };
+        try { d = await api("POST", `/api/avaliacoes/${id}/grelha/copiar`, origem); } catch (e) {
+          if (/serão apagadas/.test(e.message) && confirm("Este teste já tem pontuações ou notas. Ao copiar a grelha, são apagadas. Continuar?")) d = await api("POST", `/api/avaliacoes/${id}/grelha/copiar`, { ...origem, substituir: true }); else return;
         }
         a.maximo = d.avaliacao.maximo; aviso("Grelha copiada."); desenhar();
       };

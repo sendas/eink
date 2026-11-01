@@ -13,4 +13,7 @@ Plataforma para docentes: ferramentas de sala de aula (como o TeacherStack) e av
 - `lib/m-admin.js`: cópias, fecho de períodos, auditoria, importação de alunos, arquivo e retenção, alertas. `lib/m-ferramentas.js`: mapa, quadros, sondagens.
 - `lib/m-quiz.js`, `lib/quiz.js`, `lib/vivo.js`: quizzes e jogo ao vivo (sessões em memória por PIN). `lib/m-publico.js`: páginas sem sessão (`/s/…` e `/j/…`).
 - Toda a escrita de notas passa por `abertoOuErro` (período fechado → 423) e `auditar` (registo de alterações). Ao acrescentar uma rota que muda notas, usar os dois.
+- `lib/m-notas.js` (importar notas), `lib/m-partilhas.js` (bancos partilhados por grupo disciplinar), `lib/m-dt.js` (diretor de turma), `lib/m-estatisticas.js` (só contagens, sem IP).
+- Uma imagem de quiz nunca se lê como `blob:` (a CSP só deixa `'self'` e `data:`); usar FileReader. As cores `.c0` a `.c4` só valem em `.op-publica`, `.pv-op` e `.s-enche` (a nuvem de palavras usa-as para o texto).
+- `testes/navegador.test.js` percorre a interface real; ao mudar `public/`, correr `npm test` (ele salta-se sozinho sem Chromium).
 - `public/apreciacao.js`: textos das intercalares por níveis (também usado nos testes). Não há medidor de ruído nem sons de fundo, de propósito.

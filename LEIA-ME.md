@@ -85,4 +85,9 @@ docker compose start eink
 - Gestão (administradores): fecho de períodos (bloqueia notas depois do conselho de turma), registo de alterações (quem mudou o quê), cópias de segurança e privacidade/retenção.
 - Ferramentas de sala: temporizador, sorteio, chamada, listas, sondagem com código, mapa de sala, quadros e quizzes ao vivo (estilo Kahoot, com modelos do tic.techpro.pt).
   Os alunos entram nas sondagens (`/s/CÓDIGO`) e nos quizzes (`/j/CÓDIGO` ou `/jogar`) sem conta, só com um código e, nos quizzes, uma alcunha.
+- Também há: importar notas do Excel (colar ou ficheiro, com pré-visualização), grelhas e quizzes partilhados entre docentes do mesmo grupo disciplinar,
+  diretores de turma (veem a pauta de todas as disciplinas da turma, só leitura), quizzes com imagens, sondagem aberta com nuvem de palavras e estatísticas de acesso.
+- `scripts/copia-externa.sh <destino>` copia as cópias de segurança para fora do servidor (pasta/partilha ou nuvem com rclone).
+- `CLIENT_SECRET_EXPIRA=aaaa-mm-dd` no `.env` faz a plataforma avisar os administradores 60 dias antes de o segredo do Entra expirar.
+- `npm test` corre os testes de API e, se houver Playwright e Chromium, um teste no navegador que percorre os ecrãs principais.
 - A pauta descarrega-se em Excel (.xlsx, com as intercalares em folhas à parte) ou em CSV.

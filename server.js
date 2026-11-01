@@ -14,6 +14,9 @@ const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
 const ferramentas = require("./lib/m-ferramentas");
 const registarQuiz = require("./lib/m-quiz");
+const registarNotas = require("./lib/m-notas");
+const registarDT = require("./lib/m-dt");
+const registarPartilhas = require("./lib/m-partilhas");
 const estatisticas = require("./lib/m-estatisticas");
 const criarPublico = require("./lib/m-publico");
 const VIVO = require("./lib/vivo");
@@ -165,7 +168,13 @@ function criarServidor(env = process.env) {
 
 
   // Turmas e alunos
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV }));
+  // Validade do segredo do Entra (CLIENT_SECRET_EXPIRA=aaaa-mm-dd): quando expira, ninguém consegue entrar. Só os administradores veem o aviso.
+  const segredoExpira = () => {
+    const d = String(env.CLIENT_SECRET_EXPIRA || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
+  };
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
@@ -342,10 +351,16 @@ function criarServidor(env = process.env) {
   // Copia só a estrutura (questões, grupos, cotações e ordem) de outro teste do mesmo docente; as pontuações dos alunos não se copiam.
   rota("POST", "/api/avaliacoes/:id/grelha/copiar", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
-    const origem = existe(avalDe(c.p, inteiro(c.b.de)), "Teste de origem inexistente.");
     abertoOuErro(a.periodo_id);
-    if (origem.id === a.id) throw erro(400, "Escolhe outro teste.");
-    const itens = itensDe(origem.id);
+    let itens;
+    if (c.b.partilha !== undefined) {
+      const sh = existe(db.prepare("SELECT dados FROM partilhas WHERE id = ? AND tipo = 'grelha' AND grupo_id = ?").get(inteiro(c.b.partilha), c.p.grupo_id ?? -1), "Partilha inexistente.");
+      itens = JSON.parse(sh.dados);
+    } else {
+      const origem = existe(avalDe(c.p, inteiro(c.b.de)), "Teste de origem inexistente.");
+      if (origem.id === a.id) throw erro(400, "Escolhe outro teste.");
+      itens = itensDe(origem.id);
+    }
     if (!itens.length) throw erro(400, "O teste de origem não tem grelha.");
     const temPontos = db.prepare("SELECT 1 FROM notas_itens ni JOIN itens i ON i.id = ni.item_id WHERE i.avaliacao_id = ? LIMIT 1").get(a.id) || db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id);
     if (temPontos && c.b.substituir !== true) throw erro(409, "Este teste já tem pontuações ou notas lançadas: ao copiar a grelha serão apagadas.");
@@ -518,6 +533,10 @@ function criarServidor(env = process.env) {
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
   ferramentas.registar(XF);
   registarQuiz(XF);
+  registarNotas({ rota, db, erro, existe, avalDe });
+  const XDT = { rota, db, erro, texto, inteiro, soAdmin, dadosPauta };
+  registarDT(XDT);
+  registarPartilhas({ rota, db, erro, texto, inteiro, existe, avalDe, soAdmin });
   rota("POST", "/api/admin/grupos", (c) => {
     soAdmin(c);
     const nome = texto(c.b.nome, 60);
@@ -703,6 +722,13 @@ function criarServidor(env = process.env) {
         const metodo = req.method;
         // Defesa contra pedidos de outros sites: as escritas têm de trazer este cabeçalho, que o navegador não deixa um site de fora pôr.
         if (metodo !== "GET" && req.headers["x-requested-with"] !== "eink") return json(res, 403, { erro: "Pedido recusado." });
+        const imgQuiz = /^\/api\/quizzes\/(\d+)\/imagens\/(\d+)$/.exec(p);
+        if (metodo === "GET" && imgQuiz) {
+          const r = db.prepare("SELECT i.mime, i.dados FROM quiz_imagens i JOIN quizzes q ON q.id = i.quiz_id WHERE i.id = ? AND q.id = ? AND q.prof_id = ?").get(Number(imgQuiz[2]), Number(imgQuiz[1]), prof.id);
+          if (!r) return json(res, 404, { erro: "Imagem inexistente." });
+          res.writeHead(200, { "Content-Type": r.mime, "Cache-Control": "private, max-age=3600" });
+          return res.end(Buffer.from(r.dados));
+        }
         const cpDown = /^\/api\/admin\/copias\/descarregar$/.exec(p);
         if (metodo === "GET" && cpDown) {
           if (!prof.admin) return json(res, 403, { erro: "Só para administradores." });
@@ -764,6 +790,7 @@ function verificarConfig(env) {
   if (!https) p.push("BASE_URL tem de ser o endereço público com https, sem barra no fim (ex.: https://sala.techpro.pt).");
   for (const k of ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]) if (!String(env[k] || "").trim()) p.push(`Falta ${k} (aplicação registada no Microsoft Entra ID).`);
   if (!String(env.ADMIN_USERS || "").trim()) p.push("Falta ADMIN_USERS: sem administradores ninguém consegue configurar a plataforma.");
+  if (env.CLIENT_SECRET_EXPIRA && !/^\d{4}-\d{2}-\d{2}$/.test(String(env.CLIENT_SECRET_EXPIRA).trim())) p.push("CLIENT_SECRET_EXPIRA tem de ser uma data aaaa-mm-dd.");
   if (env.GRUPO_DOCENTES_ID && !/^[0-9a-f-]{36}$/i.test(env.GRUPO_DOCENTES_ID.trim())) p.push("GRUPO_DOCENTES_ID não parece um ID de objeto (GUID).");
   return p;
 }
@@ -776,6 +803,8 @@ if (require.main === module) {
     const problemas = verificarConfig(process.env);
     if (problemas.length) { console.error("Configuração incompleta:\n - " + problemas.join("\n - ") + "\nCorrige o ficheiro .env e volta a arrancar (docker compose up -d)."); process.exit(1); }
   }
+  const exp = String(process.env.CLIENT_SECRET_EXPIRA || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(exp)) { const dias = Math.ceil((Date.parse(exp + "T23:59:59Z") - Date.now()) / 86400000); if (dias <= 60) console.warn(dias < 0 ? `ATENÇÃO: o segredo do Entra expirou em ${exp}: ninguém consegue entrar. Cria um novo e atualiza CLIENT_SECRET.` : `Aviso: o segredo do Entra expira em ${dias} dias (${exp}). Cria um novo e atualiza CLIENT_SECRET.`); }
   const { servidor } = criarServidor();
   const porta = Number(process.env.PORT) || 3000;
   servidor.listen(porta, () => console.log(`eink a ouvir na porta ${porta}`));

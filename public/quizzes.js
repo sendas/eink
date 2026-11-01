@@ -11,17 +11,42 @@
 
   // ---------- lista ----------
   async function lista() {
-    const [qs, modelos, vivas] = await Promise.all([api("GET", "/api/quizzes"), api("GET", "/api/quiz-modelos"), api("GET", "/api/vivo")]);
+    const [qs, modelos, vivas, parts] = await Promise.all([api("GET", "/api/quizzes"), api("GET", "/api/quiz-modelos"), api("GET", "/api/vivo"), api("GET", "/api/partilhas?tipo=quiz")]);
     mostrar(`${voltar}<h1>Quizzes</h1>
       <p class="pequeno">Cria perguntas de escolha múltipla e joga com a turma: os alunos entram no telemóvel com um código e uma alcunha (sem conta), respondem a tempo e há ranking por pontos.</p>
       ${vivas.length ? `<section class="painel"><strong>Jogos em curso</strong><ul class="lista">${vivas.map((v) => `<li><span>${esc(v.titulo)} <span class="pequeno">código ${esc(v.pin)} · ${v.jogadores} jogadores</span></span><a class="botao sec" href="#/vivo/${v.pin}">Voltar ao jogo</a></li>`).join("")}</ul></section>` : ""}
       <p class="linha"><a class="botao" href="#/quiz/novo">Novo quiz</a></p>
-      <div class="painel"><ul class="lista">${qs.map((q) => `<li><span><a href="#/quiz/${q.id}"><strong>${esc(q.titulo)}</strong></a> <span class="pequeno">${q.perguntas} perguntas</span></span><span class="linha"><button data-vivo="${q.id}">Jogar ao vivo</button><a class="botao sec" href="#/quiz-resultados/${q.id}">Resultados</a><button class="sec" data-dup="${q.id}">Duplicar</button></span></li>`).join("") || '<li class="pequeno">Ainda não tens quizzes. Cria um novo ou começa por um modelo.</li>'}</ul></div>
+      <div class="painel"><ul class="lista">${qs.map((q) => `<li><span><a href="#/quiz/${q.id}"><strong>${esc(q.titulo)}</strong></a> <span class="pequeno">${q.perguntas} perguntas</span></span><span class="linha"><button data-vivo="${q.id}">Jogar ao vivo</button><a class="botao sec" href="#/quiz-resultados/${q.id}">Resultados</a><button class="sec" data-dup="${q.id}">Duplicar</button><button class="sec" data-part="${q.id}" data-t="${esc(q.titulo)}">Partilhar com o grupo</button></span></li>`).join("") || '<li class="pequeno">Ainda não tens quizzes. Cria um novo ou começa por um modelo.</li>'}</ul></div>
+      ${parts.length ? `<h2>Partilhados pelo meu grupo disciplinar</h2><div class="painel"><ul class="lista">${parts.map((x) => `<li><span>${esc(x.titulo)} <span class="pequeno">${x.n} perguntas · ${esc(x.autor)}</span></span><span class="linha"><button class="sec" data-usar="${x.id}">Copiar para os meus quizzes</button>${x.minha || EINK.eu.admin ? `<button class="perigo" data-retirar="${x.id}">Retirar</button>` : ""}</span></li>`).join("")}</ul></div>` : ""}
       <h2>Modelos do tic.techpro.pt</h2><p class="pequeno">Quizzes feitos para a disciplina de TIC. Ao escolher um, fica uma cópia tua, que podes editar.</p>
       <div class="painel"><ul class="lista">${modelos.map((m) => `<li><span>${esc(m.titulo)} <span class="pequeno">${m.perguntas} perguntas</span></span><button class="sec" data-mod="${esc(m.id)}">Usar este modelo</button></li>`).join("")}</ul></div>`);
     $$("[data-vivo]").forEach((b) => { b.onclick = async () => { try { const r = await api("POST", `/api/quizzes/${b.dataset.vivo}/vivo`, {}); location.hash = "#/vivo/" + r.pin; } catch { /* aviso mostrado */ } }; });
     $$("[data-dup]").forEach((b) => { b.onclick = async () => { await api("POST", `/api/quizzes/${b.dataset.dup}/duplicar`, {}); lista(); }; });
+    $$("[data-part]").forEach((b) => { b.onclick = async () => { const titulo = prompt("Título da partilha:", b.dataset.t); if (titulo) { try { await api("POST", "/api/partilhas", { tipo: "quiz", quiz: Number(b.dataset.part), titulo }); aviso("Quiz partilhado com o teu grupo disciplinar (sem imagens)."); lista(); } catch { /* aviso mostrado */ } } }; });
+    $$("[data-usar]").forEach((b) => { b.onclick = async () => { const r = await api("POST", "/api/quizzes/de-partilha", { partilha: Number(b.dataset.usar) }); location.hash = "#/quiz/" + r.id; }; });
+    $$("[data-retirar]").forEach((b) => { b.onclick = async () => { if (confirm("Retirar esta partilha? Quem já a copiou fica com a cópia.")) { await api("DELETE", "/api/partilhas/" + b.dataset.retirar); lista(); } }; });
     $$("[data-mod]").forEach((b) => { b.onclick = async () => { const r = await api("POST", "/api/quizzes/de-modelo", { modelo: b.dataset.mod }); location.hash = "#/quiz/" + r.id; }; });
+  }
+
+  // Reduz a imagem no navegador (máx. 1000 px, JPEG) para ficar leve para os telemóveis dos alunos; devolve base64.
+  function reduzirImagem(ficheiro) {
+    // Lê-se como «data:» (e não como «blob:»), porque a política de segurança da página só deixa carregar imagens do próprio sítio e data:.
+    return new Promise((resolve, reject) => {
+      const leitor = new FileReader();
+      leitor.onerror = () => reject(new Error("imagem"));
+      leitor.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const f = Math.min(1, 1000 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(img.width * f)); c.height = Math.max(1, Math.round(img.height * f));
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL("image/jpeg", 0.82).split(",")[1]);
+        };
+        img.onerror = () => reject(new Error("imagem"));
+        img.src = leitor.result;
+      };
+      leitor.readAsDataURL(ficheiro);
+    });
   }
 
   // ---------- editor ----------
@@ -35,12 +60,22 @@
         <label>Introdução (opcional)<input id="q-intro" maxlength="600" value="${esc(Q.intro || "")}"></label>
         ${perg.map((p, i) => `<section class="painel" data-i="${i}"><div class="linha"><strong>Pergunta ${i + 1}</strong><button type="button" class="sec" data-sobe="${i}" aria-label="Subir">↑</button><button type="button" class="sec" data-desce="${i}" aria-label="Descer">↓</button><button type="button" class="perigo" data-del="${i}">Apagar</button></div>
           <label>Pergunta<input class="p-texto" maxlength="300" value="${esc(p.texto)}"></label>
+          <div class="linha">${p.imagem && id ? `<img class="img-pergunta" style="max-height:8rem;margin:0" src="/api/quizzes/${id}/imagens/${p.imagem}" alt="Imagem da pergunta ${i + 1}"><button type="button" class="perigo" data-sem-img="${i}">Tirar a imagem</button>` : id ? `<label>Imagem (opcional)<input type="file" accept="image/jpeg,image/png,image/webp" data-img="${i}"></label>` : '<span class="pequeno">Guarda o quiz para poderes juntar imagens às perguntas.</span>'}</div>
           <fieldset class="sem-borda"><legend class="pequeno">Opções (marca a certa)</legend>${p.opcoes.map((o, k) => `<div class="linha"><label class="inline"><input type="radio" name="certa${i}" value="${k}" ${p.certa === k ? "checked" : ""} aria-label="Opção ${k + 1} é a certa"> ${FORMAS[k]}</label><input class="p-op" data-k="${k}" maxlength="150" value="${esc(o)}" style="flex:1;min-width:12rem" aria-label="Opção ${k + 1}">${p.opcoes.length > 2 ? `<button type="button" class="sec" data-tirar="${i}.${k}" aria-label="Tirar opção ${k + 1}">✕</button>` : ""}</div>`).join("")}${p.opcoes.length < 5 ? `<button type="button" class="sec" data-mais="${i}">+ Opção</button>` : ""}</fieldset>
           <div class="linha"><label>Tempo desta pergunta (s, opcional)<input class="p-tempo" type="number" min="0" max="120" value="${p.tempo}" style="width:7rem"></label><label style="flex:1">Explicação (aparece depois da resposta)<input class="p-exp" maxlength="500" value="${esc(p.explicacao || "")}"></label></div></section>`).join("")}
         <p class="linha"><button type="button" class="sec" id="q-add">+ Pergunta</button><button type="button" class="sec" id="q-importar">Importar perguntas (JSON)</button><button>Guardar quiz</button></p></form>
         <div id="q-imp" hidden class="painel"><label>Cola uma lista JSON: [{"texto": "...", "opcoes": ["a","b"], "certa": 0, "explicacao": "..."}]<textarea id="q-imp-t" rows="6"></textarea></label><p><button type="button" id="q-imp-ok">Acrescentar</button></p></div>`);
       const ler = () => $$("section[data-i]").map((s, i) => ({ ...perg[i], texto: $(".p-texto", s).value, opcoes: $$(".p-op", s).map((x) => x.value), certa: Number((($("input[type=radio]:checked", s)) || { value: 0 }).value), tempo: $(".p-tempo", s).value, explicacao: $(".p-exp", s).value }));
       const refrescar = (f) => { perg = ler(); f(); desenhar(); };
+      $$("[data-img]").forEach((f) => { f.onchange = async () => {
+        const ficheiro = f.files[0]; if (!ficheiro) return;
+        try {
+          const base64 = await reduzirImagem(ficheiro);
+          const r = await api("POST", `/api/quizzes/${id}/imagens`, { base64 });
+          refrescar(() => { perg[Number(f.dataset.img)].imagem = r.id; });
+        } catch (e) { if (!e.message || e.message === "Error") aviso("Não consegui ler a imagem.", true); }
+      }; });
+      $$("[data-sem-img]").forEach((b) => { b.onclick = () => refrescar(() => { const p = perg[Number(b.dataset.semImg)]; api("DELETE", `/api/quizzes/${id}/imagens/${p.imagem}`).catch(() => {}); delete p.imagem; }); });
       $$("[data-sobe]").forEach((b) => { b.onclick = () => refrescar(() => { const i = +b.dataset.sobe; if (i > 0) [perg[i - 1], perg[i]] = [perg[i], perg[i - 1]]; }); });
       $$("[data-desce]").forEach((b) => { b.onclick = () => refrescar(() => { const i = +b.dataset.desce; if (i < perg.length - 1) [perg[i + 1], perg[i]] = [perg[i], perg[i + 1]]; }); });
       $$("[data-del]").forEach((b) => { b.onclick = () => refrescar(() => { if (perg.length > 1 && confirm("Apagar esta pergunta?")) perg.splice(+b.dataset.del, 1); }); });
@@ -54,7 +89,7 @@
       };
       $("#f-quiz").onsubmit = async (e) => {
         e.preventDefault(); perg = ler();
-        const corpo = { titulo: $("#q-titulo").value, intro: $("#q-intro").value, tempo: $("#q-tempo").value, perguntas: perg.map((p) => ({ texto: p.texto, opcoes: p.opcoes, certa: p.certa, explicacao: p.explicacao, tempo: p.tempo })) };
+        const corpo = { titulo: $("#q-titulo").value, intro: $("#q-intro").value, tempo: $("#q-tempo").value, perguntas: perg.map((p) => ({ texto: p.texto, opcoes: p.opcoes, certa: p.certa, explicacao: p.explicacao, tempo: p.tempo, imagem: p.imagem })) };
         try { await api(id ? "PUT" : "POST", id ? `/api/quizzes/${id}` : "/api/quizzes", corpo); aviso("Quiz guardado."); location.hash = "#/quizzes"; } catch { /* aviso mostrado */ }
       };
     };
@@ -75,6 +110,7 @@
     const urlJogo = `${location.origin}/j/${pin}`;
     const chave = (v) => [v.fase, v.idx, v.respondidos, v.jogadores.length].join("|");
     const acao = async (a) => { try { const d = await api("POST", `/api/vivo/${pin}/acao`, { acao: a }); if (a === "fechar") { parado = true; location.hash = "#/quizzes"; return; } aplicar(d); } catch { /* aviso mostrado */ } };
+    const imagem = (v) => (v.pergunta.imagem ? `<img class="img-pergunta" src="/j/img/${pin}/${v.pergunta.imagem}" alt="">` : "");
     const opcoes = (v, revelar) => `<div class="pv-opcoes">${v.pergunta.opcoes.map((o, k) => `<div class="pv-op c${k % 5} ${revelar ? (v.certa === k ? "certa" : "apagada") : ""}"><span aria-hidden="true">${FORMAS[k % 5]}</span><span class="pv-txt">${esc(o)}</span>${revelar && v.contagem ? `<b>${v.contagem[k]}</b>` : ""}</div>`).join("")}</div>`;
     const rank = (v, n) => `<ol class="topo-jogo">${v.ranking.slice(0, n).map((x, i) => `<li><span>${i + 1}. ${esc(x.nome)}${x.ult ? ` <span class="pequeno">+${x.ult}</span>` : ""}</span><b>${x.pontos}</b></li>`).join("")}</ol>`;
     function desenhar(v) {
@@ -87,13 +123,13 @@
         $("#v-comecar").onclick = () => acao("comecar");
         $("#v-fechar").onclick = () => { if (confirm("Cancelar o jogo? Os alunos saem da sala.")) acao("fechar"); };
       } else if (v.fase === "pergunta") {
-        mostrar(`${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total} · ${v.respondidos} de ${v.jogadores.length} responderam</p><h1 class="pv-pergunta">${esc(v.pergunta.texto)}</h1><div class="barra-tempo"><div id="bt"></div></div>${opcoes(v, false)}
+        mostrar(`${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total} · ${v.respondidos} de ${v.jogadores.length} responderam</p><h1 class="pv-pergunta">${esc(v.pergunta.texto)}</h1>${imagem(v)}<div class="barra-tempo"><div id="bt"></div></div>${opcoes(v, false)}
           <p class="linha"><button id="v-mais" class="sec">+10 segundos</button><button id="v-mostrar">Mostrar a resposta</button></p>`);
         $("#v-mais").onclick = () => acao("mais"); $("#v-mostrar").onclick = () => acao("mostrar");
         const bt = $("#bt"), total = v.tempo;
         temporizador = setInterval(() => { const r = Math.max(0, v.restante - (performance.now() - recebido)); if (bt) bt.style.width = Math.min(100, (r / total) * 100) + "%"; }, 100);
       } else if (v.fase === "resposta") {
-        mostrar(`${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total} · ${v.semResposta} sem resposta</p><h1 class="pv-pergunta">${esc(v.pergunta.texto)}</h1>${opcoes(v, true)}${v.explicacao ? `<p>${esc(v.explicacao)}</p>` : ""}
+        mostrar(`${cab}<p class="pequeno">Pergunta ${v.idx + 1} de ${v.total} · ${v.semResposta} sem resposta</p><h1 class="pv-pergunta">${esc(v.pergunta.texto)}</h1>${imagem(v)}${opcoes(v, true)}${v.explicacao ? `<p>${esc(v.explicacao)}</p>` : ""}
           <h2>Classificação</h2>${rank(v, 5)}<p class="linha"><button id="v-prox">${v.idx + 1 >= v.total ? "Terminar" : "Próxima pergunta"}</button></p>`);
         $("#v-prox").onclick = () => acao("proxima");
       } else {

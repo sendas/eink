@@ -100,7 +100,12 @@ button.grande { padding: .9rem 1.4rem; font-size: 1.2rem; }
 .op-publica:disabled { opacity: .9; cursor: default; }
 .op-publica.apagada { opacity: .4; }
 .op-publica.escolhida { border-color: var(--texto); }
-.c0 { background: #c92a2a; } .c1 { background: #1c7ed6; } .c2 { background: #b58105; } .c3 { background: #2b8a3e; } .c4 { background: #862e9c; }
+/* Cores das opções: só nos elementos que as usam como fundo (a nuvem de palavras usa as mesmas classes só para a cor do texto) */
+.op-publica.c0, .pv-op.c0, .s-enche.c0 { background: #c92a2a; }
+.op-publica.c1, .pv-op.c1, .s-enche.c1 { background: #1c7ed6; }
+.op-publica.c2, .pv-op.c2, .s-enche.c2 { background: #b58105; }
+.op-publica.c3, .pv-op.c3, .s-enche.c3 { background: #2b8a3e; }
+.op-publica.c4, .pv-op.c4, .s-enche.c4 { background: #862e9c; }
 .op-publica.c0, .op-publica.c1, .op-publica.c2, .op-publica.c3, .op-publica.c4 { border-color: transparent; }
 .op-publica.escolhida { border-color: var(--texto); }
 .barra-tempo { height: .7rem; background: var(--linha); border-radius: 99px; overflow: hidden; margin: .6rem 0; }
@@ -117,6 +122,10 @@ button.grande { padding: .9rem 1.4rem; font-size: 1.2rem; }
 .s-barra { height: 2rem; background: var(--linha); border-radius: 8px; overflow: hidden; } .s-enche { height: 100%; min-width: 2px; transition: width .3s; }
 .s-nome { font-weight: 600; text-align: right; } .s-valor { white-space: nowrap; }
 @media (max-width: 700px) { .s-linha { grid-template-columns: 1fr auto; } .s-barra { grid-column: 1 / -1; } .s-nome { text-align: left; } }
+.nuvem { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; justify-content: center; align-items: center; padding: 1.2rem; min-height: 12rem; background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); line-height: 1.1; }
+.nv { font-weight: 700; } .nv.c0 { color: #c92a2a; } .nv.c1 { color: #1c7ed6; } .nv.c2 { color: #b58105; } .nv.c3 { color: #2b8a3e; } .nv.c4 { color: #862e9c; }
+:root[data-tema="escuro"] .nv.c0 { color: #ff8787; } :root[data-tema="escuro"] .nv.c1 { color: #74c0fc; } :root[data-tema="escuro"] .nv.c2 { color: #ffd43b; } :root[data-tema="escuro"] .nv.c3 { color: #69db7c; } :root[data-tema="escuro"] .nv.c4 { color: #da77f2; }
+.img-pergunta { max-width: 100%; max-height: 40vh; border-radius: 12px; display: block; margin: .6rem auto; }
 /* Mapa de sala */
 .m-layout { display: grid; grid-template-columns: 14rem 1fr; gap: 1rem; align-items: start; } @media (max-width: 800px) { .m-layout { grid-template-columns: 1fr; } }
 .m-pool { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; min-height: 2rem; }

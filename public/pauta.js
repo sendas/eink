@@ -17,7 +17,7 @@
       if (k.tipo === "nivel") return `<th scope="col">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a) => `<th class="num" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
-        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num" scope="col">Média %</th>`;
+        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button> `}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num" scope="col">Média %</th>`;
     }).join("");
 
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>
@@ -66,8 +66,40 @@
       catch { i.focus(); }
     }; });
     $$("[data-nivel]").forEach((s) => { s.onchange = async () => { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(s.dataset.nivel), aluno: Number(s.dataset.aluno), nivel: s.value || null }); await recalcular(); }; });
+    $$("[data-imp]").forEach((b) => { b.onclick = () => importarNotas(Number(b.dataset.imp), d.avaliacoes.find((x) => x.id === Number(b.dataset.imp)), () => pautaVista(id)); });
     $$("[data-del]").forEach((b) => { b.onclick = async () => { if (confirm("Apagar esta avaliação e as notas?")) { await api("DELETE", "/api/avaliacoes/" + b.dataset.del); pautaVista(id); } }; });
     $$("[data-peso]").forEach((b) => { b.onclick = async () => { const v = prompt("Peso dentro do critério (1 = normal, 2 = conta o dobro)", b.dataset.p); if (v !== null) { await api("PATCH", "/api/avaliacoes/" + b.dataset.peso, { peso: Number(String(v).replace(",", ".")) }); pautaVista(id); } }; });
+  }
+
+  // Importar notas de um teste (colar do Excel ou escolher um ficheiro): mostra o que vai acontecer antes de gravar.
+  function importarNotas(avalId, av, depois) {
+    const dlg = document.createElement("dialog");
+    dlg.innerHTML = `<h2 style="margin-top:0">Importar notas: ${esc(av.titulo)}</h2>
+      <p class="pequeno">Cola do Excel colunas com número, nome e nota (ou só nome e nota), ou escolhe um ficheiro .xlsx ou .csv. As notas vão de 0 a ${av.maximo}; também se aceita «15/20». Os alunos são associados pelo número e pelo nome.</p>
+      <textarea id="imp-texto" rows="6" placeholder="1&#9;Ana Silva&#9;15,5&#10;2&#9;Bruno Costa&#9;12"></textarea>
+      <p class="linha"><label>Ou ficheiro<input type="file" id="imp-fich" accept=".xlsx,.csv,.txt"></label><button type="button" id="imp-ver">Ver o que vai acontecer</button><button type="button" class="sec" id="imp-cancelar">Cancelar</button></p><div id="imp-res"></div>`;
+    document.body.append(dlg); dlg.showModal();
+    let ficheiro = null;
+    const fechar = () => { dlg.close(); dlg.remove(); };
+    $("#imp-cancelar", dlg).onclick = fechar;
+    $("#imp-fich", dlg).onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      if (f.size > 600000) { aviso("O ficheiro é demasiado grande (máximo 600 KB).", true); return; }
+      const bytes = new Uint8Array(await f.arrayBuffer()); let bin = ""; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      ficheiro = { nome: f.name, base64: btoa(bin) };
+    };
+    $("#imp-ver", dlg).onclick = async () => {
+      try {
+        const r = await api("POST", `/api/avaliacoes/${avalId}/notas/importar`, ficheiro ? ficheiro : { texto: $("#imp-texto", dlg).value });
+        $("#imp-res", dlg).innerHTML = `<div class="tabela-rolagem" style="max-height:18rem"><table><thead><tr><th>N.º</th><th>Aluno</th><th class="num">Nota</th><th>Estado</th></tr></thead><tbody>${r.linhas.map((l) => `<tr class="${l.ok ? "" : "n1"}"><td>${l.numero ?? ""}</td><td>${esc(l.nome)}</td><td class="num">${esc(l.nota)}</td><td>${l.ok ? "Importar" : esc(l.motivo)}</td></tr>`).join("")}</tbody></table></div>
+          <p>${r.aplicaveis} nota(s) para importar${r.alunosSemLinha.length ? ` · ${r.alunosSemLinha.length} aluno(s) da turma sem linha no ficheiro` : ""}.</p><p><button type="button" id="imp-ok" ${r.aplicaveis ? "" : "disabled"}>Importar ${r.aplicaveis} nota(s)</button></p>`;
+        const ok = $("#imp-ok", dlg);
+        if (ok) ok.onclick = async () => {
+          const linhas = r.linhas.filter((l) => l.ok).map((l) => ({ aluno: l.aluno, nota: l.nota }));
+          try { for (let i = 0; i < linhas.length; i += 150) await api("PUT", `/api/avaliacoes/${avalId}/notas`, { linhas: linhas.slice(i, i + 150) }); aviso(`${linhas.length} nota(s) importada(s).`); fechar(); depois(); } catch { /* aviso mostrado */ }
+        };
+      } catch { /* aviso mostrado */ }
+    };
   }
 
   EINK.rotas.push([/^\/pauta\/(\d+)$/, (id) => pautaVista(+id)]);

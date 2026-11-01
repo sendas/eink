@@ -40,8 +40,15 @@ const CARTOES = [
     ["🖼", "Quadros", "Notas e ideias da aula", "#/quadros"], ["🎮", "Quizzes", "Jogo ao vivo estilo Kahoot", "#/quizzes"],
   ]],
 ];
+// Aviso (só para administradores) quando o segredo da aplicação no Entra está perto de expirar: depois disso ninguém consegue entrar.
+function avisoSegredo() {
+  const s = EINK.eu && EINK.eu.segredo;
+  if (!s || s.dias > 60) return "";
+  return `<p class="banner-fechado" role="alert"><strong>${s.dias < 0 ? "O segredo do Microsoft Entra expirou" : `O segredo do Microsoft Entra expira em ${s.dias} dia(s)`}</strong> (${s.expira}). ${s.dias < 0 ? "Ninguém consegue entrar até ser renovado." : "Depois dessa data ninguém consegue entrar."} No Entra: Registos de aplicações → eink → Certificados e segredos → novo segredo; depois atualiza <code>CLIENT_SECRET</code> e <code>CLIENT_SECRET_EXPIRA</code> no <code>.env</code> e reinicia.</p>`;
+}
+EINK.avisoSegredo = avisoSegredo;
 async function painel() {
-  mostrar(`<h1>Olá, ${esc((EINK.eu.nome || "").split(" ")[0])}</h1><p class="pequeno">O que queres fazer hoje?</p><div id="alertas"></div>` + CARTOES.map(([t, l]) => `
+  mostrar(`<h1>Olá, ${esc((EINK.eu.nome || "").split(" ")[0])}</h1><p class="pequeno">O que queres fazer hoje?</p>${avisoSegredo()}<div id="alertas"></div>` + CARTOES.map(([t, l]) => `
     <h2>${t}</h2><div class="cartoes">${l.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`).join(""));
   // Alunos a acompanhar (nota baixa ou muitas faltas), sem atrasar o painel.
   try {
