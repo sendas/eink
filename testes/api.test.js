@@ -305,3 +305,74 @@ test("API: critérios por disciplina e por ano de escolaridade", async (t) => {
   const { d: { id: e9 } } = await adm.chamar("POST", `/api/admin/grupos/${gid}/esquemas`, { ano: 9 });
   assert.strictEqual((await adm.chamar("DELETE", "/api/admin/esquemas/" + e9)).estado, 200);
 });
+
+test("API: copiar grelha, reordenar questões, intercalares e Excel", async (t) => {
+  const { base, servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt" });
+  await adm.chamar("POST", "/api/admin/professores", { upn: "rui@escola.pt" });
+  const ana = await entrar("ana@escola.pt"), rui = await entrar("rui@escola.pt");
+  const { d: { id: tid } } = await ana.chamar("POST", "/api/turmas", { nome: "7.º A" });
+  await ana.chamar("POST", `/api/turmas/${tid}/alunos`, { texto: "1 Ana\n2 Bruno\n3 Carla" });
+  const turma = (await ana.chamar("GET", "/api/turmas/" + tid)).d, per = turma.periodos[0].id, [a1, a2, a3] = turma.alunos;
+  const nova = async (titulo) => (await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo, peso: 1 })).d.id;
+  const t1 = await nova("Teste 1"), t2 = await nova("Teste 2");
+
+  // Reordenar: a ordem da lista é a ordem das questões e os ids mantêm-se (as pontuações acompanham a questão).
+  const g = (await ana.chamar("PUT", `/api/avaliacoes/${t1}/grelha`, { itens: [{ grupo: "I", nome: "1.", cotacao: 6 }, { grupo: "I", nome: "2.", cotacao: 4 }, { grupo: "II", nome: "3.", cotacao: 10 }] })).d;
+  const [i1, i2, i3] = g.itens;
+  await ana.chamar("PUT", `/api/avaliacoes/${t1}/grelha/notas`, { linhas: [{ aluno: a1.id, item: i3.id, nota: "9" }, { aluno: a1.id, item: i1.id, nota: "5" }] });
+  const r = (await ana.chamar("PUT", `/api/avaliacoes/${t1}/grelha`, { itens: [i3, i1, i2].map((i) => ({ id: i.id, grupo: i.grupo, nome: i.nome, cotacao: i.cotacao })) })).d;
+  assert.deepStrictEqual(r.itens.map((i) => i.nome), ["3.", "1.", "2."]);
+  assert.strictEqual(r.alunos[0].total, 14, "as pontuações ficam com a sua questão");
+
+  // Copiar: só a estrutura. Não copia pontuações, nem de testes de outro docente, nem sobre pontuações sem confirmar.
+  const c = await ana.chamar("POST", `/api/avaliacoes/${t2}/grelha/copiar`, { de: t1 });
+  assert.strictEqual(c.estado, 200);
+  assert.deepStrictEqual(c.d.itens.map((i) => [i.grupo, i.nome, i.cotacao]), [["II", "3.", 10], ["I", "1.", 6], ["I", "2.", 4]]);
+  assert.strictEqual(c.d.avaliacao.maximo, 20);
+  assert.ok(c.d.alunos.every((x) => x.total === null), "sem pontuações copiadas");
+  assert.strictEqual((await ana.chamar("GET", "/api/grelhas")).d.length, 2);
+  assert.strictEqual((await rui.chamar("GET", "/api/grelhas")).d.length, 0);
+  assert.strictEqual((await rui.chamar("POST", `/api/avaliacoes/${t2}/grelha/copiar`, { de: t1 })).estado, 404);
+  const tr = (await rui.chamar("POST", "/api/turmas", { nome: "9.º B" })).d.id, pr = (await rui.chamar("GET", "/api/turmas/" + tr)).d.periodos[0].id;
+  const tRui = (await rui.chamar("POST", `/api/periodos/${pr}/avaliacoes`, { titulo: "X", peso: 1 })).d.id;
+  assert.strictEqual((await rui.chamar("POST", `/api/avaliacoes/${tRui}/grelha/copiar`, { de: t1 })).estado, 404, "não copia de outro docente");
+  await ana.chamar("PUT", `/api/avaliacoes/${t2}/grelha/notas`, { linhas: [{ aluno: a2.id, item: c.d.itens[0].id, nota: "7" }] });
+  assert.strictEqual((await ana.chamar("POST", `/api/avaliacoes/${t2}/grelha/copiar`, { de: t1 })).estado, 409);
+  assert.strictEqual((await ana.chamar("POST", `/api/avaliacoes/${t2}/grelha/copiar`, { de: t1, substituir: true })).estado, 200);
+
+  // Intercalares: a proposta vem da nota; descritiva guardada; só o dono acede.
+  const nota = async (aval, aluno, v) => ana.chamar("PUT", `/api/avaliacoes/${aval}/grelha/notas`, { linhas: [{ aluno: aluno.id, item: (await ana.chamar("GET", `/api/avaliacoes/${aval}/grelha`)).d.itens[0].id, nota: String(v) }] });
+  await nota(t2, a2, 5); await nota(t2, a3, 10); // a grelha de T2 vale 20 pontos: 5 = 25 % e 10 = 50 %
+  let i = (await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).d;
+  assert.deepStrictEqual(i.mencoes.map((m) => m.nome), ["Não satisfaz", "Satisfaz", "Bom", "Muito bom"]);
+  const prop = await ana.chamar("POST", `/api/periodos/${per}/intercalares/propor`, { n: 1 });
+  assert.strictEqual(prop.estado, 200);
+  const por = Object.fromEntries(prop.d.alunos.map((a) => [a.nome, a.mencao]));
+  assert.strictEqual(por.Ana, "b", "Ana: 14/20 = 70 % = nível 4 = Bom");
+  assert.strictEqual(por.Bruno, "ns", "Bruno: 25 % = nível 2 = Não satisfaz");
+  assert.strictEqual(por.Carla, "st", "Carla: 50 % = nível 3 = Satisfaz");
+  await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: "b", descritiva: "  Bom trabalho.\nContinuar assim.  " }] });
+  i = (await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).d;
+  assert.strictEqual(i.alunos[0].mencao, "b");
+  assert.strictEqual(i.alunos[0].descritiva, "Bom trabalho.\nContinuar assim.");
+  assert.strictEqual((await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: "ótimo" }] })).estado, 400);
+  assert.strictEqual((await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 3, linhas: [] })).estado, 400);
+  assert.strictEqual((await rui.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).estado, 404);
+  // Menção e descritiva vazias apagam o registo
+  await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: null, descritiva: "" }] });
+  assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).d.alunos[0].mencao, null);
+  assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=2`)).d.alunos[0].mencao, null, "a 2.ª é independente");
+
+  // Excel
+  await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 2, linhas: [{ aluno: a2.id, mencao: "st", descritiva: "Tem de estudar mais." }] });
+  const x = await fetch(`${base}/api/periodos/${per}/pauta.xlsx`, { headers: { cookie: ana.ck } });
+  assert.strictEqual(x.status, 200);
+  assert.match(x.headers.get("content-type"), /spreadsheetml/);
+  const buf = Buffer.from(await x.arrayBuffer());
+  assert.strictEqual(buf.subarray(0, 2).toString(), "PK");
+  assert.ok(buf.includes("xl/worksheets/sheet2.xml"), "tem a folha da intercalar");
+  assert.strictEqual((await fetch(`${base}/api/periodos/${per}/pauta.xlsx`, { headers: { cookie: rui.ck } })).status, 404);
+});

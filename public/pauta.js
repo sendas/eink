@@ -41,7 +41,7 @@
       <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p>
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
-      <p><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Exportar CSV (Excel)</a></p>`);
+      <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a></p>`);
 
     const pintar = (dd) => dd.alunos.forEach((al) => {
       const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) return;

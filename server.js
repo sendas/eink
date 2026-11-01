@@ -6,7 +6,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const criarAuth = require("./lib/auth");
 const { abrir, criarEsquema } = require("./lib/db");
-const { pauta, lerNota, NIVEIS } = require("./lib/avaliacao");
+const { pauta, lerNota, NIVEIS, INTERCALAR, propostaInter } = require("./lib/avaliacao");
+const { criarXlsx } = require("./lib/xlsx");
 const { ehMembro } = require("./lib/grupo");
 
 function criarServidor(env = process.env) {
@@ -255,9 +256,8 @@ function criarServidor(env = process.env) {
   }
   rota("GET", "/api/avaliacoes/:id/grelha", (c) => dadosGrelha(existe(avalDe(c.p, c.id[0]))));
   // Substitui os itens da grelha (lista vazia = sem grelha, as notas ficam como estão). O máximo do teste passa a ser a soma das cotações.
-  rota("PUT", "/api/avaliacoes/:id/grelha", (c) => {
-    const a = existe(avalDe(c.p, c.id[0]));
-    const lista = Array.isArray(c.b.itens) ? c.b.itens : null;
+  // A ordem da lista é a ordem das questões. `substituir`: aceita apagar notas lançadas diretamente.
+  function gravarGrelha(a, lista, substituir) {
     if (!lista || lista.length > 60) throw erro(400, "A grelha tem de 1 a 60 itens.");
     const atuais = new Map(itensDe(a.id).map((i) => [i.id, i]));
     const vistos = new Set();
@@ -271,7 +271,7 @@ function criarServidor(env = process.env) {
     });
     transacao(() => {
       if (!novos.length) { db.prepare("DELETE FROM itens WHERE avaliacao_id = ?").run(a.id); return; }
-      if (!atuais.size && db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id) && c.b.substituir !== true) throw erro(409, "Este teste já tem notas lançadas diretamente: ao criar a grelha serão apagadas.");
+      if (!atuais.size && db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id) && substituir !== true) throw erro(409, "Este teste já tem notas lançadas diretamente: ao criar a grelha serão apagadas.");
       for (const k of novos) {
         if (k.id !== null && db.prepare("SELECT 1 FROM notas_itens WHERE item_id = ? AND valor > ? LIMIT 1").get(k.id, k.cotacao)) throw erro(409, `Há pontuações acima da nova cotação de «${k.nome}».`);
       }
@@ -284,6 +284,26 @@ function criarServidor(env = process.env) {
       db.prepare("UPDATE avaliacoes SET maximo = ? WHERE id = ?").run(max, a.id);
       sincronizarGrelha(a);
     });
+  }
+  rota("PUT", "/api/avaliacoes/:id/grelha", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    gravarGrelha(a, Array.isArray(c.b.itens) ? c.b.itens : null, c.b.substituir);
+    return dadosGrelha(existe(avalDe(c.p, a.id)));
+  });
+  // Testes do docente que já têm grelha (para copiar a estrutura para outro teste).
+  rota("GET", "/api/grelhas", (c) => db.prepare(`SELECT a.id, a.titulo, a.maximo, d.nome AS periodo, t.nome AS turma, t.ano_letivo, (SELECT COUNT(*) FROM itens WHERE avaliacao_id = a.id) AS n_itens
+    FROM avaliacoes a JOIN periodos d ON d.id = a.periodo_id JOIN turmas t ON t.id = d.turma_id WHERE t.prof_id = ? AND EXISTS (SELECT 1 FROM itens WHERE avaliacao_id = a.id) ORDER BY t.nome, d.ordem, a.ordem`).all(c.p.id));
+  // Copia só a estrutura (questões, grupos, cotações e ordem) de outro teste do mesmo docente; as pontuações dos alunos não se copiam.
+  rota("POST", "/api/avaliacoes/:id/grelha/copiar", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    const origem = existe(avalDe(c.p, inteiro(c.b.de)), "Teste de origem inexistente.");
+    if (origem.id === a.id) throw erro(400, "Escolhe outro teste.");
+    const itens = itensDe(origem.id);
+    if (!itens.length) throw erro(400, "O teste de origem não tem grelha.");
+    const temPontos = db.prepare("SELECT 1 FROM notas_itens ni JOIN itens i ON i.id = ni.item_id WHERE i.avaliacao_id = ? LIMIT 1").get(a.id) || db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id);
+    if (temPontos && c.b.substituir !== true) throw erro(409, "Este teste já tem pontuações ou notas lançadas: ao copiar a grelha serão apagadas.");
+    // As questões atuais saem (ficam as copiadas), por isso passam sem id.
+    gravarGrelha(a, itens.map((i) => ({ grupo: i.grupo, nome: i.nome, cotacao: i.cotacao })), true);
     return dadosGrelha(existe(avalDe(c.p, a.id)));
   });
   // linhas: [{ aluno, item, nota }]; nota em texto («1,5», «3/4»), vazio apaga. Cada pontuação vai de 0 à cotação do item.
@@ -322,6 +342,80 @@ function criarServidor(env = process.env) {
     db.prepare("INSERT INTO niveis (criterio_id, periodo_id, aluno_id, nivel) VALUES (?, ?, ?, ?) ON CONFLICT (criterio_id, periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel").run(k.id, per.id, a.id, n);
     return { ok: true };
   });
+
+  // ---------- avaliações intercalares: menção qualitativa e descritiva por aluno ----------
+  const lerN = (v) => { const n = inteiro(v); if (n !== 1 && n !== 2) throw erro(400, "A intercalar é a 1.ª ou a 2.ª."); return n; };
+  function dadosInter(per, n) {
+    const d = dadosPauta(per);
+    const linhas = new Map(db.prepare("SELECT aluno_id l, mencao m, descritiva t FROM intercalares WHERE periodo_id = ? AND n = ?").all(per.id, n).map((r) => [r.l, r]));
+    return {
+      periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas,
+      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, final: a.final, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "" })),
+    };
+  }
+  rota("GET", "/api/periodos/:id/intercalares", (c, u) => dadosInter(existe(periodoDe(c.p, c.id[0])), lerN(u.searchParams.get("n") || 1)));
+  // linhas: [{ aluno, mencao, descritiva }]; só se grava o que vier no pedido. Menção vazia e descritiva vazia apagam o registo.
+  rota("PUT", "/api/periodos/:id/intercalares", (c) => {
+    const per = existe(periodoDe(c.p, c.id[0])), n = lerN(c.b.n);
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(per.turma_id).map((x) => x.id));
+    const ids = new Set(INTERCALAR.map((m) => m.id));
+    const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
+    transacao(() => {
+      for (const l of linhas) {
+        const al = inteiro(l.aluno);
+        if (!doTurma.has(al)) throw erro(400, "Aluno que não pertence à turma.");
+        const atual = db.prepare("SELECT mencao, descritiva FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").get(per.id, al, n) || { mencao: null, descritiva: "" };
+        let mencao = l.mencao === undefined ? atual.mencao : (l.mencao || null);
+        if (mencao !== null && !ids.has(mencao)) throw erro(400, "Menção inválida.");
+        const descritiva = l.descritiva === undefined ? atual.descritiva : String(l.descritiva ?? "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
+        if (mencao === null && !descritiva) db.prepare("DELETE FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").run(per.id, al, n);
+        else db.prepare("INSERT INTO intercalares (periodo_id, aluno_id, n, mencao, descritiva) VALUES (?, ?, ?, ?, ?) ON CONFLICT (periodo_id, aluno_id, n) DO UPDATE SET mencao = excluded.mencao, descritiva = excluded.descritiva").run(per.id, al, n, mencao, descritiva);
+      }
+    });
+    return dadosInter(per, n);
+  });
+  // Propõe a menção de cada aluno a partir da nota atual (só preenche os que ainda não têm menção, a menos que `substituir`).
+  rota("POST", "/api/periodos/:id/intercalares/propor", (c) => {
+    const per = existe(periodoDe(c.p, c.id[0])), n = lerN(c.b.n);
+    const d = dadosInter(per, n);
+    transacao(() => {
+      for (const a of d.alunos) {
+        if (!a.proposta || (a.mencao && c.b.substituir !== true)) continue;
+        db.prepare("INSERT INTO intercalares (periodo_id, aluno_id, n, mencao, descritiva) VALUES (?, ?, ?, ?, '') ON CONFLICT (periodo_id, aluno_id, n) DO UPDATE SET mencao = excluded.mencao").run(per.id, a.id, n, a.proposta);
+      }
+    });
+    return dadosInter(per, n);
+  });
+
+  // Folha de Excel (.xlsx): a pauta e, em folhas à parte, as avaliações intercalares com as descritivas.
+  function xlsxPauta(per) {
+    const d = dadosPauta(per), nomeM = Object.fromEntries(INTERCALAR.map((m) => [m.id, m.nome]));
+    const cab = ["N.º", "Nome"], larg = [6, 28];
+    for (const k of d.criterios) {
+      if (k.tipo === "nivel") { cab.push(`${k.nome} (${k.peso} %, nível)`); larg.push(16); continue; }
+      for (const a of d.avaliacoes.filter((x) => x.criterio_id === k.id)) { cab.push(`${a.titulo} (%)`); larg.push(14); }
+      cab.push(`Média ${k.nome} (${k.peso} %)`); larg.push(18);
+    }
+    cab.push("Nota final (%)", "Nível", "Menção", "Parcial"); larg.push(14, 8, 20, 9);
+    const linhas = [cab.map((v) => ({ v, e: "cab" }))];
+    for (const a of d.alunos) {
+      const r = [a.numero, a.nome];
+      for (const k of d.criterios) {
+        if (k.tipo === "nivel") { r.push(a.niveis[k.id] ?? null); continue; }
+        for (const x of d.avaliacoes.filter((y) => y.criterio_id === k.id)) r.push(a.pcts[x.id] === null ? null : Math.round(a.pcts[x.id] * 100) / 100);
+        r.push(a.criterios[k.id]);
+      }
+      r.push(a.final, a.nivel, a.mencao || null, a.parcial ? "sim" : null);
+      linhas.push(r);
+    }
+    const folhas = [{ nome: "Pauta", larguras: larg, congelar: true, linhas }];
+    for (const n of [1, 2]) {
+      const i = dadosInter(per, n);
+      if (!i.alunos.some((a) => a.mencao || a.descritiva)) continue;
+      folhas.push({ nome: `${n}.ª intercalar`, larguras: [6, 28, 12, 16, 70], congelar: true, linhas: [["N.º", "Nome", "Nota atual (%)", "Menção", "Descritiva"].map((v) => ({ v, e: "cab" })), ...i.alunos.map((a) => [a.numero, a.nome, a.final, a.mencao ? nomeM[a.mencao] : null, { v: a.descritiva || null, e: "quebra" }])] });
+    }
+    return criarXlsx(folhas);
+  }
 
   // Presenças
   rota("GET", "/api/turmas/:id/presencas", (c, u) => {
@@ -514,6 +608,12 @@ function criarServidor(env = process.env) {
         const metodo = req.method;
         // Defesa contra pedidos de outros sites: as escritas têm de trazer este cabeçalho, que o navegador não deixa um site de fora pôr.
         if (metodo !== "GET" && req.headers["x-requested-with"] !== "eink") return json(res, 403, { erro: "Pedido recusado." });
+        const xlPauta = /^\/api\/periodos\/(\d+)\/pauta\.xlsx$/.exec(p);
+        if (metodo === "GET" && xlPauta) {
+          const per = existe(periodoDe(prof, Number(xlPauta[1])));
+          res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="pauta-${per.id}.xlsx"` });
+          return res.end(xlsxPauta(per));
+        }
         const csvPauta = /^\/api\/periodos\/(\d+)\/pauta\.csv$/.exec(p);
         if (metodo === "GET" && csvPauta) {
           const per = existe(periodoDe(prof, Number(csvPauta[1])));
