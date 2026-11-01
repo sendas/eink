@@ -11,7 +11,31 @@ npm run dev      # http://localhost:3000, entrada de teste sem Microsoft (só em
 npm test
 ```
 
-## Instalação na VPS (Ubuntu 24 ou Debian 12/13)
+## Instalação no Unraid (como o tic.techpro.pt)
+
+Usa o ficheiro `docker-compose.unraid.yml` (sem Caddy: o HTTPS vem do Cloudflare Tunnel ou do proxy que já usas, apontado para a porta **8093** do Unraid).
+
+**Primeira vez** (terminal do Unraid):
+```bash
+cd /mnt/user/appdata
+git clone https://github.com/sendas/eink.git eink     # repositório privado: usa o mesmo token ou chave que já usas nos outros
+mkdir -p eink-dados && chown 99:100 eink-dados
+cd eink && cp .env.example .env && nano .env           # preenche (ver abaixo)
+docker compose -f docker-compose.unraid.yml up -d --build
+docker logs eink
+```
+No `.env` do Unraid põe: `BASE_URL=https://o-teu-dominio`, `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, `ADMIN_USERS`, `DOMINIOS_PERMITIDOS`, `TRUST_PROXY=1`
+(e, se quiseres, `GRUPO_DOCENTES_ID`). A linha `DOMINIO=` só é precisa na instalação com Caddy (VPS) e pode ficar de fora.
+
+**Atualizar** (de cada vez que houver uma versão nova no GitHub):
+```bash
+cd /mnt/user/appdata/eink
+git pull origin main
+docker compose -f docker-compose.unraid.yml up -d --build
+docker logs eink
+```
+
+## Instalação numa VPS nova (Ubuntu 24 ou Debian 12/13, com Caddy)
 
 **1. Registar a aplicação no Microsoft Entra ID** (portal.azure.com → Microsoft Entra ID → Registos de aplicações → Novo registo)
 - Nome: eink. Tipos de conta: «apenas neste diretório». URI de redirecionamento: tipo **Web**, `https://<domínio>/auth/callback`.
