@@ -64,6 +64,17 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.fill(".g-nota >> nth=0", "8"); await p.press(".g-nota >> nth=0", "Tab");
   await p.waitForFunction(() => document.querySelector('[data-t="total"]').textContent === "8");
 
+  // Folha ao estilo do Excel: setas, Enter, colar um bloco do Excel e desfazer
+  await p.waitForSelector("table.folha .folha-letras");
+  await p.click(".g-nota >> nth=0"); await p.keyboard.press("ArrowDown");
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.aluno), await p.evaluate(() => document.querySelectorAll(".g-nota")[5].dataset.aluno), "a seta para baixo passa ao aluno seguinte");
+  await p.click(".g-nota >> nth=0");
+  await p.evaluate(() => { const dt = new DataTransfer(); dt.setData("text/plain", "5\t6\n7\t8"); document.activeElement.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); });
+  await p.waitForFunction(() => document.querySelector('[data-t="total"]').textContent === "11"); // 5+6 na 1.ª linha (as outras ficam a 0)
+  assert.equal(await p.inputValue(".g-nota >> nth=1"), "6");
+  await p.click(".g-nota >> nth=0"); await p.keyboard.press("Control+z");
+  await p.waitForFunction(() => document.querySelector('[data-t="total"]').textContent === "8" || document.querySelector('[data-t="total"]').textContent === "");
+
   // Intercalares e sugestão de texto
   const idPeriodo = (await p.url()).includes("grelha") ? await p.evaluate(() => document.querySelector("a[href^='#/pauta/']").getAttribute("href").split("/").pop()) : "";
   await ir(`/intercalares/${idPeriodo}`, "[data-sug]");

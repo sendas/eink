@@ -68,6 +68,15 @@
         try { d = await api("PUT", `/api/avaliacoes/${id}/grelha/notas`, { linhas: [{ aluno: Number(inp.dataset.aluno), item: Number(inp.dataset.item), nota: inp.value }] }); atualizar(); }
         catch { inp.focus(); }
       }; });
+      const tabelaG = $(".tabela-rolagem table");
+      if (tabelaG) EINK.folha(tabelaG, { aplicar: async (lista) => {
+        const antes = lista.map((x) => x.el.value); lista.forEach((x) => { x.el.value = x.valor; });
+        try {
+          const linhas = lista.map((x) => ({ aluno: Number(x.el.dataset.aluno), item: Number(x.el.dataset.item), nota: x.valor }));
+          for (let i = 0; i < linhas.length; i += 1500) d = await api("PUT", `/api/avaliacoes/${id}/grelha/notas`, { linhas: linhas.slice(i, i + 1500) });
+          atualizar();
+        } catch { lista.forEach((x, i) => { x.el.value = antes[i]; }); }
+      } });
       ligar(); total();
     }
     // Atualiza só os totais, para não perder o foco ao tabular entre células.

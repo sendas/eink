@@ -66,6 +66,20 @@
       catch { i.focus(); }
     }; });
     $$("[data-nivel]").forEach((s) => { s.onchange = async () => { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(s.dataset.nivel), aluno: Number(s.dataset.aluno), nivel: s.value || null }); await recalcular(); }; });
+    const tabelaP = $(".tabela-rolagem table");
+    if (tabelaP && !fechado) EINK.folha(tabelaP, { aplicar: async (lista) => {
+      const por = new Map();
+      for (const x of lista) {
+        const el = x.el, antes = el.value; el.value = x.valor;
+        if (el.dataset.nivel) { try { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(el.dataset.nivel), aluno: Number(el.dataset.aluno), nivel: x.valor || null }); } catch { el.value = antes; } }
+        else { if (!por.has(el.dataset.aval)) por.set(el.dataset.aval, []); por.get(el.dataset.aval).push({ el, antes, aluno: Number(el.dataset.aluno), nota: x.valor }); }
+      }
+      for (const [aval, l] of por) {
+        try { for (let i = 0; i < l.length; i += 150) await api("PUT", `/api/avaliacoes/${aval}/notas`, { linhas: l.slice(i, i + 150).map((y) => ({ aluno: y.aluno, nota: y.nota })) }); }
+        catch { l.forEach((y) => { y.el.value = y.antes; }); }
+      }
+      await recalcular();
+    } });
     $$("[data-imp]").forEach((b) => { b.onclick = () => importarNotas(Number(b.dataset.imp), d.avaliacoes.find((x) => x.id === Number(b.dataset.imp)), () => pautaVista(id)); });
     $$("[data-del]").forEach((b) => { b.onclick = async () => { if (confirm("Apagar esta avaliação e as notas?")) { await api("DELETE", "/api/avaliacoes/" + b.dataset.del); pautaVista(id); } }; });
     $$("[data-peso]").forEach((b) => { b.onclick = async () => { const v = prompt("Peso dentro do critério (1 = normal, 2 = conta o dobro)", b.dataset.p); if (v !== null) { await api("PATCH", "/api/avaliacoes/" + b.dataset.peso, { peso: Number(String(v).replace(",", ".")) }); pautaVista(id); } }; });

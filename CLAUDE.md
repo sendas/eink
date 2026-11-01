@@ -17,3 +17,5 @@ Plataforma para docentes: ferramentas de sala de aula (como o TeacherStack) e av
 - Uma imagem de quiz nunca se lê como `blob:` (a CSP só deixa `'self'` e `data:`); usar FileReader. As cores `.c0` a `.c4` só valem em `.op-publica`, `.pv-op` e `.s-enche` (a nuvem de palavras usa-as para o texto).
 - `testes/navegador.test.js` percorre a interface real; ao mudar `public/`, correr `npm test` (ele salta-se sozinho sem Chromium).
 - `public/apreciacao.js`: textos das intercalares por níveis (também usado nos testes). Não há medidor de ruído nem sons de fundo, de propósito.
+
+- `public/folha.js` (`EINK.folha(tabela, { aplicar })`): folha ao estilo do Excel online sobre as tabelas da pauta e da grelha (letras de coluna, caixa de nome, cabeçalhos e 2 primeiras colunas fixos, setas/Enter, intervalos com rato e Shift, copiar e colar de blocos do Excel, Ctrl+D, Delete, Ctrl+Z). As alterações chegam em lote a `aplicar`, que usa as rotas de sempre (`PUT .../notas`, `.../grelha/notas`, `.../niveis`), por isso `abertoOuErro` e `auditar` continuam a valer. Cada vista que a use tem de passar `aplicar`.

@@ -149,3 +149,21 @@ button.grande { padding: .9rem 1.4rem; font-size: 1.2rem; }
 /* Estatísticas */
 .e-grafico { display: flex; align-items: flex-end; gap: 2px; height: 9rem; padding: .5rem; background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); }
 .e-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 2px; } .e-barra { width: 100%; background: var(--marca); min-height: 2px; border-radius: 2px 2px 0 0; }
+
+/* Folha ao estilo do Excel (folha.js) */
+.folha-barra { display: flex; gap: .6rem; align-items: center; margin: .4rem 0; }
+.folha-nome { min-width: 5.5rem; text-align: center; font: 600 .85rem ui-monospace, monospace; padding: .2rem .5rem; border: 1px solid var(--linha); background: var(--cartao); border-radius: 4px; }
+.folha-caixa { overflow: auto; max-height: 72vh; border: 1px solid var(--linha); }
+table.folha { border-collapse: separate; border-spacing: 0; }
+table.folha th, table.folha td { border-width: 0 1px 1px 0; }
+table.folha thead th { position: sticky; z-index: 2; }
+table.folha .folha-letras th { background: var(--fundo); color: var(--suave); text-align: center; font-weight: 500; padding: .1rem .3rem; font-size: .75rem; }
+table.folha tbody .folha-fixa { position: sticky; z-index: 1; background: var(--cartao); }
+table.folha thead .folha-fixa { z-index: 3; }
+table.folha td input.nota, table.folha td select { border: 0; background: transparent; border-radius: 0; margin: 0; width: 100%; min-width: 4.5rem; box-sizing: border-box; }
+table.folha td { padding: 0 .2rem; }
+table.folha td.num, table.folha td[data-c] { padding: .35rem .5rem; }
+table.folha td input.nota:focus-visible, table.folha td select:focus-visible { outline: 2px solid var(--marca); outline-offset: -2px; }
+table.folha td.fo-sel { background: color-mix(in srgb, var(--marca) 16%, transparent); }
+table.folha td.fo-ativa { background: var(--cartao); box-shadow: inset 0 0 0 2px var(--marca); }
+table.folha td.fo-sel input { user-select: none; }
