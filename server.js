@@ -75,34 +75,58 @@ function criarServidor(env = process.env) {
   const existe = (x, msg = "Não encontrado.") => { if (!x) throw erro(404, msg); return x; };
   const transacao = (fn) => { db.exec("BEGIN"); try { const r = fn(); db.exec("COMMIT"); return r; } catch (e) { db.exec("ROLLBACK"); throw e; } };
 
+  const criteriosDe = (grupoId) => db.prepare("SELECT id, nome, peso, tipo, ordem FROM criterios WHERE grupo_id = ? ORDER BY ordem, id").all(grupoId);
+  const grupoCom = (id) => { const g = db.prepare("SELECT id, nome FROM grupos WHERE id = ?").get(id); return g && { ...g, criterios: criteriosDe(g.id) }; };
+
   function dadosPauta(per) {
+    const turma = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
+    const grupo = grupoCom(turma.grupo_id);
     const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(per.turma_id);
     const avaliacoes = db.prepare("SELECT * FROM avaliacoes WHERE periodo_id = ? ORDER BY ordem, id").all(per.id);
     const notas = new Map();
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
-    const comportamento = new Map(db.prepare("SELECT aluno_id l, nivel n FROM comportamento WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.l, r.n]));
-    const linhas = pauta({ alunos, avaliacoes, notas, comportamento });
-    return { periodo: per, avaliacoes, niveis: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
+    const niveis = new Map(db.prepare("SELECT criterio_id c, aluno_id l, nivel n FROM niveis WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.n]));
+    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis });
+    return { periodo: per, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
   }
   const csv = (d) => {
     const c = (v) => { let s = v === null || v === undefined ? "" : String(v); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    const cab = ["N.º", "Nome", ...d.avaliacoes.map((a) => `${a.titulo} (${a.peso} %)`), "Média", "Comportamento", "Nota final (%)", "Nível", "Menção"];
-    const l = d.alunos.map((a) => [a.numero, a.nome, ...d.avaliacoes.map((x) => (a.pcts[x.id] === null ? "" : String(Math.round(a.pcts[x.id] * 10) / 10).replace(".", ","))), a.media === null ? "" : String(a.media).replace(".", ","), a.comportamento, a.final, a.nivel, a.mencao]);
-    return "﻿" + [cab, ...l].map((r) => r.map(c).join(";")).join("\r\n") + "\r\n";
+    const n1 = (v) => (v === null || v === undefined ? "" : String(Math.round(v * 10) / 10).replace(".", ","));
+    const cab = ["N.º", "Nome"];
+    for (const k of d.criterios) {
+      if (k.tipo === "nivel") cab.push(`${k.nome} (${k.peso} %, nível)`);
+      else { for (const a of d.avaliacoes.filter((x) => x.criterio_id === k.id)) cab.push(`${a.titulo} (peso ${a.peso})`); cab.push(`Média ${k.nome} (${k.peso} %)`); }
+    }
+    cab.push("Nota final (%)", "Nível", "Menção", "Parcial");
+    const l = d.alunos.map((a) => {
+      const r = [a.numero, a.nome];
+      for (const k of d.criterios) {
+        if (k.tipo === "nivel") r.push(a.niveis[k.id] ?? "");
+        else { for (const x of d.avaliacoes.filter((y) => y.criterio_id === k.id)) r.push(n1(a.pcts[x.id])); r.push(n1(a.criterios[k.id])); }
+      }
+      r.push(a.final, a.nivel, a.mencao, a.parcial ? "sim" : "");
+      return r;
+    });
+    return "\ufeff" + [cab, ...l].map((r) => r.map(c).join(";")).join("\r\n") + "\r\n";
   };
+
 
   // ---------- rotas da API ----------
   const rotas = [];
   const rota = (metodo, padrao, fn) => rotas.push({ metodo, re: new RegExp("^" + padrao.replace(/:[a-z]+/g, "(\\d+)") + "$"), fn });
 
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, dev: DEV }));
 
   // Turmas e alunos
-  rota("GET", "/api/turmas", (c) => db.prepare("SELECT t.*, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t WHERE prof_id = ? ORDER BY nome").all(c.p.id));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, dev: DEV }));
+  rota("GET", "/api/turmas", (c) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? ORDER BY t.nome").all(c.p.id));
+  // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
+  rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCom(g.id)));
   rota("POST", "/api/turmas", (c) => {
     const nome = texto(c.b.nome, 60);
     if (!nome) throw erro(400, "Indica o nome da turma.");
-    const r = db.prepare("INSERT INTO turmas (prof_id, nome, ano_letivo) VALUES (?, ?, ?)").run(c.p.id, nome, texto(c.b.ano_letivo, 20));
+    const gid = inteiro(c.b.grupo_id) ?? c.p.grupo_id ?? db.prepare("SELECT id FROM grupos ORDER BY id LIMIT 1").get().id;
+    if (!db.prepare("SELECT 1 FROM grupos WHERE id = ?").get(gid)) throw erro(400, "Grupo disciplinar inexistente.");
+    const r = db.prepare("INSERT INTO turmas (prof_id, grupo_id, nome, ano_letivo) VALUES (?, ?, ?, ?)").run(c.p.id, gid, nome, texto(c.b.ano_letivo, 20));
     const id = Number(r.lastInsertRowid);
     const ins = db.prepare("INSERT INTO periodos (turma_id, nome, ordem) VALUES (?, ?, ?)");
     ["1.º período", "2.º período", "3.º período"].forEach((n, i) => ins.run(id, n, i));
@@ -113,6 +137,7 @@ function criarServidor(env = process.env) {
     const t = existe(turmaDe(c.p, c.id[0]));
     return {
       ...t,
+      grupo: grupoCom(t.grupo_id),
       alunos: db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(t.id),
       periodos: db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id),
     };
@@ -137,24 +162,34 @@ function criarServidor(env = process.env) {
     return { id: Number(db.prepare("INSERT INTO periodos (turma_id, nome, ordem) VALUES (?, ?, ?)").run(t.id, nome, ordem).lastInsertRowid) };
   });
   rota("GET", "/api/periodos/:id/pauta", (c) => dadosPauta(existe(periodoDe(c.p, c.id[0]))));
+  // O critério tem de ser do tipo «testes» e do grupo disciplinar da turma; sem critério, usa o primeiro desse tipo.
+  const criterioDeTestes = (turmaId, id) => {
+    const t = db.prepare("SELECT grupo_id FROM turmas WHERE id = ?").get(turmaId);
+    const lista = criteriosDe(t.grupo_id).filter((k) => k.tipo === "testes");
+    const k = id === null || id === undefined ? lista[0] : lista.find((x) => x.id === inteiro(id));
+    if (!k) throw erro(400, "Critério inválido para esta turma.");
+    return k;
+  };
   rota("POST", "/api/periodos/:id/avaliacoes", (c) => {
     const per = existe(periodoDe(c.p, c.id[0]));
     const titulo = texto(c.b.titulo, 80);
     if (!titulo) throw erro(400, "Indica o título.");
     const tipo = ["teste", "trabalho", "ficha", "oral", "outro"].includes(c.b.tipo) ? c.b.tipo : "teste";
-    const peso = Number(c.b.peso ?? 0), maximo = Number(c.b.maximo ?? 100);
-    if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100 %.");
+    const peso = Number(c.b.peso ?? 1), maximo = Number(c.b.maximo ?? 100);
+    if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100.");
     if (!(maximo > 0 && maximo <= 1000)) throw erro(400, "O máximo tem de ser maior que 0.");
+    const crit = criterioDeTestes(per.turma_id, c.b.criterio);
     const ordem = db.prepare("SELECT COALESCE(MAX(ordem), -1) + 1 AS o FROM avaliacoes WHERE periodo_id = ?").get(per.id).o;
-    return { id: Number(db.prepare("INSERT INTO avaliacoes (periodo_id, titulo, tipo, peso, maximo, data, ordem) VALUES (?, ?, ?, ?, ?, ?, ?)").run(per.id, titulo, tipo, peso, maximo, /^\d{4}-\d{2}-\d{2}$/.test(c.b.data || "") ? c.b.data : null, ordem).lastInsertRowid) };
+    return { id: Number(db.prepare("INSERT INTO avaliacoes (periodo_id, criterio_id, titulo, tipo, peso, maximo, data, ordem) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(per.id, crit.id, titulo, tipo, peso, maximo, /^\d{4}-\d{2}-\d{2}$/.test(c.b.data || "") ? c.b.data : null, ordem).lastInsertRowid) };
   });
   rota("PATCH", "/api/avaliacoes/:id", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
     const titulo = c.b.titulo === undefined ? a.titulo : texto(c.b.titulo, 80);
     const peso = c.b.peso === undefined ? a.peso : Number(c.b.peso);
     if (!titulo) throw erro(400, "Indica o título.");
-    if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100 %.");
-    db.prepare("UPDATE avaliacoes SET titulo = ?, peso = ? WHERE id = ?").run(titulo, peso, a.id);
+    if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100.");
+    const crit = c.b.criterio === undefined ? a.criterio_id : criterioDeTestes(a.turma_id, c.b.criterio).id;
+    db.prepare("UPDATE avaliacoes SET titulo = ?, peso = ?, criterio_id = ? WHERE id = ?").run(titulo, peso, crit, a.id);
     return { ok: true };
   });
   rota("DELETE", "/api/avaliacoes/:id", (c) => { existe(avalDe(c.p, c.id[0])); db.prepare("DELETE FROM avaliacoes WHERE id = ?").run(c.id[0]); return { ok: true }; });
@@ -176,13 +211,17 @@ function criarServidor(env = process.env) {
     });
     return { ok: true };
   });
-  rota("PUT", "/api/periodos/:id/comportamento", (c) => {
+  // Nível 1 a 5 de um critério do tipo «nivel» (por exemplo, comportamento) para um aluno e período.
+  rota("PUT", "/api/periodos/:id/niveis", (c) => {
     const per = existe(periodoDe(c.p, c.id[0]));
-    const al = inteiro(c.b.aluno), n = c.b.nivel === null || c.b.nivel === "" ? null : inteiro(c.b.nivel);
-    const a = existe(alunoDe(c.p, al));
+    const a = existe(alunoDe(c.p, inteiro(c.b.aluno)));
     if (a.turma_id !== per.turma_id) throw erro(400, "Aluno que não pertence à turma.");
+    const t = db.prepare("SELECT grupo_id FROM turmas WHERE id = ?").get(per.turma_id);
+    const k = criteriosDe(t.grupo_id).find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
+    if (!k) throw erro(400, "Critério inválido para esta turma.");
+    const n = c.b.nivel === null || c.b.nivel === "" ? null : inteiro(c.b.nivel);
     if (n !== null && (n < 1 || n > 5)) throw erro(400, "O nível vai de 1 a 5.");
-    db.prepare("INSERT INTO comportamento (periodo_id, aluno_id, nivel) VALUES (?, ?, ?) ON CONFLICT (periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel").run(per.id, a.id, n);
+    db.prepare("INSERT INTO niveis (criterio_id, periodo_id, aluno_id, nivel) VALUES (?, ?, ?, ?) ON CONFLICT (criterio_id, periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel").run(k.id, per.id, a.id, n);
     return { ok: true };
   });
 
@@ -209,7 +248,80 @@ function criarServidor(env = process.env) {
 
   // Administração: quem pode entrar
   const soAdmin = (c) => { if (!c.p.admin) throw erro(403, "Só para administradores."); };
-  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, ultimo_acesso FROM professores ORDER BY upn").all(); });
+  rota("POST", "/api/admin/grupos", (c) => {
+    soAdmin(c);
+    const nome = texto(c.b.nome, 60);
+    if (!nome) throw erro(400, "Indica o nome do grupo.");
+    if (db.prepare("SELECT 1 FROM grupos WHERE nome = ?").get(nome)) throw erro(400, "Já existe um grupo com esse nome.");
+    const g = Number(db.prepare("INSERT INTO grupos (nome) VALUES (?)").run(nome).lastInsertRowid);
+    const ins = db.prepare("INSERT INTO criterios (grupo_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)");
+    ins.run(g, "Testes e trabalhos", 70, "testes", 0);
+    ins.run(g, "Comportamento", 30, "nivel", 1);
+    return { id: g };
+  });
+  // Substitui o nome e os critérios do grupo. Os pesos têm de somar 100 %. Um critério com avaliações lançadas não se pode retirar nem mudar de tipo.
+  rota("PUT", "/api/admin/grupos/:id", (c) => {
+    soAdmin(c);
+    const g = existe(db.prepare("SELECT * FROM grupos WHERE id = ?").get(c.id[0]));
+    const nome = c.b.nome === undefined ? g.nome : texto(c.b.nome, 60);
+    if (!nome) throw erro(400, "Indica o nome do grupo.");
+    const outro = db.prepare("SELECT id FROM grupos WHERE nome = ?").get(nome);
+    if (outro && outro.id !== g.id) throw erro(400, "Já existe um grupo com esse nome.");
+    const lista = Array.isArray(c.b.criterios) ? c.b.criterios : null;
+    if (!lista || lista.length < 1 || lista.length > 8) throw erro(400, "Define de 1 a 8 critérios.");
+    const atuais = new Map(criteriosDe(g.id).map((k) => [k.id, k]));
+    const vistos = new Set(), nomes = new Set();
+    const novos = lista.map((k, i) => {
+      const n = texto(k.nome, 60), peso = Number(k.peso), tipo = k.tipo === "nivel" ? "nivel" : "testes";
+      if (!n) throw erro(400, "Todos os critérios precisam de nome.");
+      if (nomes.has(n.toLowerCase())) throw erro(400, `Critério repetido: ${n}.`);
+      nomes.add(n.toLowerCase());
+      if (!(peso > 0 && peso <= 100)) throw erro(400, `O peso de «${n}» tem de ser maior que 0 e no máximo 100 %.`);
+      const id = k.id === undefined || k.id === null ? null : inteiro(k.id);
+      if (id !== null) {
+        const a = atuais.get(id);
+        if (!a || vistos.has(id)) throw erro(400, "Critério que não pertence a este grupo.");
+        if (a.tipo !== tipo) throw erro(409, `Não se pode mudar o tipo de «${a.nome}»: apaga-o e cria outro.`);
+        vistos.add(id);
+      }
+      return { id, nome: n, peso, tipo, ordem: i };
+    });
+    const soma = novos.reduce((z, k) => z + k.peso, 0);
+    if (Math.abs(soma - 100) > 0.01) throw erro(400, `Os pesos somam ${Math.round(soma * 100) / 100} %: têm de somar 100 %.`);
+    if (!novos.some((k) => k.tipo === "testes")) throw erro(400, "É preciso pelo menos um critério de testes.");
+    transacao(() => {
+      for (const [id, a] of atuais) {
+        if (vistos.has(id)) continue;
+        if (db.prepare("SELECT COUNT(*) AS n FROM avaliacoes WHERE criterio_id = ?").get(id).n) throw erro(409, `«${a.nome}» já tem avaliações lançadas por docentes e não se pode retirar.`);
+        db.prepare("DELETE FROM criterios WHERE id = ?").run(id);
+      }
+      for (const k of novos) {
+        if (k.id === null) db.prepare("INSERT INTO criterios (grupo_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)").run(g.id, k.nome, k.peso, k.tipo, k.ordem);
+        else db.prepare("UPDATE criterios SET nome = ?, peso = ?, ordem = ? WHERE id = ?").run(k.nome, k.peso, k.ordem, k.id);
+      }
+      db.prepare("UPDATE grupos SET nome = ? WHERE id = ?").run(nome, g.id);
+    });
+    return grupoCom(g.id);
+  });
+  rota("DELETE", "/api/admin/grupos/:id", (c) => {
+    soAdmin(c);
+    const g = existe(db.prepare("SELECT * FROM grupos WHERE id = ?").get(c.id[0]));
+    if (db.prepare("SELECT COUNT(*) AS n FROM turmas WHERE grupo_id = ?").get(g.id).n) throw erro(409, "Há turmas deste grupo: não se pode apagar.");
+    if (db.prepare("SELECT COUNT(*) AS n FROM grupos").get().n < 2) throw erro(409, "Tem de existir pelo menos um grupo.");
+    db.prepare("DELETE FROM grupos WHERE id = ?").run(g.id);
+    return { ok: true };
+  });
+  // Grupo disciplinar do docente: é o que as turmas novas dele usam por defeito.
+  rota("PUT", "/api/admin/professores/:id/grupo", (c) => {
+    soAdmin(c);
+    const gid = c.b.grupo_id === null ? null : inteiro(c.b.grupo_id);
+    if (gid !== null && !db.prepare("SELECT 1 FROM grupos WHERE id = ?").get(gid)) throw erro(400, "Grupo inexistente.");
+    existe(db.prepare("SELECT 1 FROM professores WHERE id = ?").get(c.id[0]));
+    db.prepare("UPDATE professores SET grupo_id = ? WHERE id = ?").run(gid, c.id[0]);
+    return { ok: true };
+  });
+
+  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, grupo_id, ultimo_acesso FROM professores ORDER BY upn").all(); });
   rota("POST", "/api/admin/professores", (c) => {
     soAdmin(c);
     const upn = texto(c.b.upn, 120).toLowerCase();

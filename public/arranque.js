@@ -3,7 +3,7 @@
 (async () => {
   try { EINK.eu = await EINK.api("GET", "/api/eu"); } catch { return; }
   document.getElementById("nome").textContent = EINK.eu.nome || EINK.eu.upn;
-  if (EINK.eu.admin) document.getElementById("nav-admin").hidden = false;
+  if (EINK.eu.admin) { document.getElementById("nav-admin").hidden = false; document.getElementById("nav-crit").hidden = false; }
   const ir = async () => {
     EINK.aoSair && EINK.aoSair();
     const caminho = location.hash.replace(/^#/, "");
