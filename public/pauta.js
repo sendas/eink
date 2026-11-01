@@ -8,7 +8,7 @@
     const d = await api("GET", `/api/periodos/${id}/pauta`);
     const testes = d.criterios.filter((k) => k.tipo === "testes");
     const doCrit = (k) => d.avaliacoes.filter((a) => a.criterio_id === k.id);
-    const casas = d.grupo.casas;
+    const casas = d.grupo.casas, fechado = !!d.periodo.fechado, dis = fechado ? "disabled" : "";
     const somaPesos = (k) => doCrit(k).reduce((z, a) => z + a.peso, 0);
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
@@ -17,19 +17,19 @@
       if (k.tipo === "nivel") return `<th scope="col">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a) => `<th class="num" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
-        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> <button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button></th>`).join("") + `<th class="num" scope="col">Média %</th>`;
+        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num" scope="col">Média %</th>`;
     }).join("");
 
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>
       ${d.criterios.map((k) => {
-        if (k.tipo === "nivel") return `<td><select data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
-        return doCrit(k).map((a) => { const v = d.notas[a.id + ":" + al.id]; return `<td><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : ""} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num" data-c="crit-${k.id}"></td>`;
+        if (k.tipo === "nivel") return `<td><select ${dis} data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
+        return doCrit(k).map((a) => { const v = d.notas[a.id + ":" + al.id]; return `<td><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : dis} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num" data-c="crit-${k.id}"></td>`;
       }).join("")}
       <td class="num" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
 
     mostrar(`<p><a href="#/turma/${d.periodo.turma_id}">← Turma</a></p><h1>${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
-      <form class="painel linha" id="f-aval">
+      ${fechado ? `<p class="banner-fechado" role="status"><strong>Período fechado</strong> pelo administrador${d.periodo.fechado_em ? " em " + esc(d.periodo.fechado_em.slice(0, 10)) : ""}: as notas estão bloqueadas. Podes consultar, exportar e ver o histórico.</p>` : `<form class="painel linha" id="f-aval">
         <label>Título<input name="titulo" required maxlength="80" placeholder="Teste 1"></label>
         <label>Critério<select name="criterio">${testes.map((k) => `<option value="${k.id}">${esc(k.nome)} (${k.peso} %)</option>`).join("")}</select></label>
         <label>Tipo<select name="tipo"><option>teste</option><option>trabalho</option><option>ficha</option><option>oral</option><option>outro</option></select></label>
@@ -37,11 +37,15 @@
         <label>Máximo<input name="maximo" type="number" min="1" step="any" value="100" style="width:6rem"></label>
         <label>Data<input name="data" type="date"></label>
         <button>Adicionar avaliação</button>
-      </form>
+      </form>`}
       <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p>
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
-      <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a></p>`);
+      <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a><button class="sec" id="hist-bot" type="button">Histórico de alterações</button></p><div id="hist"></div>`);
+    $("#hist-bot").onclick = async () => {
+      const h = await api("GET", `/api/periodos/${id}/auditoria`);
+      $("#hist").innerHTML = `<h2>Histórico de alterações</h2>` + (h.length ? `<div class="tabela-rolagem"><table class="hist-lista"><thead><tr><th>Quando</th><th>Quem</th><th>Aluno</th><th>O quê</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${h.map((x) => `<tr><td>${esc(x.quando)}</td><td>${esc(x.quem)}</td><td>${esc(x.aluno)}</td><td>${esc(x.acao)}${x.detalhe ? " · " + esc(x.detalhe) : ""}</td><td>${esc(x.antes)}</td><td>${esc(x.depois)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="pequeno">Ainda não há alterações.</p>');
+    };
 
     const pintar = (dd) => dd.alunos.forEach((al) => {
       const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) return;
@@ -53,7 +57,7 @@
     pintar(d);
     const recalcular = async () => pintar(await api("GET", `/api/periodos/${id}/pauta`));
 
-    $("#f-aval").onsubmit = async (e) => {
+    if (!fechado) $("#f-aval").onsubmit = async (e) => {
       e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
       await api("POST", `/api/periodos/${id}/avaliacoes`, { ...f, criterio: Number(f.criterio), peso: Number(f.peso), maximo: Number(f.maximo) }); pautaVista(id);
     };

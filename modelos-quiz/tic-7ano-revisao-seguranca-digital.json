@@ -1,0 +1,222 @@
+[
+ {
+  "texto": "Que informação pode ficar guardada numa foto tirada com o telemóvel?",
+  "opcoes": [
+   "A localização onde foi tirada",
+   "O nome completo de quem a tirou",
+   "O número de telefone do dono",
+   "A palavra-passe do telemóvel"
+  ],
+  "certa": 0,
+  "explicacao": "As fotografias guardam dados escondidos (metadados), como a data e as coordenadas do sítio onde foram tiradas. Desliga a localização da câmara ou retira-a antes de partilhar."
+ },
+ {
+  "texto": "Qual destas definições torna a tua conta de Instagram mais segura?",
+  "opcoes": [
+   "Mostrar quando estás online",
+   "Aceitar todos os pedidos",
+   "Tornar a tua conta privada",
+   "Partilhar a localização"
+  ],
+  "certa": 2,
+  "explicacao": "Com a conta privada, só os seguidores que aprovares veem o que publicas. Mostrar quando estás online e partilhar a localização dão informação a desconhecidos."
+ },
+ {
+  "texto": "No WhatsApp, a encriptação ponto a ponto significa que...",
+  "opcoes": [
+   "As mensagens apagam-se ao fim de um dia",
+   "Só tu e o destinatário leem a mensagem",
+   "Não podes enviar fotos nem vídeos",
+   "O WhatsApp pode ler todas as mensagens"
+  ],
+  "certa": 1,
+  "explicacao": "Com a encriptação ponto a ponto, a mensagem só se consegue ler no telemóvel de quem a envia e de quem a recebe. Nem o WhatsApp a lê pelo caminho."
+ },
+ {
+  "texto": "Para que serve o \"modo fantasma\" do Snap Map?",
+  "opcoes": [
+   "Apagar as fotos ao fim de 24 horas",
+   "Bloquear amigos sem eles saberem",
+   "Pôr um filtro na tua cara",
+   "Esconder a tua localização"
+  ],
+  "certa": 3,
+  "explicacao": "O modo fantasma esconde a tua localização no Snap Map: os amigos deixam de ver onde estás."
+ },
+ {
+  "texto": "O que revelou, sem querer, o mapa de percursos do Strava em 2018?",
+  "opcoes": [
+   "Moradas de jogadores famosos",
+   "Números de telefone de atletas",
+   "Localizações de bases militares",
+   "Palavras-passe de utilizadores"
+  ],
+  "certa": 2,
+  "explicacao": "Em 2018, o mapa com os percursos de corrida partilhados no Strava mostrou onde ficavam bases militares secretas, porque havia soldados a correr lá com o relógio ligado."
+ },
+ {
+  "texto": "Em Portugal, com que idade podes aceitar sozinho os termos de uma rede social?",
+  "opcoes": [
+   "13 anos",
+   "18 anos",
+   "16 anos",
+   "10 anos"
+  ],
+  "certa": 0,
+  "explicacao": "Em Portugal, a partir dos 13 anos podes aceitar sozinho os termos de uma rede social. Antes disso, é preciso a autorização dos pais."
+ },
+ {
+  "texto": "Um assistente como a Alexa está sempre...",
+  "opcoes": [
+   "A ler as mensagens do telemóvel",
+   "A gravar vídeo de toda a casa",
+   "Desligado até carregares num botão",
+   "À escuta da palavra de ativação"
+  ],
+  "certa": 3,
+  "explicacao": "Um assistente de voz está sempre à escuta da palavra de ativação (por exemplo, «Alexa»). Só depois começa a gravar e a enviar o que dizes."
+ },
+ {
+  "texto": "Qual é o maior risco das apps de localização entre amigos?",
+  "opcoes": [
+   "Apagarem os teus contactos",
+   "Saberem sempre onde estás",
+   "Mudarem o fuso horário",
+   "Gastar os teus dados móveis"
+  ],
+  "certa": 1,
+  "explicacao": "Quem vê sempre a tua localização fica a saber onde moras, onde estudas e os teus hábitos. Partilha só com quem confias e só quando for preciso."
+ },
+ {
+  "texto": "Porque é que o Roblox tem controlos parentais?",
+  "opcoes": [
+   "Para dar Robux grátis aos pais",
+   "Para o jogo correr mais depressa",
+   "Para limitar conversas e gastos",
+   "Para os pais mudarem o avatar"
+  ],
+  "certa": 2,
+  "explicacao": "Os controlos parentais permitem limitar com quem se conversa e quanto se gasta, para proteger os jogadores mais novos."
+ },
+ {
+  "texto": "Qual destas é a palavra-passe mais segura?",
+  "opcoes": [
+   "Uma frase longa com números e símbolos",
+   "O nome do teu animal de estimação e 123",
+   "A tua data de nascimento com um símbolo",
+   "O teu nome seguido de 123456"
+  ],
+  "certa": 0,
+  "explicacao": "Uma frase longa, com números e símbolos, é difícil de adivinhar. Nomes, datas e sequências como 123456 são as primeiras que os atacantes experimentam."
+ },
+ {
+  "texto": "O que é a pegada digital?",
+  "opcoes": [
+   "O tamanho do teu telemóvel",
+   "Um vírus que segue os teus passos",
+   "Uma app que conta os teus passos",
+   "O rasto de dados que deixas online"
+  ],
+  "certa": 3,
+  "explicacao": "A pegada digital é o rasto de dados que deixas online: publicações, gostos, pesquisas e localizações. Pode durar anos."
+ },
+ {
+  "texto": "Qual destas opções protege melhor a tua conta?",
+  "opcoes": [
+   "Deixar a sessão aberta",
+   "Ativar a autenticação de dois fatores",
+   "Partilhar a palavra-passe com amigos",
+   "Usar sempre a mesma palavra-passe"
+  ],
+  "certa": 1,
+  "explicacao": "Com a autenticação de dois fatores, além da palavra-passe é preciso um código enviado para o telemóvel. Quem descobrir a palavra-passe não entra só com ela."
+ },
+ {
+  "texto": "O que deves ver antes de publicar uma foto tirada em casa?",
+  "opcoes": [
+   "Se mostra a morada ou a localização",
+   "Se tem filtros e luz suficientes",
+   "Nada, em casa é sempre seguro",
+   "Se foi tirada de dia ou de noite"
+  ],
+  "certa": 0,
+  "explicacao": "Uma foto tirada em casa pode mostrar a morada, a vista da janela ou a localização guardada na própria foto. Confirma antes de publicar."
+ },
+ {
+  "texto": "Onde encontras as regras sobre os dados que uma app recolhe?",
+  "opcoes": [
+   "No ícone e no nome da app",
+   "Nas avaliações da loja de apps",
+   "Na política de privacidade",
+   "Nas notificações do telemóvel"
+  ],
+  "certa": 2,
+  "explicacao": "A política de privacidade explica que dados a app recolhe, para quê e com quem os partilha."
+ },
+ {
+  "texto": "Qual é o site português de referência sobre segurança online?",
+  "opcoes": [
+   "Wikipédia em português",
+   "Portal do Cidadão",
+   "Polígrafo da SIC",
+   "Centro Internet Segura"
+  ],
+  "certa": 3,
+  "explicacao": "O Centro Internet Segura é o sítio português de referência sobre segurança online, com conselhos e uma linha de ajuda."
+ },
+ {
+  "texto": "Num jogo online, um desconhecido pede-te fotos. O que fazes?",
+  "opcoes": [
+   "Envio só uma e depois bloqueio",
+   "Bloqueio e conto a um adulto",
+   "Envio uma foto antiga minha",
+   "Continuo a conversa para ver"
+  ],
+  "certa": 1,
+  "explicacao": "Nunca envies fotos a desconhecidos. Bloqueia, guarda as provas e conta a um adulto de confiança."
+ },
+ {
+  "texto": "O que são os Robux?",
+  "opcoes": [
+   "Um vírus que rouba contas",
+   "A rede social do Roblox",
+   "O controlo parental do Roblox",
+   "A moeda virtual do Roblox"
+  ],
+  "certa": 3,
+  "explicacao": "Os Robux são a moeda virtual do Roblox, comprada com dinheiro a sério. Por isso os controlos parentais limitam os gastos."
+ },
+ {
+  "texto": "Uma campainha inteligente com câmara pode gravar...",
+  "opcoes": [
+   "Nada, só mostra a imagem em direto",
+   "Apenas durante a noite, com luz",
+   "Quem passa no passeio da rua",
+   "Só quem toca à campainha"
+  ],
+  "certa": 2,
+  "explicacao": "A câmara de uma campainha inteligente pode gravar quem passa na rua, não só quem toca. Isso mexe com a privacidade dos vizinhos."
+ },
+ {
+  "texto": "Porque é que apagar uma publicação pode não chegar?",
+  "opcoes": [
+   "Alguém pode ter guardado uma cópia",
+   "Apaga também a tua conta toda",
+   "A app não deixa apagar nada",
+   "Fica sempre no teu perfil público"
+  ],
+  "certa": 0,
+  "explicacao": "Mesmo que apagues, alguém pode já ter feito uma captura de ecrã ou guardado uma cópia. Pensa antes de publicar."
+ },
+ {
+  "texto": "Que dados recolhe normalmente um smartwatch?",
+  "opcoes": [
+   "As tuas notas da escola",
+   "Batimentos cardíacos e sono",
+   "O teu cartão de cidadão",
+   "A palavra-passe do email"
+  ],
+  "certa": 1,
+  "explicacao": "Os smartwatches registam dados de saúde, como os batimentos cardíacos e o sono. São dados sensíveis."
+ }
+]

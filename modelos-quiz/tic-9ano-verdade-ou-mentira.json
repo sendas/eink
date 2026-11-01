@@ -1,0 +1,146 @@
+[
+ {
+  "texto": "O fora de jogo semiautomático, com câmaras e IA, foi usado no Mundial do Catar, em 2022.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Foi a primeira vez num Mundial, e reduziu o tempo de decisão dos lances."
+ },
+ {
+  "texto": "Os centros de dados que fazem funcionar a IA gastam eletricidade e também água.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "A água é usada para arrefecer os servidores."
+ },
+ {
+  "texto": "A União Europeia ainda não tem nenhuma lei sobre inteligência artificial.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "O AI Act entrou em vigor em 2024 e classifica os sistemas de IA por nível de risco."
+ },
+ {
+  "texto": "A Amazon abandonou uma IA de recrutamento porque prejudicava candidatas mulheres.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "A IA aprendeu com currículos antigos, maioritariamente de homens, e copiou esse enviesamento."
+ },
+ {
+  "texto": "O reconhecimento facial erra exatamente o mesmo com todas as pessoas.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Estudos mostraram taxas de erro mais altas para alguns grupos, por exemplo pessoas de pele mais escura."
+ },
+ {
+  "texto": "Uma imagem criada com o Midjourney ganhou um concurso de arte nos EUA.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Aconteceu em 2022, numa feira no Colorado, e gerou uma enorme polémica."
+ },
+ {
+  "texto": "Ainda não existem táxis sem condutor a transportar passageiros em nenhuma cidade do mundo.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "A Waymo já transporta passageiros sem condutor em várias cidades dos EUA."
+ },
+ {
+  "texto": "Uma música com vozes clonadas de artistas famosos, feita com IA, tornou-se viral antes de ser retirada.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Em 2023, uma música com as vozes imitadas de Drake e The Weeknd foi retirada das plataformas."
+ },
+ {
+  "texto": "A IA já consegue compor uma música completa a partir de uma descrição em texto.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Há ferramentas que geram letra, melodia e voz a partir de um pedido escrito."
+ },
+ {
+  "texto": "Os NPCs de todos os videojogos atuais já conversam com IA generativa.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Ainda são sobretudo experiências e demonstrações; a maioria usa diálogos escritos."
+ },
+ {
+  "texto": "Os sistemas anti-cheat podem banir, por engano, jogadores que não fizeram batota.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Chama-se falso positivo e acontece sobretudo com jogadores muito bons ou configurações invulgares."
+ },
+ {
+  "texto": "Os filtros de beleza usam IA para detetar os pontos do teu rosto em tempo real.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "A IA localiza olhos, nariz e boca e aplica o efeito enquanto te mexes."
+ },
+ {
+  "texto": "Entregar como teu um trabalho feito inteiramente pelo ChatGPT é fraude académica.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Usar a IA para ideias é diferente de apresentar o texto dela como se fosse teu."
+ },
+ {
+  "texto": "O AI Act proíbe todas as utilizações de inteligência artificial na Europa.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Proíbe só algumas práticas de risco inaceitável e impõe regras às de risco elevado."
+ },
+ {
+  "texto": "Já existem robôs humanoides, como o Optimus da Tesla, a ser testados.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Têm sido mostrados em demonstrações e testes, mas ainda não estão à venda para o público."
+ },
+ {
+  "texto": "Os chatbots de companhia sentem, de verdade, amizade por quem fala com eles.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Simulam emoções com base em padrões de texto, mas não sentem nada."
+ }
+]

@@ -1,0 +1,146 @@
+[
+ {
+  "texto": "Uma foto tirada com o telemóvel pode guardar a localização exata onde foi tirada.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "As fotos guardam metadados (EXIF), que podem incluir as coordenadas GPS."
+ },
+ {
+  "texto": "Se a tua conta de Instagram for privada, a Meta deixa de recolher dados sobre ti.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "A conta privada esconde as publicações de desconhecidos, mas a app continua a recolher dados de utilização."
+ },
+ {
+  "texto": "O mapa de percursos do Strava já revelou, sem querer, a localização de bases militares.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Em 2018, o mapa de calor público mostrou os percursos de militares a correr dentro de bases."
+ },
+ {
+  "texto": "As mensagens do Snapchat que \"desaparecem\" não podem ser guardadas por ninguém.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Qualquer pessoa pode fazer uma captura de ecrã ou fotografar o ecrã com outro telemóvel."
+ },
+ {
+  "texto": "Assistentes como a Alexa podem gravar conversas quando julgam ter ouvido a palavra de ativação.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Há ativações por engano, e essas gravações ficam guardadas na conta."
+ },
+ {
+  "texto": "No WhatsApp, o próprio WhatsApp lê as tuas conversas para te mostrar publicidade.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "As mensagens têm encriptação ponto a ponto: só quem envia e quem recebe as consegue ler."
+ },
+ {
+  "texto": "Em Portugal, só a partir dos 13 anos podes aceitar sozinho os termos de uma rede social.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Abaixo dos 13 anos, a lei exige autorização dos pais para o tratamento dos teus dados."
+ },
+ {
+  "texto": "Uma campainha com câmara só grava quem toca à campainha.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Muitas gravam sempre que detetam movimento, incluindo quem passa na rua."
+ },
+ {
+  "texto": "O YouTube tem um Modo Restrito que ajuda a esconder conteúdos impróprios.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "O Modo Restrito filtra conteúdos potencialmente impróprios, embora não apanhe tudo."
+ },
+ {
+  "texto": "No Roblox, não há forma de limitar quem fala contigo no chat.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Há controlos parentais e definições de privacidade para limitar ou desligar o chat."
+ },
+ {
+  "texto": "O BeReal pode mostrar onde estavas quando tiraste a foto, se não desligares a localização.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "A app pode juntar a localização à publicação, mas é uma opção que se pode desativar."
+ },
+ {
+  "texto": "Apagar uma publicação garante que ninguém ficou com uma cópia.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Alguém pode ter feito uma captura de ecrã ou descarregado a imagem antes."
+ },
+ {
+  "texto": "No Discord, podes escolher quem te pode enviar mensagens diretas.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Nas definições de privacidade podes bloquear mensagens diretas de membros dos servidores."
+ },
+ {
+  "texto": "A tua conta escolar Google ou Microsoft é gerida pela escola, e não só por ti.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "O administrador da escola configura estas contas e pode aceder a registos de atividade."
+ },
+ {
+  "texto": "A app Life360 já foi notícia por vender dados de localização dos utilizadores.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 0,
+  "explicacao": "Em 2021, jornalistas revelaram a venda de dados de localização a outras empresas."
+ },
+ {
+  "texto": "Usar a mesma palavra-passe em todas as contas é seguro, desde que seja comprida.",
+  "opcoes": [
+   "Verdade",
+   "Mentira"
+  ],
+  "certa": 1,
+  "explicacao": "Se uma conta for pirateada, todas as outras ficam em risco."
+ }
+]

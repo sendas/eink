@@ -62,5 +62,63 @@
     });
   }
 
-  EINK.rotas.push([/^\/admin$/, docentes], [/^\/criterios$/, criterios]);
+
+  // ---------- gestão: hub, fecho de períodos, alterações, cópias e privacidade ----------
+  const hub = () => mostrar(`<h1>Gestão</h1><p class="pequeno">Só para administradores.</p><div class="cartoes">${[
+    ["👥", "Docentes", "Quem tem acesso e a disciplina de cada um", "#/admin"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
+    ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
+    ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
+  ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
+
+  async function fecho() {
+    const l = await api("GET", "/api/admin/periodos");
+    const nomes = [...new Set(l.filter((x) => !x.arquivada).map((x) => x.periodo))];
+    mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Fecho de períodos</h1>
+      <p class="pequeno">Um período fechado bloqueia as notas, as avaliações, os níveis e as intercalares: os docentes só podem consultar e exportar. Cada fecho e reabertura fica no registo de alterações.</p>
+      <div class="painel linha"><label>Em todas as turmas ativas<select id="f-nome">${nomes.map((n) => `<option>${esc(n)}</option>`).join("")}</select></label><button id="f-fechar-todos">Fechar</button><button class="sec" id="f-abrir-todos">Reabrir</button></div>
+      <div class="tabela-rolagem"><table><thead><tr><th>Turma</th><th>Ano letivo</th><th>Docente</th><th>Período</th><th>Estado</th><th></th></tr></thead><tbody>${l.map((x) => `<tr><td>${esc(x.turma)}${x.arquivada ? " (arquivada)" : ""}</td><td>${esc(x.ano_letivo)}</td><td>${esc(x.docente)}</td><td>${esc(x.periodo)}</td><td>${x.fechado ? `Fechado${x.fechado_em ? " em " + esc(x.fechado_em.slice(0, 10)) : ""}` : "Aberto"}</td><td><button class="sec" data-p="${x.id}" data-f="${x.fechado ? 0 : 1}">${x.fechado ? "Reabrir" : "Fechar"}</button></td></tr>`).join("")}</tbody></table></div>`);
+    const mudar = async (corpo, msg) => { try { const r = await api("POST", "/api/admin/periodos/fechar", corpo); aviso(`${msg} (${r.alterados}).`); fecho(); } catch { /* aviso mostrado */ } };
+    $("#f-fechar-todos").onclick = () => { const nome = $("#f-nome").value; if (nome && confirm(`Fechar «${nome}» em todas as turmas ativas?`)) mudar({ nome, fechado: true }, "Fechados"); };
+    $("#f-abrir-todos").onclick = () => { const nome = $("#f-nome").value; if (nome && confirm(`Reabrir «${nome}» em todas as turmas ativas?`)) mudar({ nome, fechado: false }, "Reabertos"); };
+    $$("[data-p]").forEach((b) => { b.onclick = () => mudar({ ids: [Number(b.dataset.p)], fechado: b.dataset.f === "1" }, b.dataset.f === "1" ? "Fechado" : "Reaberto"); });
+  }
+
+  async function auditoria() {
+    const filtros = { turma: "", aluno: "", acao: "", quem: "" };
+    mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Registo de alterações</h1>
+      <form class="painel linha" id="f-aud">${[["turma", "Turma"], ["aluno", "Aluno"], ["acao", "O quê"], ["quem", "Quem"]].map(([k, t]) => `<label>${t}<input name="${k}"></label>`).join("")}<button>Filtrar</button></form><div id="aud"></div>`);
+    const carregar = async () => {
+      const q = new URLSearchParams(filtros).toString();
+      const l = await api("GET", "/api/admin/auditoria?" + q);
+      $("#aud").innerHTML = l.length ? `<p class="pequeno">As ${l.length} alterações mais recentes.</p><div class="tabela-rolagem"><table class="hist-lista"><thead><tr><th>Quando</th><th>Quem</th><th>Turma</th><th>Período</th><th>Aluno</th><th>O quê</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${l.map((x) => `<tr><td>${esc(x.quando)}</td><td>${esc(x.quem)}</td><td>${esc(x.turma)}</td><td>${esc(x.periodo)}</td><td>${esc(x.aluno)}</td><td>${esc(x.acao)}${x.detalhe ? " · " + esc(x.detalhe) : ""}</td><td>${esc(x.antes)}</td><td>${esc(x.depois)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="pequeno">Nada encontrado.</p>';
+    };
+    $("#f-aud").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); for (const k of Object.keys(filtros)) filtros[k] = f.get(k) || ""; carregar(); };
+    carregar();
+  }
+
+  const tam = (n) => (n > 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+  async function copiasPag() {
+    const r = await api("GET", "/api/admin/copias");
+    mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Cópias de segurança</h1>
+      <p class="pequeno">A plataforma faz uma cópia da base de dados todos os dias (guarda as ${r.manter} mais recentes), na pasta <code>copias</code> do volume de dados. Convém descarregar uma de vez em quando e guardá-la fora da VPS, por exemplo no OneDrive da escola.</p>
+      <p><button id="c-fazer">Fazer uma cópia agora</button></p>
+      <div class="painel"><ul class="lista">${r.copias.map((c) => `<li><span>${esc(c.nome)} <span class="pequeno">${tam(c.tamanho)}</span></span><a class="botao sec" href="/api/admin/copias/descarregar?nome=${encodeURIComponent(c.nome)}">Descarregar</a></li>`).join("") || '<li class="pequeno">Ainda não há cópias.</li>'}</ul></div>
+      <h2>Repor uma cópia</h2><p class="pequeno">Pára o contentor, descomprime o ficheiro (<code>gunzip</code>) e substitui <code>eink.db</code> no volume de dados pela cópia, apagando os ficheiros <code>eink.db-wal</code> e <code>eink.db-shm</code>. Depois volta a arrancar. Está explicado no LEIA-ME.</p>`);
+    $("#c-fazer").onclick = async () => { try { await api("POST", "/api/admin/copias", {}); aviso("Cópia criada."); copiasPag(); } catch { /* aviso mostrado */ } };
+  }
+
+  async function privacidadeAdmin() {
+    const r = await api("GET", "/api/admin/privacidade");
+    mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Privacidade e retenção</h1>
+      <p>A plataforma guarda ${r.alunosTotal} alunos (nome, número e, se importado, o email). As turmas arquivadas e o registo de alterações são apagados quando passa o prazo de retenção. A <a href="/privacidade.html">página de privacidade</a> mostra este prazo aos docentes.</p>
+      <form class="painel linha" id="f-ret"><label>Prazo de retenção das turmas arquivadas (anos)<input name="anos" type="number" min="1" max="10" value="${r.anos}" style="width:6rem"></label><button>Guardar</button></form>
+      <h2>Turmas arquivadas (${r.arquivadas.length})</h2>
+      <div class="painel"><ul class="lista">${r.arquivadas.map((t) => `<li><span>${esc(t.nome)} · ${esc(t.ano_letivo)} · ${esc(t.docente)} <span class="pequeno">${t.alunos} alunos, arquivada em ${esc((t.arquivada_em || "").slice(0, 10))}</span></span><strong>${t.expirada ? "Fora do prazo" : "Dentro do prazo"}</strong></li>`).join("") || '<li class="pequeno">Não há turmas arquivadas.</li>'}</ul></div>
+      <p class="pequeno">Registo de alterações fora do prazo: ${r.auditoriaExpirada}.</p>
+      <form class="painel linha" id="f-apagar"><label>Para apagar as turmas arquivadas fora do prazo (e o registo antigo), escreve APAGAR<input name="confirmar" autocomplete="off"></label><button class="perigo">Apagar o que está fora do prazo</button></form>`);
+    $("#f-ret").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/api/admin/privacidade/retencao", { anos: Number(new FormData(e.target).get("anos")) }); aviso("Prazo guardado."); privacidadeAdmin(); } catch { /* aviso mostrado */ } };
+    $("#f-apagar").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/api/admin/privacidade/apagar", { confirmar: new FormData(e.target).get("confirmar") }); aviso(`${x.turmas} turma(s) apagada(s).`); privacidadeAdmin(); } catch { /* aviso mostrado */ } };
+  }
+
+  EINK.rotas.push([/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
 })();

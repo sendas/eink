@@ -1,0 +1,222 @@
+[
+ {
+  "texto": "Em que Mundial se usou pela primeira vez o fora de jogo semiautomático?",
+  "opcoes": [
+   "Brasil 2014",
+   "Catar 2022",
+   "Alemanha 2006",
+   "Rússia 2018"
+  ],
+  "certa": 1,
+  "explicacao": "Foi a primeira vez que o fora de jogo semiautomático, com câmaras e IA, se usou num Mundial: Catar 2022."
+ },
+ {
+  "texto": "Como se chama a lei da União Europeia sobre inteligência artificial?",
+  "opcoes": [
+   "Lei da Internet Livre",
+   "Tratado Digital de Lisboa",
+   "Regulamento IA (AI Act)",
+   "Código Digital Europeu"
+  ],
+  "certa": 2,
+  "explicacao": "O AI Act é a lei europeia que classifica os sistemas de IA por nível de risco."
+ },
+ {
+  "texto": "O que é um NPC num videojogo?",
+  "opcoes": [
+   "Uma personagem controlada pelo computador",
+   "Uma consola portátil para jogos online",
+   "Um jogador que usa programas de batota",
+   "Um tipo de gráfico em três dimensões"
+  ],
+  "certa": 0,
+  "explicacao": "NPC quer dizer personagem não jogável: é controlada pelo computador e não por um jogador."
+ },
+ {
+  "texto": "Porque é que os centros de dados de IA gastam água?",
+  "opcoes": [
+   "Para limpar os ecrãs dos servidores",
+   "Não gastam água, só eletricidade",
+   "Para gerar as imagens que criam",
+   "Para arrefecer os servidores"
+  ],
+  "certa": 3,
+  "explicacao": "A água serve para arrefecer os servidores, que aquecem muito quando trabalham."
+ },
+ {
+  "texto": "Porque é que a Amazon abandonou uma IA de recrutamento?",
+  "opcoes": [
+   "Aceitava todos os candidatos",
+   "Prejudicava candidatas mulheres",
+   "Ficava muito cara à empresa",
+   "Era demasiado lenta a decidir"
+  ],
+  "certa": 1,
+  "explicacao": "A IA aprendeu com currículos antigos, maioritariamente de homens, e copiou esse enviesamento."
+ },
+ {
+  "texto": "Em 2022, uma imagem feita com o Midjourney ganhou...",
+  "opcoes": [
+   "Um prémio de fotografia",
+   "Um Óscar de efeitos especiais",
+   "Um Mundial de e-sports",
+   "Um concurso de arte nos EUA"
+  ],
+  "certa": 3,
+  "explicacao": "Foi uma imagem feita com o Midjourney que venceu um concurso de arte nos EUA, em 2022, e gerou polémica."
+ },
+ {
+  "texto": "Os algoritmos do TikTok e do Spotify aprendem sobretudo com...",
+  "opcoes": [
+   "Um sorteio diário",
+   "O que vês, ouves e repetes",
+   "As escolhas dos teus pais",
+   "A tua idade"
+  ],
+  "certa": 1,
+  "explicacao": "Estas plataformas aprendem com o que vês, ouves e repetes, e usam isso para te recomendar mais conteúdos."
+ },
+ {
+  "texto": "Qual é um risco dos chatbots de companhia, como a Replika?",
+  "opcoes": [
+   "Dependência emocional",
+   "Apagarem as tuas fotos",
+   "Não têm qualquer risco",
+   "Mudarem a tua voz"
+  ],
+  "certa": 0,
+  "explicacao": "Os chatbots de companhia podem levar a dependência emocional, porque parecem amigos mas não sentem nada."
+ },
+ {
+  "texto": "Qual é um problema conhecido do reconhecimento facial?",
+  "opcoes": [
+   "Precisa sempre da tua impressão digital",
+   "Erra mais com uns grupos do que com outros",
+   "Só funciona com luz do dia muito forte",
+   "Nunca se engana, por isso é infalível"
+  ],
+  "certa": 1,
+  "explicacao": "Estudos mostraram mais erros em alguns grupos de pessoas, por isso o reconhecimento facial não é igualmente fiável para todos."
+ },
+ {
+  "texto": "Qual destas empresas já tem táxis sem condutor a circular?",
+  "opcoes": [
+   "Spotify",
+   "Roblox",
+   "Waymo",
+   "Duolingo"
+  ],
+  "certa": 2,
+  "explicacao": "A Waymo já tem táxis sem condutor a transportar passageiros em algumas cidades."
+ },
+ {
+  "texto": "O que significa \"IA generativa\"?",
+  "opcoes": [
+   "IA que só faz contas muito depressa",
+   "Um robô que gera eletricidade",
+   "Um antivírus que gera palavras-passe",
+   "IA que cria texto, imagens ou som novos"
+  ],
+  "certa": 3,
+  "explicacao": "A IA generativa cria conteúdo novo, como texto, imagens ou som, a partir do que aprendeu."
+ },
+ {
+  "texto": "Como se chama o sistema anti-cheat da Riot Games, usado no Valorant?",
+  "opcoes": [
+   "Replika",
+   "Midjourney",
+   "Vanguard",
+   "Optimus"
+  ],
+  "certa": 2,
+  "explicacao": "O Vanguard é o sistema anti-cheat da Riot Games, usado no Valorant."
+ },
+ {
+  "texto": "Qual é um benefício do VAR?",
+  "opcoes": [
+   "Deixa de haver árbitros no campo",
+   "Decisões mais justas em lances difíceis",
+   "Menos câmaras e menos jornalistas",
+   "Jogos mais rápidos e sem interrupções"
+  ],
+  "certa": 1,
+  "explicacao": "O VAR ajuda a tomar decisões mais justas em lances difíceis, ao rever as imagens."
+ },
+ {
+  "texto": "Qual é uma crítica frequente aos filtros de beleza com IA?",
+  "opcoes": [
+   "Gastam muita memória no telemóvel",
+   "São ilegais em toda a Europa",
+   "Só funcionam em computadores",
+   "Criam padrões de beleza irrealistas"
+  ],
+  "certa": 3,
+  "explicacao": "Os filtros de beleza podem criar padrões de beleza irrealistas e afetar a autoestima."
+ },
+ {
+  "texto": "O DALL-E e o Midjourney criam imagens a partir de...",
+  "opcoes": [
+   "Um código QR",
+   "Uma descrição em texto",
+   "Um desenho em papel",
+   "Uma fotografia obrigatória"
+  ],
+  "certa": 1,
+  "explicacao": "O DALL-E e o Midjourney criam imagens a partir de uma descrição em texto."
+ },
+ {
+  "texto": "Que problema levanta a IA na música?",
+  "opcoes": [
+   "O volume do som nos auscultadores",
+   "A cor das capas dos álbuns",
+   "O preço das assinaturas de música",
+   "Direitos de autor e vozes clonadas"
+  ],
+  "certa": 3,
+  "explicacao": "A IA levanta questões de direitos de autor e de vozes clonadas de artistas sem autorização."
+ },
+ {
+  "texto": "Qual é um uso honesto do ChatGPT num trabalho?",
+  "opcoes": [
+   "Esconder do professor que o usaste",
+   "Pedir que invente fontes e citações",
+   "Copiar a resposta inteira sem a ler",
+   "Ter ideias e escrever por palavras tuas"
+  ],
+  "certa": 3,
+  "explicacao": "Usar a IA para ter ideias e escrever depois por palavras tuas é honesto. Entregar o texto dela como teu não é."
+ },
+ {
+  "texto": "Os carros autónomos usam câmaras e sensores para...",
+  "opcoes": [
+   "Escolher a música certa",
+   "Abrir as portas sozinhos",
+   "Perceber o que está à volta",
+   "Carregar a bateria em andamento"
+  ],
+  "certa": 2,
+  "explicacao": "Os carros autónomos usam câmaras e sensores para perceber o que está à volta e decidir como conduzir."
+ },
+ {
+  "texto": "O AI Act organiza as regras sobre IA por...",
+  "opcoes": [
+   "Cores, como um semáforo",
+   "Idade dos utilizadores",
+   "Países da União",
+   "Níveis de risco da IA"
+  ],
+  "certa": 3,
+  "explicacao": "O AI Act organiza as regras por níveis de risco: quanto maior o risco, mais exigências."
+ },
+ {
+  "texto": "Porque é que uma IA pode ser injusta a escolher candidatos?",
+  "opcoes": [
+   "Aprende com dados antigos enviesados",
+   "Prefere sempre contratar robôs",
+   "Não consegue ler currículos",
+   "Escolhe sempre ao calhas, sem regras"
+  ],
+  "certa": 0,
+  "explicacao": "Uma IA que aprende com dados antigos enviesados repete as injustiças que lá estavam."
+ }
+]

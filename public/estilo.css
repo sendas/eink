@@ -75,3 +75,64 @@ main:focus { outline: none; }
 th[scope="row"] { position: sticky; left: 0; z-index: 1; }
 
 .tema-bot { background: transparent; color: var(--texto); border: 1px solid var(--linha); padding: .25rem .6rem; font-size: .85rem; }
+.aviso-alerta { border-color: var(--aviso); }
+.aviso-alerta .lista li { padding: .3rem 0; }
+.banner-fechado { background: color-mix(in srgb, var(--aviso) 18%, var(--cartao)); border: 1px solid var(--aviso); border-radius: var(--raio); padding: .6rem 1rem; margin: .6rem 0; }
+.hist-lista td { white-space: normal; }
+@media print { .topo, #aviso, .nao-imprimir, button, .botao { display: none !important; } body { background: #fff; color: #000; } }
+.rodape { text-align: center; padding: 1rem; font-size: .85rem; }
+dialog { background: var(--cartao); color: var(--texto); border: 1px solid var(--linha); border-radius: var(--raio); max-width: min(46rem, 94vw); padding: 1rem 1.2rem; }
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.grelha-sug { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: .6rem; margin: .6rem 0; }
+.sem-borda { border: 0; padding: 0; margin: 0; }
+label.inline { display: inline-flex; flex-direction: row; align-items: center; gap: .4rem; color: var(--texto); font-size: 1rem; }
+/* Páginas públicas dos alunos (sondagem e jogo) */
+body.publica { min-height: 100vh; }
+.caixa-publica { max-width: 34rem; margin: 0 auto; padding: 1rem; text-align: center; }
+.caixa-publica h1 { font-size: 1.5rem; }
+.grande-msg { font-size: 1.25rem; font-weight: 600; margin: 1rem 0; }
+.form-publico { display: grid; gap: .8rem; max-width: 22rem; margin: 1rem auto; text-align: left; }
+.form-publico input { font-size: 1.4rem; text-align: center; padding: .7rem; }
+button.grande { padding: .9rem 1.4rem; font-size: 1.2rem; }
+.erro-msg { color: var(--erro); }
+.opcoes-publicas { display: grid; gap: .7rem; margin: 1rem 0; }
+.op-publica { display: flex; align-items: center; gap: .7rem; text-align: left; font-size: 1.15rem; padding: 1rem; border-radius: 14px; border: 3px solid transparent; color: #fff; }
+.op-publica:disabled { opacity: .9; cursor: default; }
+.op-publica.apagada { opacity: .4; }
+.op-publica.escolhida { border-color: var(--texto); }
+.c0 { background: #c92a2a; } .c1 { background: #1c7ed6; } .c2 { background: #b58105; } .c3 { background: #2b8a3e; } .c4 { background: #862e9c; }
+.op-publica.c0, .op-publica.c1, .op-publica.c2, .op-publica.c3, .op-publica.c4 { border-color: transparent; }
+.op-publica.escolhida { border-color: var(--texto); }
+.barra-tempo { height: .7rem; background: var(--linha); border-radius: 99px; overflow: hidden; margin: .6rem 0; }
+.barra-tempo > div { height: 100%; width: 100%; background: var(--marca); transition: width .1s linear; }
+.certo { color: var(--ok); } .errado { color: var(--erro); }
+.topo-jogo { list-style: none; padding: 0; text-align: left; }
+.topo-jogo li { display: flex; justify-content: space-between; padding: .45rem .2rem; border-bottom: 1px solid var(--linha); font-size: 1.1rem; }
+.cab-jogo { display: flex; justify-content: space-between; }
+/* Sondagens */
+.s-topo { align-items: center; gap: 1.5rem; }
+.s-qr { width: 9rem; background: #fff; padding: .3rem; border-radius: 8px; } .s-qr svg { width: 100%; height: auto; display: block; }
+.s-url { font-size: 1.3rem; font-weight: 700; word-break: break-all; } .s-codigo { font-size: 1.8rem; letter-spacing: .15em; }
+.s-linha { display: grid; grid-template-columns: minmax(6rem, 14rem) 1fr 6.5rem auto; gap: .6rem; align-items: center; margin: .5rem 0; }
+.s-barra { height: 2rem; background: var(--linha); border-radius: 8px; overflow: hidden; } .s-enche { height: 100%; min-width: 2px; transition: width .3s; }
+.s-nome { font-weight: 600; text-align: right; } .s-valor { white-space: nowrap; }
+@media (max-width: 700px) { .s-linha { grid-template-columns: 1fr auto; } .s-barra { grid-column: 1 / -1; } .s-nome { text-align: left; } }
+/* Mapa de sala */
+.m-layout { display: grid; grid-template-columns: 14rem 1fr; gap: 1rem; align-items: start; } @media (max-width: 800px) { .m-layout { grid-template-columns: 1fr; } }
+.m-pool { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; min-height: 2rem; }
+.m-chip { background: var(--marca-fundo); color: var(--texto); border: 1px solid var(--linha); padding: .3rem .6rem; font-size: .9rem; } .m-chip.sel { background: var(--marca); color: var(--sobre-marca); }
+.m-quadro { background: var(--marca-fundo); text-align: center; padding: .4rem; border-radius: 8px; margin-bottom: .6rem; font-weight: 600; }
+.m-grelha { display: grid; gap: .4rem; } .m-lugar { min-height: 3.6rem; background: var(--cartao); color: var(--texto); border: 2px dashed var(--linha); padding: .2rem; font-size: .9rem; border-radius: 10px; }
+.m-lugar.ocup { border-style: solid; border-color: var(--marca); background: var(--marca-fundo); } .m-lugar.corr { background: transparent; border: 0; cursor: pointer; opacity: .3; }
+@media print { .m-layout { display: block; } .m-lugar { border: 1px solid #000 !important; background: #fff !important; color: #000 !important; } }
+/* Quadros */
+.q-tela { position: relative; min-height: 34rem; background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); overflow: auto; margin-top: .6rem; }
+.q-nota { position: absolute; width: 13rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); color: #1d2433; } .q-nota textarea { width: 100%; min-height: 7rem; border: 0; background: transparent; color: #1d2433; resize: vertical; }
+.q-barra { display: flex; justify-content: space-between; gap: .3rem; padding: .25rem; cursor: grab; background: rgba(0, 0, 0, .12); border-radius: 8px 8px 0 0; touch-action: none; }
+.q-barra select { background: rgba(255, 255, 255, .6); color: #1d2433; border: 0; padding: .1rem; font-size: .8rem; } .q-x { background: transparent; color: #1d2433; border: 0; padding: 0 .4rem; }
+.cq0 { background: #ffec99; } .cq1 { background: #fcc2d7; } .cq2 { background: #b2f2bb; } .cq3 { background: #a5d8ff; } .cq4 { background: #ffd8a8; } .cq5 { background: #d0bfff; }
+/* Quiz ao vivo: ecrã do docente */
+.pv-opcoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .8rem; margin: 1rem 0; }
+.pv-op { display: flex; align-items: center; gap: .8rem; padding: 1.1rem; border-radius: 14px; color: #fff; font-size: 1.3rem; } .pv-txt { flex: 1; } .pv-op b { font-size: 1.6rem; }
+.pv-op.apagada { opacity: .3; } .pv-op.certa { outline: 5px solid var(--ok); }
+.pv-pergunta { font-size: clamp(1.5rem, 4vw, 2.6rem); } .pv-sala { text-align: center; } .pv-pin { font-weight: 800; } .pv-codigo { font-size: 2rem; letter-spacing: .2em; }

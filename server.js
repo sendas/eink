@@ -8,6 +8,14 @@ const criarAuth = require("./lib/auth");
 const { abrir, criarEsquema } = require("./lib/db");
 const { pauta, lerNota, NIVEIS, INTERCALAR, propostaInter } = require("./lib/avaliacao");
 const { criarXlsx } = require("./lib/xlsx");
+const { lerAlunos } = require("./lib/xlsx-ler");
+const APR = require("./public/apreciacao.js");
+const { criarCopias } = require("./lib/copias");
+const registarAdmin = require("./lib/m-admin");
+const ferramentas = require("./lib/m-ferramentas");
+const registarQuiz = require("./lib/m-quiz");
+const criarPublico = require("./lib/m-publico");
+const VIVO = require("./lib/vivo");
 const { ehMembro } = require("./lib/grupo");
 
 function criarServidor(env = process.env) {
@@ -26,6 +34,15 @@ function criarServidor(env = process.env) {
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const db = abrir(env.DB_FILE || path.join(DATA_DIR, "eink.db"));
+
+  const copias = criarCopias(db, path.join(DATA_DIR, "copias"));
+  let relogioCopias = null;
+  // Cópia automática: uma ao arrancar (se a última tiver mais de 24 h) e verificação de hora a hora. Não corre nos testes (base em memória).
+  if ((env.DB_FILE || "x") !== ":memory:" && env.COPIAS !== "0") {
+    const tentar = () => { try { copias.seNecessario(24); } catch (e) { console.error("Cópia de segurança falhou:", e.message); } };
+    setTimeout(tentar, 5000).unref();
+    relogioCopias = setInterval(tentar, 3600000); relogioCopias.unref();
+  }
 
   // O segredo das sessões fica no volume de dados, para sobreviver a reinícios.
   let segredo = env.SEGREDO;
@@ -89,6 +106,15 @@ function criarServidor(env = process.env) {
   const existe = (x, msg = "Não encontrado.") => { if (!x) throw erro(404, msg); return x; };
   const transacao = (fn) => { db.exec("BEGIN"); try { const r = fn(); db.exec("COMMIT"); return r; } catch (e) { db.exec("ROLLBACK"); throw e; } };
 
+  // Período fechado (pelo administrador): ninguém muda notas, avaliações, níveis ou intercalares.
+  const dadosPeriodo = (id) => db.prepare("SELECT d.*, t.nome AS turma_nome FROM periodos d JOIN turmas t ON t.id = d.turma_id WHERE d.id = ?").get(id);
+  const abertoOuErro = (periodoId) => { const d = dadosPeriodo(periodoId); if (d && d.fechado) throw erro(423, `O ${d.nome} desta turma está fechado: as notas estão bloqueadas. Pede ao administrador que o reabra.`); return d; };
+  // Registo de alterações: quem, quando, o quê, e o valor antes e depois.
+  const auditar = (c, periodoId, aluno, acao, detalhe = "", antes = "", depois = "") => {
+    const d = dadosPeriodo(periodoId);
+    db.prepare("INSERT INTO auditoria (quem, turma_id, turma, periodo_id, periodo, aluno, acao, detalhe, antes, depois) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(c.p.upn, d ? d.turma_id : null, d ? d.turma_nome : "", periodoId, d ? d.nome : "", aluno || "", acao, String(detalhe || "").slice(0, 200), String(antes ?? "").slice(0, 300), String(depois ?? "").slice(0, 300));
+  };
+  const nomeAluno = (id) => (db.prepare("SELECT nome FROM alunos WHERE id = ?").get(id) || { nome: "" }).nome;
   const criteriosDe = (esquemaId) => db.prepare("SELECT id, nome, peso, tipo, ordem FROM criterios WHERE esquema_id = ? ORDER BY ordem, id").all(esquemaId);
   const esquemaPorId = (id) => { const e = db.prepare("SELECT e.id, e.grupo_id, e.ano, e.casas, g.nome FROM esquemas e JOIN grupos g ON g.id = e.grupo_id WHERE e.id = ?").get(id); return e && { ...e, criterios: criteriosDe(e.id) }; };
   // O esquema de uma turma é o do seu grupo para o seu ano; sem esse, o do grupo para «todos os anos» (ano 0).
@@ -138,7 +164,7 @@ function criarServidor(env = process.env) {
 
   // Turmas e alunos
   rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV }));
-  rota("GET", "/api/turmas", (c) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? ORDER BY t.nome").all(c.p.id));
+  rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
   rota("POST", "/api/turmas", (c) => {
@@ -154,7 +180,7 @@ function criarServidor(env = process.env) {
     ["1.º período", "2.º período", "3.º período"].forEach((n, i) => ins.run(id, n, i));
     return { id };
   });
-  rota("DELETE", "/api/turmas/:id", (c) => { existe(turmaDe(c.p, c.id[0])); db.prepare("DELETE FROM turmas WHERE id = ?").run(c.id[0]); return { ok: true }; });
+  rota("DELETE", "/api/turmas/:id", (c) => { existe(turmaDe(c.p, c.id[0])); db.prepare("DELETE FROM auditoria WHERE turma_id = ?").run(c.id[0]); db.prepare("DELETE FROM turmas WHERE id = ?").run(c.id[0]); return { ok: true }; });
   rota("GET", "/api/turmas/:id", (c) => {
     const t = existe(turmaDe(c.p, c.id[0]));
     return {
@@ -165,13 +191,14 @@ function criarServidor(env = process.env) {
     };
   });
   // Um aluno por linha, com número opcional à frente («12 Ana Silva»). Máximo de 60 de cada vez.
+  // Alunos colados do Excel (colunas: número, nome, email, separadas por tabulações) ou um por linha com número opcional («12 Ana Silva»). Até 300 de cada vez.
   rota("POST", "/api/turmas/:id/alunos", (c) => {
     const t = existe(turmaDe(c.p, c.id[0]));
-    const linhas = String(c.b.texto || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 60);
-    if (!linhas.length) throw erro(400, "Escreve pelo menos um nome.");
-    const ins = db.prepare("INSERT INTO alunos (turma_id, numero, nome) VALUES (?, ?, ?)");
-    transacao(() => { for (const l of linhas) { const m = /^(\d{1,3})[\s.\-;,]+(.+)$/.exec(l); ins.run(t.id, m ? Number(m[1]) : null, texto(m ? m[2] : l, 120)); } });
-    return { adicionados: linhas.length };
+    const lista = lerAlunos(c.b.texto).slice(0, 300);
+    if (!lista.length) throw erro(400, "Escreve pelo menos um nome.");
+    const ins = db.prepare("INSERT INTO alunos (turma_id, numero, nome, email) VALUES (?, ?, ?, ?)");
+    transacao(() => { for (const a of lista) ins.run(t.id, a.numero, texto(a.nome, 120), a.email); });
+    return { adicionados: lista.length };
   });
   rota("DELETE", "/api/alunos/:id", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM alunos WHERE id = ?").run(c.id[0]); return { ok: true }; });
 
@@ -200,9 +227,12 @@ function criarServidor(env = process.env) {
     const peso = Number(c.b.peso ?? 1), maximo = Number(c.b.maximo ?? 100);
     if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100.");
     if (!(maximo > 0 && maximo <= 1000)) throw erro(400, "O máximo tem de ser maior que 0.");
+    abertoOuErro(per.id);
     const crit = criterioDeTestes(per.turma_id, c.b.criterio);
     const ordem = db.prepare("SELECT COALESCE(MAX(ordem), -1) + 1 AS o FROM avaliacoes WHERE periodo_id = ?").get(per.id).o;
-    return { id: Number(db.prepare("INSERT INTO avaliacoes (periodo_id, criterio_id, titulo, tipo, peso, maximo, data, ordem) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(per.id, crit.id, titulo, tipo, peso, maximo, /^\d{4}-\d{2}-\d{2}$/.test(c.b.data || "") ? c.b.data : null, ordem).lastInsertRowid) };
+    const id = Number(db.prepare("INSERT INTO avaliacoes (periodo_id, criterio_id, titulo, tipo, peso, maximo, data, ordem) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(per.id, crit.id, titulo, tipo, peso, maximo, /^\d{4}-\d{2}-\d{2}$/.test(c.b.data || "") ? c.b.data : null, ordem).lastInsertRowid);
+    auditar(c, per.id, "", "Avaliação criada", `${titulo} (${crit.nome}, peso ${peso}, máx. ${maximo})`);
+    return { id };
   });
   rota("PATCH", "/api/avaliacoes/:id", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
@@ -210,14 +240,24 @@ function criarServidor(env = process.env) {
     const peso = c.b.peso === undefined ? a.peso : Number(c.b.peso);
     if (!titulo) throw erro(400, "Indica o título.");
     if (!(peso >= 0 && peso <= 100)) throw erro(400, "O peso vai de 0 a 100.");
+    abertoOuErro(a.periodo_id);
     const crit = c.b.criterio === undefined ? a.criterio_id : criterioDeTestes(a.turma_id, c.b.criterio).id;
     db.prepare("UPDATE avaliacoes SET titulo = ?, peso = ?, criterio_id = ? WHERE id = ?").run(titulo, peso, crit, a.id);
+    if (peso !== a.peso || titulo !== a.titulo || crit !== a.criterio_id) auditar(c, a.periodo_id, "", "Avaliação alterada", titulo, `${a.titulo}, peso ${a.peso}`, `${titulo}, peso ${peso}`);
     return { ok: true };
   });
-  rota("DELETE", "/api/avaliacoes/:id", (c) => { existe(avalDe(c.p, c.id[0])); db.prepare("DELETE FROM avaliacoes WHERE id = ?").run(c.id[0]); return { ok: true }; });
+  rota("DELETE", "/api/avaliacoes/:id", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    abertoOuErro(a.periodo_id);
+    const n = db.prepare("SELECT COUNT(*) AS n FROM notas WHERE avaliacao_id = ?").get(a.id).n;
+    db.prepare("DELETE FROM avaliacoes WHERE id = ?").run(a.id);
+    auditar(c, a.periodo_id, "", "Avaliação apagada", a.titulo, `${n} notas`, "");
+    return { ok: true };
+  });
   // linhas: [{ aluno, nota }], nota em texto («15», «15,5», «15/20»); vazio apaga.
   rota("PUT", "/api/avaliacoes/:id/notas", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
+    abertoOuErro(a.periodo_id);
     if (db.prepare("SELECT 1 FROM itens WHERE avaliacao_id = ? LIMIT 1").get(a.id)) throw erro(409, "Este teste tem grelha: lança as pontuações na grelha.");
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
     const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
@@ -229,7 +269,9 @@ function criarServidor(env = process.env) {
         if (!doTurma.has(al)) throw erro(400, "Aluno que não pertence à turma.");
         const v = lerNota(l.nota, a.maximo);
         if (Number.isNaN(v)) throw erro(400, `Nota inválida (0 a ${a.maximo}).`);
+        const antes = (db.prepare("SELECT valor FROM notas WHERE avaliacao_id = ? AND aluno_id = ?").get(a.id, al) || {}).valor ?? "";
         if (v === null) del.run(a.id, al); else ups.run(a.id, al, v);
+        if (String(antes) !== String(v ?? "")) auditar(c, a.periodo_id, nomeAluno(al), "Nota", a.titulo, antes, v ?? "");
       }
     });
     return { ok: true };
@@ -287,7 +329,9 @@ function criarServidor(env = process.env) {
   }
   rota("PUT", "/api/avaliacoes/:id/grelha", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
+    abertoOuErro(a.periodo_id);
     gravarGrelha(a, Array.isArray(c.b.itens) ? c.b.itens : null, c.b.substituir);
+    auditar(c, a.periodo_id, "", "Grelha alterada", a.titulo, "", `${(c.b.itens || []).length} questões`);
     return dadosGrelha(existe(avalDe(c.p, a.id)));
   });
   // Testes do docente que já têm grelha (para copiar a estrutura para outro teste).
@@ -297,6 +341,7 @@ function criarServidor(env = process.env) {
   rota("POST", "/api/avaliacoes/:id/grelha/copiar", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
     const origem = existe(avalDe(c.p, inteiro(c.b.de)), "Teste de origem inexistente.");
+    abertoOuErro(a.periodo_id);
     if (origem.id === a.id) throw erro(400, "Escolhe outro teste.");
     const itens = itensDe(origem.id);
     if (!itens.length) throw erro(400, "O teste de origem não tem grelha.");
@@ -310,6 +355,7 @@ function criarServidor(env = process.env) {
   rota("PUT", "/api/avaliacoes/:id/grelha/notas", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 2000) : [];
+    abertoOuErro(a.periodo_id);
     const itens = new Map(itensDe(a.id).map((i) => [i.id, i]));
     if (!itens.size) throw erro(409, "Este teste ainda não tem grelha.");
     const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
@@ -322,7 +368,9 @@ function criarServidor(env = process.env) {
         if (!it) throw erro(400, "Item que não pertence a este teste.");
         const v = lerNota(l.nota, it.cotacao);
         if (Number.isNaN(v)) throw erro(400, `Pontuação inválida em «${it.nome}» (0 a ${it.cotacao}).`);
+        const antes = (db.prepare("SELECT valor FROM notas_itens WHERE item_id = ? AND aluno_id = ?").get(it.id, al) || {}).valor ?? "";
         if (v === null) del.run(it.id, al); else ups.run(it.id, al, v);
+        if (String(antes) !== String(v ?? "")) auditar(c, a.periodo_id, nomeAluno(al), "Pontuação", `${a.titulo}, ${it.nome}`, antes, v ?? "");
       }
       sincronizarGrelha(a);
     });
@@ -339,24 +387,30 @@ function criarServidor(env = process.env) {
     if (!k) throw erro(400, "Critério inválido para esta turma.");
     const n = c.b.nivel === null || c.b.nivel === "" ? null : inteiro(c.b.nivel);
     if (n !== null && (n < 1 || n > 5)) throw erro(400, "O nível vai de 1 a 5.");
+    abertoOuErro(per.id);
+    const nAntes = (db.prepare("SELECT nivel FROM niveis WHERE criterio_id = ? AND periodo_id = ? AND aluno_id = ?").get(k.id, per.id, a.id) || {}).nivel ?? "";
+    if (String(nAntes) !== String(n ?? "")) auditar(c, per.id, a.nome, "Nível", k.nome, nAntes, n ?? "");
     db.prepare("INSERT INTO niveis (criterio_id, periodo_id, aluno_id, nivel) VALUES (?, ?, ?, ?) ON CONFLICT (criterio_id, periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel").run(k.id, per.id, a.id, n);
     return { ok: true };
   });
 
   // ---------- avaliações intercalares: menção qualitativa e descritiva por aluno ----------
   const lerN = (v) => { const n = inteiro(v); if (n !== 1 && n !== 2) throw erro(400, "A intercalar é a 1.ª ou a 2.ª."); return n; };
+  const NIVEIS_VALIDOS = new Set(APR.CRITERIOS.map((k) => k.id));
   function dadosInter(per, n) {
     const d = dadosPauta(per);
-    const linhas = new Map(db.prepare("SELECT aluno_id l, mencao m, descritiva t FROM intercalares WHERE periodo_id = ? AND n = ?").all(per.id, n).map((r) => [r.l, r]));
+    const linhas = new Map(db.prepare("SELECT aluno_id l, mencao m, descritiva t, niveis v FROM intercalares WHERE periodo_id = ? AND n = ?").all(per.id, n).map((r) => [r.l, r]));
+    const generos = new Map(db.prepare("SELECT id, genero FROM alunos WHERE turma_id = ?").all(per.turma_id).map((r) => [r.id, r.genero]));
     return {
-      periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas,
-      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, final: a.final, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "" })),
+      periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas, criterios: APR.CRITERIOS.map((k) => ({ id: k.id, nome: k.nome })), etiquetas: APR.ETIQUETAS,
+      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, genero: generos.get(a.id) || "", final: a.final, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "", niveis: linhas.get(a.id)?.v ? JSON.parse(linhas.get(a.id).v) : {} })),
     };
   }
   rota("GET", "/api/periodos/:id/intercalares", (c, u) => dadosInter(existe(periodoDe(c.p, c.id[0])), lerN(u.searchParams.get("n") || 1)));
-  // linhas: [{ aluno, mencao, descritiva }]; só se grava o que vier no pedido. Menção vazia e descritiva vazia apagam o registo.
+  // linhas: [{ aluno, mencao, descritiva, niveis }]; só se grava o que vier no pedido. Sem menção, descritiva nem níveis, apaga o registo.
   rota("PUT", "/api/periodos/:id/intercalares", (c) => {
     const per = existe(periodoDe(c.p, c.id[0])), n = lerN(c.b.n);
+    abertoOuErro(per.id);
     const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(per.turma_id).map((x) => x.id));
     const ids = new Set(INTERCALAR.map((m) => m.id));
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
@@ -364,12 +418,20 @@ function criarServidor(env = process.env) {
       for (const l of linhas) {
         const al = inteiro(l.aluno);
         if (!doTurma.has(al)) throw erro(400, "Aluno que não pertence à turma.");
-        const atual = db.prepare("SELECT mencao, descritiva FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").get(per.id, al, n) || { mencao: null, descritiva: "" };
-        let mencao = l.mencao === undefined ? atual.mencao : (l.mencao || null);
+        const atual = db.prepare("SELECT mencao, descritiva, niveis FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").get(per.id, al, n) || { mencao: null, descritiva: "", niveis: "" };
+        const mencao = l.mencao === undefined ? atual.mencao : (l.mencao || null);
         if (mencao !== null && !ids.has(mencao)) throw erro(400, "Menção inválida.");
         const descritiva = l.descritiva === undefined ? atual.descritiva : String(l.descritiva ?? "").replace(/\r\n/g, "\n").trim().slice(0, 2000);
-        if (mencao === null && !descritiva) db.prepare("DELETE FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").run(per.id, al, n);
-        else db.prepare("INSERT INTO intercalares (periodo_id, aluno_id, n, mencao, descritiva) VALUES (?, ?, ?, ?, ?) ON CONFLICT (periodo_id, aluno_id, n) DO UPDATE SET mencao = excluded.mencao, descritiva = excluded.descritiva").run(per.id, al, n, mencao, descritiva);
+        let niveis = atual.niveis;
+        if (l.niveis !== undefined) {
+          const o = {};
+          for (const [k, v] of Object.entries(l.niveis || {})) { if (!NIVEIS_VALIDOS.has(k) || !Number.isInteger(v) || v < 1 || v > 5) throw erro(400, "Nível inválido."); o[k] = v; }
+          niveis = Object.keys(o).length ? JSON.stringify(o) : "";
+        }
+        if (mencao === null && !descritiva && !niveis) db.prepare("DELETE FROM intercalares WHERE periodo_id = ? AND aluno_id = ? AND n = ?").run(per.id, al, n);
+        else db.prepare("INSERT INTO intercalares (periodo_id, aluno_id, n, mencao, descritiva, niveis) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (periodo_id, aluno_id, n) DO UPDATE SET mencao = excluded.mencao, descritiva = excluded.descritiva, niveis = excluded.niveis").run(per.id, al, n, mencao, descritiva, niveis);
+        if (mencao !== atual.mencao) auditar(c, per.id, nomeAluno(al), `Menção da ${n}.ª intercalar`, "", atual.mencao || "", mencao || "");
+        if (descritiva !== atual.descritiva) auditar(c, per.id, nomeAluno(al), `Descritiva da ${n}.ª intercalar`, "texto alterado", `${atual.descritiva.length} caracteres`, `${descritiva.length} caracteres`);
       }
     });
     return dadosInter(per, n);
@@ -377,14 +439,23 @@ function criarServidor(env = process.env) {
   // Propõe a menção de cada aluno a partir da nota atual (só preenche os que ainda não têm menção, a menos que `substituir`).
   rota("POST", "/api/periodos/:id/intercalares/propor", (c) => {
     const per = existe(periodoDe(c.p, c.id[0])), n = lerN(c.b.n);
+    abertoOuErro(per.id);
     const d = dadosInter(per, n);
     transacao(() => {
       for (const a of d.alunos) {
         if (!a.proposta || (a.mencao && c.b.substituir !== true)) continue;
         db.prepare("INSERT INTO intercalares (periodo_id, aluno_id, n, mencao, descritiva) VALUES (?, ?, ?, ?, '') ON CONFLICT (periodo_id, aluno_id, n) DO UPDATE SET mencao = excluded.mencao").run(per.id, a.id, n, a.proposta);
+        auditar(c, per.id, a.nome, `Menção da ${n}.ª intercalar (proposta pela nota)`, "", a.mencao || "", a.proposta);
       }
     });
     return dadosInter(per, n);
+  });
+  // Género do aluno (só para os textos das apreciações): M, F ou vazio.
+  rota("PATCH", "/api/alunos/:id", (c) => {
+    const a = existe(alunoDe(c.p, c.id[0]));
+    const g = c.b.genero === "M" || c.b.genero === "F" ? c.b.genero : "";
+    db.prepare("UPDATE alunos SET genero = ? WHERE id = ?").run(g, a.id);
+    return { ok: true };
   });
 
   // Folha de Excel (.xlsx): a pauta e, em folhas à parte, as avaliações intercalares com as descritivas.
@@ -440,6 +511,10 @@ function criarServidor(env = process.env) {
 
   // Administração: quem pode entrar
   const soAdmin = (c) => { if (!c.p.admin) throw erro(403, "Só para administradores."); };
+  registarAdmin({ rota, db, erro, texto, inteiro, existe, transacao, soAdmin, turmaDe, periodoDe, dadosPauta, copias });
+  const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz") };
+  ferramentas.registar(XF);
+  registarQuiz(XF);
   rota("POST", "/api/admin/grupos", (c) => {
     soAdmin(c);
     const nome = texto(c.b.nome, 60);
@@ -570,12 +645,26 @@ function criarServidor(env = process.env) {
   }
 
   // ---------- pedidos ----------
+  // Limite de pedidos por chave (IP) numa janela, para as páginas públicas (sondagens e quizzes).
+  const contadores = new Map();
+  const limitar = (chave, max, janelaMs) => {
+    const t = Date.now(), l = (contadores.get(chave) || []).filter((x) => t - x < janelaMs);
+    if (l.length >= max) { contadores.set(chave, l); return false; }
+    l.push(t); contadores.set(chave, l);
+    return true;
+  };
+  const limpezaContadores = setInterval(() => { const t = Date.now(); for (const [k, l] of contadores) if (!l.length || t - l[l.length - 1] > 120000) contadores.delete(k); VIVO.limparAntigas(); }, 60000);
+  limpezaContadores.unref();
+  const ip = (req) => (env.TRUST_PROXY === "1" ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() : "") || req.socket.remoteAddress || "";
+  const publico = criarPublico({ db, json, corpo, auth, enviarFicheiro: (res, p) => estatico(res, p), limitar, ip, expirada: XF.sondagemExpirada });
+
   const servidor = http.createServer(async (req, res) => {
     for (const [k, v] of Object.entries(CABECALHOS)) res.setHeader(k, v);
     const u = new URL(req.url, BASE_URL);
     const p = u.pathname;
     try {
       if (p === "/healthz") return json(res, 200, { ok: true });
+      if (p.startsWith("/s/") || p.startsWith("/j/") || p === "/jogar") { if (await publico(req, res, u, p)) return; }
 
       if (p === "/auth/entrar") {
         if (DEV && u.searchParams.get("dev")) {
@@ -608,6 +697,14 @@ function criarServidor(env = process.env) {
         const metodo = req.method;
         // Defesa contra pedidos de outros sites: as escritas têm de trazer este cabeçalho, que o navegador não deixa um site de fora pôr.
         if (metodo !== "GET" && req.headers["x-requested-with"] !== "eink") return json(res, 403, { erro: "Pedido recusado." });
+        const cpDown = /^\/api\/admin\/copias\/descarregar$/.exec(p);
+        if (metodo === "GET" && cpDown) {
+          if (!prof.admin) return json(res, 403, { erro: "Só para administradores." });
+          const f = copias.caminho(u.searchParams.get("nome"));
+          if (!f) return json(res, 404, { erro: "Cópia inexistente." });
+          res.writeHead(200, { "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${path.basename(f)}"` });
+          return fs.createReadStream(f).pipe(res);
+        }
         const xlPauta = /^\/api\/periodos\/(\d+)\/pauta\.xlsx$/.exec(p);
         if (metodo === "GET" && xlPauta) {
           const per = existe(periodoDe(prof, Number(xlPauta[1])));
@@ -631,7 +728,7 @@ function criarServidor(env = process.env) {
       }
 
       if (req.method === "GET" || req.method === "HEAD") {
-        if (p !== "/entrar.html" && !p.startsWith("/estilo") && p !== "/manifest.webmanifest" && !sessaoDe(req) && (p === "/" || p.endsWith(".html"))) {
+        if (p !== "/entrar.html" && p !== "/privacidade.html" && !p.startsWith("/estilo") && p !== "/manifest.webmanifest" && !sessaoDe(req) && (p === "/" || p.endsWith(".html"))) {
           res.writeHead(302, { Location: "/entrar.html" }); return res.end();
         }
         if (estatico(res, p)) return;
@@ -645,7 +742,7 @@ function criarServidor(env = process.env) {
       res.end(e.publico || codigo < 500 ? e.message : "Erro interno.");
     }
   });
-  servidor.on("close", () => db.close());
+  servidor.on("close", () => { clearInterval(relogioCopias); clearInterval(limpezaContadores); db.close(); });
   return { servidor, db };
 }
 

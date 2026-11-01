@@ -1,5 +1,5 @@
 "use strict";
-// Ferramentas de sala: temporizador, sorteio, medidor de ruído, chamada e listas de verificação.
+// Ferramentas de sala: temporizador, sorteio, chamada e listas de verificação.
 (() => {
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
   const voltar = '<p><a href="#/">← Painel</a></p>';
@@ -69,37 +69,6 @@
     });
   }
 
-  // ---------- medidor de ruído ----------
-  function ruido() {
-    mostrar(`${voltar}<div class="ecra-grande"><h1>Medidor de ruído</h1>
-      <p class="pequeno">O som é medido no teu navegador e nunca é gravado nem enviado.</p>
-      <div class="barra" role="meter" aria-label="Nível de ruído" id="m"><div id="b"></div></div>
-      <p id="est" class="sorteado">–</p>
-      <p><label style="display:inline-grid">Limite (sensibilidade)<input id="lim" type="range" min="10" max="90" value="${ler("ruido", 60)}"></label></p>
-      <p><button id="lig">Ligar microfone</button></p></div>`);
-    let ctx, fluxo, quadro;
-    $("#lim").oninput = (e) => guardar("ruido", +e.target.value);
-    const parar = () => { cancelAnimationFrame(quadro); fluxo?.getTracks().forEach((t) => t.stop()); ctx?.close(); ctx = fluxo = null; };
-    limpeza = parar;
-    $("#lig").onclick = async () => {
-      if (ctx) { parar(); $("#lig").textContent = "Ligar microfone"; $("#est").textContent = "–"; $("#b").style.width = "0"; return; }
-      try { fluxo = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return aviso("Sem acesso ao microfone.", true); }
-      ctx = new AudioContext(); const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(fluxo).connect(an);
-      const buf = new Float32Array(an.fftSize); let suave = 0; $("#lig").textContent = "Desligar";
-      const passo = () => {
-        an.getFloatTimeDomainData(buf);
-        const rms = Math.sqrt(buf.reduce((z, x) => z + x * x, 0) / buf.length);
-        const nivel = Math.max(0, Math.min(100, (20 * Math.log10(rms || 1e-6) + 60) * (100 / 60))); // -60 dB a 0 dB → 0 a 100
-        suave = suave * .85 + nivel * .15;
-        const lim = +$("#lim").value;
-        $("#b").style.width = suave + "%"; $("#b").style.background = suave > lim ? "var(--erro)" : suave > lim * .75 ? "var(--aviso)" : "var(--ok)";
-        $("#est").textContent = suave > lim ? "Demasiado alto" : suave > lim * .75 ? "Atenção" : "Silêncio";
-        quadro = requestAnimationFrame(passo);
-      };
-      passo();
-    };
-  }
-
   // ---------- chamada ----------
   function chamada() {
     comTurma("Chamada", async (t, el) => {
@@ -135,5 +104,5 @@
     pintar();
   }
 
-  EINK.rotas.push([/^\/temporizador$/, temporizador], [/^\/sorteio$/, sorteio], [/^\/ruido$/, ruido], [/^\/chamada$/, chamada], [/^\/listas$/, listas]);
+  EINK.rotas.push([/^\/temporizador$/, temporizador], [/^\/sorteio$/, sorteio], [/^\/chamada$/, chamada], [/^\/listas$/, listas]);
 })();

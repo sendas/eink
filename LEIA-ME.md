@@ -28,8 +28,19 @@ npm test
 5. Entra com o administrador (`ADMIN_USERS`, ou o grupo `GRUPO_ADMIN_ID`). Em «Critérios», define para cada grupo disciplinar os critérios e os pesos (somam 100 %)
    e as casas decimais da nota final (1 ou 2); em «Docentes», atribui o grupo disciplinar a cada docente.
 
-Os dados ficam no volume `eink-dados`. Cópia de segurança: `docker compose exec eink wget -qO- localhost:3000/healthz` verifica o serviço;
-para copiar a base, `docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine tar czf /b/dados.tgz -C /d .`.
+Os dados ficam no volume `eink-dados` (a base de dados é `eink.db`).
+
+### Cópias de segurança e reposição
+
+A plataforma copia a base de dados todos os dias para `copias/` (no mesmo volume) e guarda as 14 mais recentes. Como estão na mesma VPS, descarrega uma de vez em quando
+(Gestão, Cópias de segurança) e guarda-a noutro sítio, por exemplo no OneDrive da escola. Para repor uma cópia:
+
+```bash
+docker compose stop eink
+docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine sh -c 'gunzip -c /b/eink-AAAA-MM-DD-HHMMSS.db.gz > /d/eink.db && rm -f /d/eink.db-wal /d/eink.db-shm'
+docker compose start eink
+```
+ `docker compose exec eink wget -qO- localhost:3000/healthz` verifica o serviço.
 
 ## Regras importantes
 
@@ -39,4 +50,7 @@ para copiar a base, `docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine tar
   quantos testes quiserem, cada um com o seu peso. Cada teste pode ter uma grelha (questões e cotações) onde se lança a pontuação de cada aluno.
   Níveis 1 a 5 pelos limites 20, 50, 70 e 90 %.
 - Avaliações intercalares (1.ª e 2.ª de cada período): menção qualitativa (Não satisfaz, Satisfaz, Satisfaz bastante), proposta pela nota, e descritiva por aluno.
+- Gestão (administradores): fecho de períodos (bloqueia notas depois do conselho de turma), registo de alterações (quem mudou o quê), cópias de segurança e privacidade/retenção.
+- Ferramentas de sala: temporizador, sorteio, chamada, listas, sondagem com código, mapa de sala, quadros e quizzes ao vivo (estilo Kahoot, com modelos do tic.techpro.pt).
+  Os alunos entram nas sondagens (`/s/CÓDIGO`) e nos quizzes (`/j/CÓDIGO` ou `/jogar`) sem conta, só com um código e, nos quizzes, uma alcunha.
 - A pauta descarrega-se em Excel (.xlsx, com as intercalares em folhas à parte) ou em CSV.
