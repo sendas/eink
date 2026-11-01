@@ -10,7 +10,7 @@
     mostrar(`<p><a href="#/pauta/${id}">← Pauta</a></p><h1>Avaliação intercalar · ${esc(d.periodo.nome)}</h1>
       <div class="linha"><nav class="linha" aria-label="Intercalar">${[1, 2].map((k) => `<a class="botao ${k === n ? "" : "sec"}" href="#/intercalares/${id}/${k}">${k}.ª intercalar</a>`).join("")}</nav>
         <button class="sec" id="propor" type="button">Propor menções pelas notas</button></div>
-      <p class="pequeno">A menção qualitativa propõe-se pela nota atual de cada aluno: níveis 1 e 2 = Não satisfaz, nível 3 = Satisfaz, nível 4 = Bom, nível 5 = Muito bom. Podes mudá-la à mão e escrever uma descritiva para cada aluno; guarda-se ao sair do campo.</p>
+      <p class="pequeno">A menção qualitativa propõe-se pela nota atual de cada aluno: níveis 1 e 2 = Não satisfaz, nível 3 = Satisfaz, níveis 4 e 5 = Satisfaz bastante. Podes mudá-la à mão e escrever uma descritiva para cada aluno; guarda-se ao sair do campo.</p>
       <div class="tabela-rolagem"><table><thead><tr><th class="num">N.º</th><th>Aluno</th><th class="num">Nota atual</th><th>Menção pela nota</th><th>Menção intercalar</th><th>Descritiva</th></tr></thead>
       <tbody>${d.alunos.map((a) => `<tr data-aluno="${a.id}"><td class="num">${a.numero ?? ""}</td><th scope="row">${esc(a.nome)}</th>
         <td class="num">${a.final === null ? "" : num(a.final, d.casas) + (a.parcial ? "*" : "")}</td><td>${esc(a.mencaoNota || "")}</td>

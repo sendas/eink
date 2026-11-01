@@ -1,10 +1,18 @@
 :root {
   --fundo: #f4f6fb; --cartao: #fff; --texto: #1d2433; --suave: #5b6578; --linha: #dfe4ef;
-  --marca: #3b5bdb; --marca-fundo: #e7ecff; --ok: #2b8a3e; --aviso: #e8590c; --erro: #c92a2a;
-  --raio: 14px;
+  --marca: #3b5bdb; --marca-fundo: #e7ecff; --sobre-marca: #fff; --ok: #2b8a3e; --aviso: #e8590c; --erro: #c92a2a;
+  --raio: 14px; color-scheme: light;
+}
+/* Modo escuro: automático pelo sistema, ou escolhido no botão do cabeçalho (data-tema="claro" | "escuro" no <html>, ver tema.js). */
+:root[data-tema="escuro"] {
+  --fundo: #12151d; --cartao: #1b202c; --texto: #e8ecf5; --suave: #a3adc2; --linha: #2c3445;
+  --marca: #8da2ff; --marca-fundo: #262f52; --sobre-marca: #0f1530; --ok: #69db7c; --aviso: #ffa94d; --erro: #ff8787; color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --fundo: #12151d; --cartao: #1b202c; --texto: #e8ecf5; --suave: #9aa4ba; --linha: #2c3445; --marca: #7c93ff; --marca-fundo: #262f52; }
+  :root:not([data-tema="claro"]) {
+    --fundo: #12151d; --cartao: #1b202c; --texto: #e8ecf5; --suave: #a3adc2; --linha: #2c3445;
+    --marca: #8da2ff; --marca-fundo: #262f52; --sobre-marca: #0f1530; --ok: #69db7c; --aviso: #ffa94d; --erro: #ff8787; color-scheme: dark;
+  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.5 system-ui, "Segoe UI", sans-serif; }
@@ -30,7 +38,7 @@ label { display: grid; gap: .2rem; font-size: .85rem; color: var(--suave); }
 input, select, textarea, button { font: inherit; color: inherit; }
 input, select, textarea { padding: .45rem .6rem; border: 1px solid var(--linha); border-radius: 8px; background: var(--fundo); min-width: 0; }
 textarea { width: 100%; min-height: 8rem; }
-button, .botao { padding: .5rem .9rem; border: 1px solid var(--marca); background: var(--marca); color: #fff; border-radius: 10px; cursor: pointer; text-decoration: none; display: inline-block; }
+button, .botao { padding: .5rem .9rem; border: 1px solid var(--marca); background: var(--marca); color: var(--sobre-marca); border-radius: 10px; cursor: pointer; text-decoration: none; display: inline-block; }
 button.sec, .botao.sec { background: transparent; color: var(--marca); }
 button.perigo { border-color: var(--erro); background: transparent; color: var(--erro); }
 button:disabled { opacity: .5; cursor: default; }
@@ -52,7 +60,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .caixa-entrar { text-align: center; max-width: 420px; padding: 1.5rem; }
 #aviso { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--texto); color: var(--fundo); padding: .6rem 1rem; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
 #aviso.ver { opacity: 1; }
-#aviso.mau { background: var(--erro); color: #fff; }
+#aviso.mau { background: var(--erro); color: var(--fundo); }
 .ecra-grande { text-align: center; }
 .relogio { font-size: clamp(4rem, 18vw, 10rem); font-weight: 800; font-variant-numeric: tabular-nums; margin: .5rem 0; }
 .relogio.fim { color: var(--erro); }
@@ -60,8 +68,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .barra { height: 2.2rem; background: var(--linha); border-radius: 999px; overflow: hidden; }
 .barra > div { height: 100%; width: 0; background: var(--ok); transition: width .1s, background .2s; }
 .estados button { min-width: 2.4rem; background: transparent; color: var(--texto); border-color: var(--linha); }
-.estados button[aria-pressed="true"] { background: var(--marca); color: #fff; border-color: var(--marca); }
+.estados button[aria-pressed="true"] { background: var(--marca); color: var(--sobre-marca); border-color: var(--marca); }
 .grupos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .6rem; text-align: left; }
 @media (max-width: 600px) { .topo { flex-wrap: wrap; } .utilizador { width: 100%; } }
 main:focus { outline: none; }
 th[scope="row"] { position: sticky; left: 0; z-index: 1; }
+
+.tema-bot { background: transparent; color: var(--texto); border: 1px solid var(--linha); padding: .25rem .6rem; font-size: .85rem; }

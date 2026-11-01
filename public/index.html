@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>eink · Ferramentas e avaliação para docentes</title>
 <link rel="stylesheet" href="/estilo.css">
+<script src="/tema.js"></script>
 </head>
 <body>
 <header class="topo">
@@ -15,7 +16,7 @@
     <a href="#/admin" id="nav-admin" hidden>Docentes</a>
     <a href="#/criterios" id="nav-crit" hidden>Critérios</a>
   </nav>
-  <span class="utilizador"><span id="nome"></span> · <a href="/auth/sair">Sair</a></span>
+  <span class="utilizador"><button type="button" class="tema-bot" id="tema" title="Mudar o tema"></button> <span id="nome"></span> · <a href="/auth/sair">Sair</a></span>
 </header>
 <main id="vista" tabindex="-1"></main>
 <div id="aviso" role="status" aria-live="polite"></div>

@@ -347,16 +347,16 @@ test("API: copiar grelha, reordenar questões, intercalares e Excel", async (t) 
   const nota = async (aval, aluno, v) => ana.chamar("PUT", `/api/avaliacoes/${aval}/grelha/notas`, { linhas: [{ aluno: aluno.id, item: (await ana.chamar("GET", `/api/avaliacoes/${aval}/grelha`)).d.itens[0].id, nota: String(v) }] });
   await nota(t2, a2, 5); await nota(t2, a3, 10); // a grelha de T2 vale 20 pontos: 5 = 25 % e 10 = 50 %
   let i = (await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).d;
-  assert.deepStrictEqual(i.mencoes.map((m) => m.nome), ["Não satisfaz", "Satisfaz", "Bom", "Muito bom"]);
+  assert.deepStrictEqual(i.mencoes.map((m) => m.nome), ["Não satisfaz", "Satisfaz", "Satisfaz bastante"]);
   const prop = await ana.chamar("POST", `/api/periodos/${per}/intercalares/propor`, { n: 1 });
   assert.strictEqual(prop.estado, 200);
   const por = Object.fromEntries(prop.d.alunos.map((a) => [a.nome, a.mencao]));
-  assert.strictEqual(por.Ana, "b", "Ana: 14/20 = 70 % = nível 4 = Bom");
+  assert.strictEqual(por.Ana, "sb", "Ana: 14/20 = 70 % = nível 4 = Satisfaz bastante");
   assert.strictEqual(por.Bruno, "ns", "Bruno: 25 % = nível 2 = Não satisfaz");
   assert.strictEqual(por.Carla, "st", "Carla: 50 % = nível 3 = Satisfaz");
-  await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: "b", descritiva: "  Bom trabalho.\nContinuar assim.  " }] });
+  await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: "sb", descritiva: "  Bom trabalho.\nContinuar assim.  " }] });
   i = (await ana.chamar("GET", `/api/periodos/${per}/intercalares?n=1`)).d;
-  assert.strictEqual(i.alunos[0].mencao, "b");
+  assert.strictEqual(i.alunos[0].mencao, "sb");
   assert.strictEqual(i.alunos[0].descritiva, "Bom trabalho.\nContinuar assim.");
   assert.strictEqual((await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 1, linhas: [{ aluno: a1.id, mencao: "ótimo" }] })).estado, 400);
   assert.strictEqual((await ana.chamar("PUT", `/api/periodos/${per}/intercalares`, { n: 3, linhas: [] })).estado, 400);
