@@ -1,3 +1,7 @@
+# ATENÇÃO: o endereço 127.0.0.1:8093 só funciona se o Caddy corre diretamente no servidor. Se o Caddy corre dentro de um contentor Docker
+# (como no Helpdesk), 127.0.0.1 é o próprio contentor do Caddy e não chega aqui: nesse caso liga-se o contentor da eink à mesma rede do Caddy
+# e usa-se `reverse_proxy eink:3000`. Descobre qual é o teu caso com:  docker ps --format "table {{.Names}}\t{{.Ports}}"
+#
 # Para o Caddy que já serve o site do agrupamento e o Helpdesk: acrescenta só este bloco ao Caddyfile existente
 # (troca o endereço pelo que escolheres) e recarrega o Caddy.
 #   Caddy no sistema:   sudo systemctl reload caddy
