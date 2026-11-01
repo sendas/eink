@@ -35,31 +35,32 @@ docker compose -f docker-compose.unraid.yml up -d --build
 docker logs eink
 ```
 
-## Instalação no servidor (Docker e Caddy já instalados, como o site do agrupamento e o Helpdesk)
+## Instalação no servidor (VPS Ubuntu ou Debian)
 
-Não é preciso instalar nada no servidor: a plataforma corre num contentor que só fica acessível em `127.0.0.1:8093`, e o Caddy que já existe encaminha um endereço novo para lá.
+Uma VPS nova só traz o sistema. A plataforma corre num contentor Docker que só fica acessível dentro do servidor (`127.0.0.1:8093`), e o **Caddy** (o programa que recebe as visitas e trata do cadeado HTTPS)
+encaminha o endereço público para lá. Só pode haver um programa nas portas 80 e 443: se o site do agrupamento e o Helpdesk vão para o mesmo servidor, partilham **o mesmo Caddy**,
+com um bloco por endereço no `/etc/caddy/Caddyfile` (o do site do agrupamento está no `Caddyfile.exemplo` do repositório dele).
 
 **1. Microsoft Entra ID.** Podes usar o **mesmo registo de aplicação** do site do agrupamento: em Registos de aplicações → o registo → Autenticação → Web → *Adicionar URI*,
 acrescenta `https://sala.queiroz.pt/auth/callback` (o endereço que escolheres). Assim usas o mesmo ID do inquilino, o mesmo ID da aplicação e o mesmo segredo. Se preferires um registo à parte, cria-o com esse redirecionamento.
 (O «URI de redirecionamento» é só o endereço para onde a Microsoft devolve o utilizador depois do login; não é nada de rede.)
 
-**2. DNS.** Um registo **A** do endereço novo (por exemplo `sala.queiroz.pt`) para o mesmo IP do servidor, onde já está o `www.queiroz.pt`. Se o domínio estiver no Cloudflare, é o mesmo registo, só com outro nome.
+**2. DNS.** Um registo **A** do endereço novo (por exemplo `sala.queiroz.pt`) para o IP da VPS (o mesmo do `www.queiroz.pt`, se for o mesmo servidor). Se o fornecedor da VPS tem firewall no painel, as portas 80 e 443 têm de estar abertas.
 
-**3. No servidor** (a firewall e as portas 80 e 443 já estão como as do site do agrupamento):
+**3. No servidor, como root:**
 ```bash
-git clone https://github.com/sendas/eink.git /opt/eink     # repositório privado: com o mesmo token ou chave que usas nos outros
-cd /opt/eink
-cp .env.example .env && nano .env                           # BASE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, ADMIN_USERS, DOMINIOS_PERMITIDOS...
-mkdir -p data && sudo chown 1000:1000 data                  # o contentor corre com o utilizador 1000
-chmod +x deploy.sh scripts/*.sh
+git clone https://github.com/sendas/eink.git /opt/eink && cd /opt/eink    # repositório privado: com o mesmo token ou chave que usas nos outros
+sudo bash scripts/preparar-servidor.sh sala.queiroz.pt                    # instala o Docker e o Caddy se faltarem e regista o endereço
+cp .env.example .env && nano .env                                         # BASE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, ADMIN_USERS, DOMINIOS_PERMITIDOS...
+mkdir -p data && chown 1000:1000 data && chmod +x deploy.sh scripts/*.sh  # o contentor corre com o utilizador 1000
 docker compose up -d --build
-docker compose logs -f eink                                 # Ctrl+C para sair
+docker compose logs -f eink                                               # Ctrl+C para sair
 ```
+O `preparar-servidor.sh` não mexe na firewall nem noutros sites; só acrescenta o bloco do endereço ao Caddyfile (com cópia do anterior) e valida-o antes de recarregar.
+Se o servidor **já tiver** um Caddy (ou outro proxy) a usar as portas 80/443, ele pára e explica; nesse caso acrescenta o bloco de `Caddyfile.exemplo` ao proxy existente
+(atenção: se esse Caddy corre dentro de um contentor, o `127.0.0.1` não chega aqui; vê o aviso no ficheiro). Para saber: `docker ps --format "table {{.Names}}\t{{.Ports}}"`.
 
-**4. Caddy.** Acrescenta ao Caddyfile existente o bloco de `Caddyfile.exemplo` (troca o endereço) e recarrega o Caddy
-(`sudo systemctl reload caddy`, ou `docker exec <contentor-caddy> caddy reload --config /etc/caddy/Caddyfile` se o Caddy corre em Docker). O certificado HTTPS do endereço novo é pedido sozinho.
-
-**5. Primeira entrada** com um administrador (`ADMIN_USERS`). Em «Gestão → Critérios» define os critérios de cada disciplina e ano, e em «Docentes» atribui a disciplina a cada docente.
+**4. Primeira entrada** com um administrador (`ADMIN_USERS`). Em «Gestão → Critérios» define os critérios de cada disciplina e ano, e em «Docentes» atribui a disciplina a cada docente.
 
 **Atualizar** (de cada vez que houver uma versão nova no GitHub):
 ```bash
