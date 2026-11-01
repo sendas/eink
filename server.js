@@ -7,6 +7,7 @@ const crypto = require("node:crypto");
 const criarAuth = require("./lib/auth");
 const { abrir } = require("./lib/db");
 const { pauta, lerNota, NIVEIS } = require("./lib/avaliacao");
+const { ehMembro } = require("./lib/grupo");
 
 function criarServidor(env = process.env) {
   const DATA_DIR = env.DATA_DIR || path.join(__dirname, "data");
@@ -14,6 +15,10 @@ function criarServidor(env = process.env) {
   const lista = (s) => String(s || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
   const ADMINS = lista(env.ADMIN_USERS);
   const DOMINIOS = lista(env.DOMINIOS_PERMITIDOS);
+  // Como no helpdesk-escolar: quem entra é quem pertence ao grupo «docentes» do Entra ID (ID do grupo); sem esta variável, vale a lista de docentes do administrador.
+  const GRUPO_DOCENTES = String(env.GRUPO_DOCENTES_ID || "").trim();
+  const GRUPO_ADMIN = String(env.GRUPO_ADMIN_ID || "").trim();
+  const GRAPH_URL = env.GRAPH_URL || "https://graph.microsoft.com/v1.0";
   // Entrada de teste sem Microsoft: só em http (nunca em produção com HTTPS).
   const DEV = env.DEV_LOGIN === "1" && !BASE_URL.startsWith("https://");
   const PUBLIC = path.join(__dirname, "public");
@@ -51,9 +56,17 @@ function criarServidor(env = process.env) {
 
   // Um docente só entra se estiver na lista (ou for administrador). O domínio escolar também inclui alunos,
   // por isso o domínio, sozinho, nunca chega.
-  function professorDe(upn, nome) {
+  // `grupo`: undefined = modo lista; true/false = pertence (ou não) ao grupo «docentes» no Entra ID. `adminGrupo`: pertence ao grupo de administradores.
+  function professorDe(upn, nome, grupo, adminGrupo) {
+    const admin = ADMINS.includes(upn) || adminGrupo === true;
     let p = db.prepare("SELECT * FROM professores WHERE upn = ?").get(upn);
-    if (!p && ADMINS.includes(upn)) {
+    if (grupo !== undefined) {
+      // Modo grupo: a pertença ao grupo manda. Quem sai do grupo fica desativado e deixa de ter sessão válida.
+      if (!grupo && !admin) { if (p && p.ativo) db.prepare("UPDATE professores SET ativo = 0 WHERE id = ?").run(p.id); return null; }
+      if (!p) { db.prepare("INSERT INTO professores (upn, nome, admin) VALUES (?, ?, ?)").run(upn, nome, admin ? 1 : 0); p = db.prepare("SELECT * FROM professores WHERE upn = ?").get(upn); }
+      else if (!p.ativo) { db.prepare("UPDATE professores SET ativo = 1 WHERE id = ?").run(p.id); p.ativo = 1; }
+      if (GRUPO_ADMIN && !!p.admin !== admin) { db.prepare("UPDATE professores SET admin = ? WHERE id = ?").run(admin ? 1 : 0, p.id); p.admin = admin ? 1 : 0; }
+    } else if (!p && admin) {
       db.prepare("INSERT INTO professores (upn, nome, admin) VALUES (?, ?, 1)").run(upn, nome);
       p = db.prepare("SELECT * FROM professores WHERE upn = ?").get(upn);
     }
@@ -76,22 +89,22 @@ function criarServidor(env = process.env) {
   const transacao = (fn) => { db.exec("BEGIN"); try { const r = fn(); db.exec("COMMIT"); return r; } catch (e) { db.exec("ROLLBACK"); throw e; } };
 
   const criteriosDe = (grupoId) => db.prepare("SELECT id, nome, peso, tipo, ordem FROM criterios WHERE grupo_id = ? ORDER BY ordem, id").all(grupoId);
-  const grupoCom = (id) => { const g = db.prepare("SELECT id, nome FROM grupos WHERE id = ?").get(id); return g && { ...g, criterios: criteriosDe(g.id) }; };
+  const grupoCom = (id) => { const g = db.prepare("SELECT id, nome, casas FROM grupos WHERE id = ?").get(id); return g && { ...g, criterios: criteriosDe(g.id) }; };
 
   function dadosPauta(per) {
     const turma = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
     const grupo = grupoCom(turma.grupo_id);
     const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(per.turma_id);
-    const avaliacoes = db.prepare("SELECT * FROM avaliacoes WHERE periodo_id = ? ORDER BY ordem, id").all(per.id);
+    const avaliacoes = db.prepare("SELECT a.*, (SELECT COUNT(*) FROM itens WHERE avaliacao_id = a.id) AS n_itens FROM avaliacoes a WHERE periodo_id = ? ORDER BY ordem, id").all(per.id);
     const notas = new Map();
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
     const niveis = new Map(db.prepare("SELECT criterio_id c, aluno_id l, nivel n FROM niveis WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.n]));
-    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis });
+    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, casas: grupo.casas });
     return { periodo: per, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
   }
   const csv = (d) => {
     const c = (v) => { let s = v === null || v === undefined ? "" : String(v); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    const n1 = (v) => (v === null || v === undefined ? "" : String(Math.round(v * 10) / 10).replace(".", ","));
+    const n1 = (v) => (v === null || v === undefined ? "" : String(Math.round(v * 100) / 100).replace(".", ","));
     const cab = ["N.º", "Nome"];
     for (const k of d.criterios) {
       if (k.tipo === "nivel") cab.push(`${k.nome} (${k.peso} %, nível)`);
@@ -117,7 +130,7 @@ function criarServidor(env = process.env) {
 
 
   // Turmas e alunos
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, dev: DEV }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV }));
   rota("GET", "/api/turmas", (c) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? ORDER BY t.nome").all(c.p.id));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCom(g.id)));
@@ -196,6 +209,7 @@ function criarServidor(env = process.env) {
   // linhas: [{ aluno, nota }], nota em texto («15», «15,5», «15/20»); vazio apaga.
   rota("PUT", "/api/avaliacoes/:id/notas", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
+    if (db.prepare("SELECT 1 FROM itens WHERE avaliacao_id = ? LIMIT 1").get(a.id)) throw erro(409, "Este teste tem grelha: lança as pontuações na grelha.");
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
     const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
     const ups = db.prepare("INSERT INTO notas (avaliacao_id, aluno_id, valor) VALUES (?, ?, ?) ON CONFLICT (avaliacao_id, aluno_id) DO UPDATE SET valor = excluded.valor");
@@ -211,6 +225,82 @@ function criarServidor(env = process.env) {
     });
     return { ok: true };
   });
+  // ---------- grelha de um teste: itens com cotação e pontuação de cada aluno ----------
+  const itensDe = (id) => db.prepare("SELECT id, grupo, nome, cotacao FROM itens WHERE avaliacao_id = ? ORDER BY ordem, id").all(id);
+  // A nota de cada aluno no teste é a soma das suas pontuações; sem nenhuma pontuação, fica sem nota.
+  function sincronizarGrelha(a) {
+    const somas = db.prepare("SELECT ni.aluno_id l, SUM(ni.valor) v FROM notas_itens ni JOIN itens i ON i.id = ni.item_id WHERE i.avaliacao_id = ? AND ni.valor IS NOT NULL GROUP BY ni.aluno_id").all(a.id);
+    db.prepare("DELETE FROM notas WHERE avaliacao_id = ?").run(a.id);
+    const ins = db.prepare("INSERT INTO notas (avaliacao_id, aluno_id, valor) VALUES (?, ?, ?)");
+    for (const x of somas) ins.run(a.id, x.l, Math.round(x.v * 10000) / 10000);
+  }
+  function dadosGrelha(a) {
+    const itens = itensDe(a.id);
+    const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(a.turma_id);
+    const marcas = new Map(db.prepare("SELECT ni.item_id i, ni.aluno_id l, ni.valor v FROM notas_itens ni JOIN itens it ON it.id = ni.item_id WHERE it.avaliacao_id = ? AND ni.valor IS NOT NULL").all(a.id).map((r) => [r.i + ":" + r.l, r.v]));
+    const totais = new Map(db.prepare("SELECT aluno_id l, valor v FROM notas WHERE avaliacao_id = ?").all(a.id).map((r) => [r.l, r.v]));
+    return {
+      avaliacao: { id: a.id, titulo: a.titulo, maximo: a.maximo, periodo_id: a.periodo_id, turma_id: a.turma_id },
+      itens,
+      alunos: alunos.map((al) => ({ ...al, marcas: Object.fromEntries(itens.filter((i) => marcas.has(i.id + ":" + al.id)).map((i) => [i.id, marcas.get(i.id + ":" + al.id)])), total: totais.has(al.id) ? totais.get(al.id) : null })),
+    };
+  }
+  rota("GET", "/api/avaliacoes/:id/grelha", (c) => dadosGrelha(existe(avalDe(c.p, c.id[0]))));
+  // Substitui os itens da grelha (lista vazia = sem grelha, as notas ficam como estão). O máximo do teste passa a ser a soma das cotações.
+  rota("PUT", "/api/avaliacoes/:id/grelha", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    const lista = Array.isArray(c.b.itens) ? c.b.itens : null;
+    if (!lista || lista.length > 60) throw erro(400, "A grelha tem de 1 a 60 itens.");
+    const atuais = new Map(itensDe(a.id).map((i) => [i.id, i]));
+    const vistos = new Set();
+    const novos = lista.map((x, i) => {
+      const nome = texto(x.nome, 80), grupo = texto(x.grupo, 60), cotacao = Number(String(x.cotacao).replace(",", "."));
+      if (!nome) throw erro(400, "Todos os itens precisam de nome.");
+      if (!(cotacao > 0 && cotacao <= 1000)) throw erro(400, `A cotação de «${nome}» tem de ser maior que 0.`);
+      const id = x.id === undefined || x.id === null ? null : inteiro(x.id);
+      if (id !== null) { if (!atuais.has(id) || vistos.has(id)) throw erro(400, "Item que não pertence a este teste."); vistos.add(id); }
+      return { id, nome, grupo, cotacao, ordem: i };
+    });
+    transacao(() => {
+      if (!novos.length) { db.prepare("DELETE FROM itens WHERE avaliacao_id = ?").run(a.id); return; }
+      if (!atuais.size && db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id) && c.b.substituir !== true) throw erro(409, "Este teste já tem notas lançadas diretamente: ao criar a grelha serão apagadas.");
+      for (const k of novos) {
+        if (k.id !== null && db.prepare("SELECT 1 FROM notas_itens WHERE item_id = ? AND valor > ? LIMIT 1").get(k.id, k.cotacao)) throw erro(409, `Há pontuações acima da nova cotação de «${k.nome}».`);
+      }
+      for (const [id] of atuais) if (!vistos.has(id)) db.prepare("DELETE FROM itens WHERE id = ?").run(id);
+      for (const k of novos) {
+        if (k.id === null) db.prepare("INSERT INTO itens (avaliacao_id, grupo, nome, cotacao, ordem) VALUES (?, ?, ?, ?, ?)").run(a.id, k.grupo, k.nome, k.cotacao, k.ordem);
+        else db.prepare("UPDATE itens SET grupo = ?, nome = ?, cotacao = ?, ordem = ? WHERE id = ?").run(k.grupo, k.nome, k.cotacao, k.ordem, k.id);
+      }
+      const max = Math.round(novos.reduce((z, k) => z + k.cotacao, 0) * 10000) / 10000;
+      db.prepare("UPDATE avaliacoes SET maximo = ? WHERE id = ?").run(max, a.id);
+      sincronizarGrelha(a);
+    });
+    return dadosGrelha(existe(avalDe(c.p, a.id)));
+  });
+  // linhas: [{ aluno, item, nota }]; nota em texto («1,5», «3/4»), vazio apaga. Cada pontuação vai de 0 à cotação do item.
+  rota("PUT", "/api/avaliacoes/:id/grelha/notas", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 2000) : [];
+    const itens = new Map(itensDe(a.id).map((i) => [i.id, i]));
+    if (!itens.size) throw erro(409, "Este teste ainda não tem grelha.");
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
+    const ups = db.prepare("INSERT INTO notas_itens (item_id, aluno_id, valor) VALUES (?, ?, ?) ON CONFLICT (item_id, aluno_id) DO UPDATE SET valor = excluded.valor");
+    const del = db.prepare("DELETE FROM notas_itens WHERE item_id = ? AND aluno_id = ?");
+    transacao(() => {
+      for (const l of linhas) {
+        const al = inteiro(l.aluno), it = itens.get(inteiro(l.item));
+        if (!doTurma.has(al)) throw erro(400, "Aluno que não pertence à turma.");
+        if (!it) throw erro(400, "Item que não pertence a este teste.");
+        const v = lerNota(l.nota, it.cotacao);
+        if (Number.isNaN(v)) throw erro(400, `Pontuação inválida em «${it.nome}» (0 a ${it.cotacao}).`);
+        if (v === null) del.run(it.id, al); else ups.run(it.id, al, v);
+      }
+      sincronizarGrelha(a);
+    });
+    return dadosGrelha(a);
+  });
+
   // Nível 1 a 5 de um critério do tipo «nivel» (por exemplo, comportamento) para um aluno e período.
   rota("PUT", "/api/periodos/:id/niveis", (c) => {
     const per = existe(periodoDe(c.p, c.id[0]));
@@ -267,6 +357,8 @@ function criarServidor(env = process.env) {
     if (!nome) throw erro(400, "Indica o nome do grupo.");
     const outro = db.prepare("SELECT id FROM grupos WHERE nome = ?").get(nome);
     if (outro && outro.id !== g.id) throw erro(400, "Já existe um grupo com esse nome.");
+    const casas = c.b.casas === undefined ? g.casas : inteiro(c.b.casas);
+    if (casas !== 1 && casas !== 2) throw erro(400, "A nota final leva 1 ou 2 casas decimais.");
     const lista = Array.isArray(c.b.criterios) ? c.b.criterios : null;
     if (!lista || lista.length < 1 || lista.length > 8) throw erro(400, "Define de 1 a 8 critérios.");
     const atuais = new Map(criteriosDe(g.id).map((k) => [k.id, k]));
@@ -299,7 +391,7 @@ function criarServidor(env = process.env) {
         if (k.id === null) db.prepare("INSERT INTO criterios (grupo_id, nome, peso, tipo, ordem) VALUES (?, ?, ?, ?, ?)").run(g.id, k.nome, k.peso, k.tipo, k.ordem);
         else db.prepare("UPDATE criterios SET nome = ?, peso = ?, ordem = ? WHERE id = ?").run(k.nome, k.peso, k.ordem, k.id);
       }
-      db.prepare("UPDATE grupos SET nome = ? WHERE id = ?").run(nome, g.id);
+      db.prepare("UPDATE grupos SET nome = ?, casas = ? WHERE id = ?").run(nome, casas, g.id);
     });
     return grupoCom(g.id);
   });
@@ -365,7 +457,8 @@ function criarServidor(env = process.env) {
       if (p === "/auth/entrar") {
         if (DEV && u.searchParams.get("dev")) {
           const upn = texto(u.searchParams.get("dev"), 120).toLowerCase();
-          const prof = professorDe(upn, upn.split("@")[0]);
+          // Em modo grupo, a entrada de teste simula pertencer ao grupo (a menos que se junte &fora=1) e ao de administradores (&admin=1).
+          const prof = professorDe(upn, upn.split("@")[0], GRUPO_DOCENTES ? u.searchParams.get("fora") !== "1" : undefined, GRUPO_ADMIN ? u.searchParams.get("admin") === "1" : undefined);
           if (!prof) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Conta sem acesso."); }
           auth.criarSessao(res, upn, prof.nome);
           res.writeHead(302, { Location: "/" }); return res.end();
@@ -375,8 +468,11 @@ function criarServidor(env = process.env) {
       if (p === "/auth/callback") {
         const c = await auth.concluir(req, res, u);
         if (DOMINIOS.length && !DOMINIOS.includes(c.dominio)) throw Object.assign(erro(403, "Este domínio não tem acesso."), { publico: true });
-        const prof = professorDe(c.upn, c.nome);
-        if (!prof) throw Object.assign(erro(403, "A tua conta ainda não tem acesso. Pede a um administrador que a adicione."), { publico: true });
+        let doGrupo, adminGrupo;
+        if (GRUPO_DOCENTES) doGrupo = await ehMembro(c.accessToken, GRUPO_DOCENTES, { graphUrl: GRAPH_URL });
+        if (GRUPO_ADMIN) adminGrupo = await ehMembro(c.accessToken, GRUPO_ADMIN, { graphUrl: GRAPH_URL });
+        const prof = professorDe(c.upn, c.nome, doGrupo, adminGrupo);
+        if (!prof) throw Object.assign(erro(403, GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta ainda não tem acesso. Pede a um administrador que a adicione."), { publico: true });
         db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(c.nome, prof.id);
         auth.criarSessao(res, c.upn, c.nome);
         res.writeHead(302, { Location: "/" }); return res.end();

@@ -22,13 +22,19 @@ npm test
    cp .env.example .env && nano .env
    docker compose up -d --build
    ```
-4. Entra com o administrador (`ADMIN_USERS`) e, em «Docentes», dá acesso aos colegas pelo email da escola.
+4. **Docentes:** põe em `GRUPO_DOCENTES_ID` o ID do objeto do grupo «docentes» do Entra ID (Entra → Grupos → o grupo → ID do objeto).
+   Quem pertence ao grupo entra sozinho; quem sai do grupo deixa de poder entrar no acesso seguinte (a sessão dura `SESSAO_HORAS`).
+   Só conta a pertença direta (como no helpdesk-escolar). Sem a variável, o administrador adiciona os docentes pelo email, em «Docentes».
+5. Entra com o administrador (`ADMIN_USERS`, ou o grupo `GRUPO_ADMIN_ID`). Em «Critérios», define para cada grupo disciplinar os critérios e os pesos (somam 100 %)
+   e as casas decimais da nota final (1 ou 2); em «Docentes», atribui o grupo disciplinar a cada docente.
 
 Os dados ficam no volume `eink-dados`. Cópia de segurança: `docker compose exec eink wget -qO- localhost:3000/healthz` verifica o serviço;
 para copiar a base, `docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine tar czf /b/dados.tgz -C /d .`.
 
 ## Regras importantes
 
-- O domínio da escola inclui alunos. Por isso o domínio, sozinho, **não** dá acesso: só entra quem está em «Docentes».
+- O domínio da escola inclui alunos. Por isso o domínio, sozinho, **não** dá acesso: só entra quem pertence ao grupo de docentes (ou foi adicionado em «Docentes», sem grupo configurado).
 - Cada docente só vê as suas turmas (todas as consultas filtram por docente; há testes para isso).
-- Nota final = média ponderada das avaliações que o aluno já tem (70 %) e comportamento 1 a 5 (30 %). Níveis 1 a 5 pelos limites 20, 50, 70 e 90 %.
+- Nota final = média ponderada dos critérios do grupo disciplinar (definidos pelo administrador). Dentro de cada critério de testes, os docentes lançam
+  quantos testes quiserem, cada um com o seu peso. Cada teste pode ter uma grelha (questões e cotações) onde se lança a pontuação de cada aluno.
+  Níveis 1 a 5 pelos limites 20, 50, 70 e 90 %.

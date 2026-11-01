@@ -2,12 +2,13 @@
 // Pauta de um período: avaliações agrupadas pelos critérios que o administrador definiu para o grupo disciplinar da turma.
 (() => {
   const { api, mostrar, esc, $, $$ } = EINK;
-  const num = (v, casas = 1) => (v === null || v === undefined ? "" : String(Math.round(v * 10 ** casas) / 10 ** casas).replace(".", ","));
+  const num = (v, casas = 2) => (v === null || v === undefined ? "" : String(Math.round(v * 10 ** casas) / 10 ** casas).replace(".", ","));
 
   async function pautaVista(id) {
     const d = await api("GET", `/api/periodos/${id}/pauta`);
     const testes = d.criterios.filter((k) => k.tipo === "testes");
     const doCrit = (k) => d.avaliacoes.filter((a) => a.criterio_id === k.id);
+    const casas = d.grupo.casas;
     const somaPesos = (k) => doCrit(k).reduce((z, a) => z + a.peso, 0);
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
@@ -16,13 +17,13 @@
       if (k.tipo === "nivel") return `<th scope="col">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a) => `<th class="num" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
-        <button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button></th>`).join("") + `<th class="num" scope="col">Média %</th>`;
+        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> <button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button></th>`).join("") + `<th class="num" scope="col">Média %</th>`;
     }).join("");
 
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>
       ${d.criterios.map((k) => {
         if (k.tipo === "nivel") return `<td><select data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
-        return doCrit(k).map((a) => { const v = d.notas[a.id + ":" + al.id]; return `<td><input class="nota" inputmode="decimal" data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num" data-c="crit-${k.id}"></td>`;
+        return doCrit(k).map((a) => { const v = d.notas[a.id + ":" + al.id]; return `<td><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : ""} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num" data-c="crit-${k.id}"></td>`;
       }).join("")}
       <td class="num" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
@@ -37,15 +38,15 @@
         <label>Data<input name="data" type="date"></label>
         <button>Adicionar avaliação</button>
       </form>
-      <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério.</p>
+      <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p>
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
       <p><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Exportar CSV (Excel)</a></p>`);
 
     const pintar = (dd) => dd.alunos.forEach((al) => {
       const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) return;
-      for (const k of testes) $(`[data-c="crit-${k.id}"]`, tr).textContent = num(al.criterios[k.id]);
-      $('[data-c="final"]', tr).textContent = al.final === null ? "" : al.final + (al.parcial ? "*" : "");
+      for (const k of testes) $(`[data-c="crit-${k.id}"]`, tr).textContent = num(al.criterios[k.id], casas);
+      $('[data-c="final"]', tr).textContent = al.final === null ? "" : num(al.final, casas) + (al.parcial ? "*" : "");
       $('[data-c="nivel"]', tr).textContent = al.nivel ?? ""; $('[data-c="mencao"]', tr).textContent = al.mencao;
       tr.className = al.nivel ? "n" + al.nivel : "";
     });
