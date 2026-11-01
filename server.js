@@ -14,6 +14,7 @@ const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
 const ferramentas = require("./lib/m-ferramentas");
 const registarQuiz = require("./lib/m-quiz");
+const estatisticas = require("./lib/m-estatisticas");
 const criarPublico = require("./lib/m-publico");
 const VIVO = require("./lib/vivo");
 const { ehMembro } = require("./lib/grupo");
@@ -35,11 +36,12 @@ function criarServidor(env = process.env) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const db = abrir(env.DB_FILE || path.join(DATA_DIR, "eink.db"));
 
+  const est = estatisticas.criar(db);
   const copias = criarCopias(db, path.join(DATA_DIR, "copias"));
   let relogioCopias = null;
   // Cópia automática: uma ao arrancar (se a última tiver mais de 24 h) e verificação de hora a hora. Não corre nos testes (base em memória).
   if ((env.DB_FILE || "x") !== ":memory:" && env.COPIAS !== "0") {
-    const tentar = () => { try { copias.seNecessario(24); } catch (e) { console.error("Cópia de segurança falhou:", e.message); } };
+    const tentar = () => { try { copias.seNecessario(24); est.limpar(); } catch (e) { console.error("Manutenção falhou:", e.message); } };
     setTimeout(tentar, 5000).unref();
     relogioCopias = setInterval(tentar, 3600000); relogioCopias.unref();
   }
@@ -512,7 +514,8 @@ function criarServidor(env = process.env) {
   // Administração: quem pode entrar
   const soAdmin = (c) => { if (!c.p.admin) throw erro(403, "Só para administradores."); };
   registarAdmin({ rota, db, erro, texto, inteiro, existe, transacao, soAdmin, turmaDe, periodoDe, dadosPauta, copias });
-  const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz") };
+  const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
+  estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
   ferramentas.registar(XF);
   registarQuiz(XF);
   rota("POST", "/api/admin/grupos", (c) => {
@@ -656,7 +659,7 @@ function criarServidor(env = process.env) {
   const limpezaContadores = setInterval(() => { const t = Date.now(); for (const [k, l] of contadores) if (!l.length || t - l[l.length - 1] > 120000) contadores.delete(k); VIVO.limparAntigas(); }, 60000);
   limpezaContadores.unref();
   const ip = (req) => (env.TRUST_PROXY === "1" ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() : "") || req.socket.remoteAddress || "";
-  const publico = criarPublico({ db, json, corpo, auth, enviarFicheiro: (res, p) => estatico(res, p), limitar, ip, expirada: XF.sondagemExpirada });
+  const publico = criarPublico({ db, json, corpo, auth, enviarFicheiro: (res, p) => estatico(res, p), limitar, ip, expirada: XF.sondagemExpirada, est });
 
   const servidor = http.createServer(async (req, res) => {
     for (const [k, v] of Object.entries(CABECALHOS)) res.setHeader(k, v);
@@ -672,6 +675,8 @@ function criarServidor(env = process.env) {
           // Em modo grupo, a entrada de teste simula pertencer ao grupo (a menos que se junte &fora=1) e ao de administradores (&admin=1).
           const prof = professorDe(upn, upn.split("@")[0], GRUPO_DOCENTES ? u.searchParams.get("fora") !== "1" : undefined, GRUPO_ADMIN ? u.searchParams.get("admin") === "1" : undefined);
           if (!prof) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Conta sem acesso."); }
+          est.contar(prof.id, "login");
+          db.prepare("UPDATE professores SET ultimo_acesso = datetime('now') WHERE id = ?").run(prof.id);
           auth.criarSessao(res, upn, prof.nome);
           res.writeHead(302, { Location: "/" }); return res.end();
         }
@@ -686,6 +691,7 @@ function criarServidor(env = process.env) {
         const prof = professorDe(c.upn, c.nome, doGrupo, adminGrupo);
         if (!prof) throw Object.assign(erro(403, GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta ainda não tem acesso. Pede a um administrador que a adicione."), { publico: true });
         db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(c.nome, prof.id);
+        est.contar(prof.id, "login");
         auth.criarSessao(res, c.upn, c.nome);
         res.writeHead(302, { Location: "/" }); return res.end();
       }
@@ -708,12 +714,14 @@ function criarServidor(env = process.env) {
         const xlPauta = /^\/api\/periodos\/(\d+)\/pauta\.xlsx$/.exec(p);
         if (metodo === "GET" && xlPauta) {
           const per = existe(periodoDe(prof, Number(xlPauta[1])));
+          est.contar(prof.id, "exportacao");
           res.writeHead(200, { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="pauta-${per.id}.xlsx"` });
           return res.end(xlsxPauta(per));
         }
         const csvPauta = /^\/api\/periodos\/(\d+)\/pauta\.csv$/.exec(p);
         if (metodo === "GET" && csvPauta) {
           const per = existe(periodoDe(prof, Number(csvPauta[1])));
+          est.contar(prof.id, "exportacao");
           res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="pauta-${per.id}.csv"` });
           return res.end(csv(dadosPauta(per)));
         }
@@ -735,6 +743,8 @@ function criarServidor(env = process.env) {
       }
       json(res, 404, { erro: "Não encontrado." });
     } catch (e) {
+      // Falha de rede ao falar com a Microsoft (entrada): mensagem útil em vez de «Erro interno».
+      if (p.startsWith("/auth/") && !e.codigo && !e.publico) { console.error("Entrada:", e.message); e.codigo = 502; e.publico = true; e.message = "Não foi possível falar com o Microsoft Entra ID. Tenta outra vez dentro de uns minutos; se continuar, o administrador deve confirmar o TENANT_ID, o CLIENT_ID e o segredo."; }
       const codigo = e.codigo || 500;
       if (codigo === 500) console.error(e);
       if (p.startsWith("/api/")) return json(res, codigo, { erro: codigo === 500 ? "Erro interno." : e.message });
@@ -746,9 +756,26 @@ function criarServidor(env = process.env) {
   return { servidor, db };
 }
 
-module.exports = { criarServidor };
+// Problemas na configuração de produção (devolve uma lista de textos; vazia se estiver tudo bem).
+function verificarConfig(env) {
+  const p = [];
+  const https = /^https:\/\/[^/]+$/.test(String(env.BASE_URL || ""));
+  if (env.DEV_LOGIN === "1") p.push("DEV_LOGIN=1 está ligado: a entrada de teste só pode existir em desenvolvimento (sem https).");
+  if (!https) p.push("BASE_URL tem de ser o endereço público com https, sem barra no fim (ex.: https://sala.techpro.pt).");
+  for (const k of ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]) if (!String(env[k] || "").trim()) p.push(`Falta ${k} (aplicação registada no Microsoft Entra ID).`);
+  if (!String(env.ADMIN_USERS || "").trim()) p.push("Falta ADMIN_USERS: sem administradores ninguém consegue configurar a plataforma.");
+  if (env.GRUPO_DOCENTES_ID && !/^[0-9a-f-]{36}$/i.test(env.GRUPO_DOCENTES_ID.trim())) p.push("GRUPO_DOCENTES_ID não parece um ID de objeto (GUID).");
+  return p;
+}
+
+module.exports = { criarServidor, verificarConfig };
 
 if (require.main === module) {
+  // Em produção (NODE_ENV=production, como no contentor) uma configuração incompleta pára o arranque com uma explicação, em vez de falhar à primeira entrada.
+  if (process.env.NODE_ENV === "production") {
+    const problemas = verificarConfig(process.env);
+    if (problemas.length) { console.error("Configuração incompleta:\n - " + problemas.join("\n - ") + "\nCorrige o ficheiro .env e volta a arrancar (docker compose up -d)."); process.exit(1); }
+  }
   const { servidor } = criarServidor();
   const porta = Number(process.env.PORT) || 3000;
   servidor.listen(porta, () => console.log(`eink a ouvir na porta ${porta}`));

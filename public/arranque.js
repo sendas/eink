@@ -9,9 +9,18 @@
   const pintarTema = () => { const t = window.EINK_TEMA.ler(); botaoTema.textContent = NOME[t]; botaoTema.setAttribute("aria-label", NOME[t] + ". Mudar o tema."); };
   botaoTema.onclick = () => { window.EINK_TEMA.ciclo(); pintarTema(); };
   pintarTema();
+  // Estatísticas de utilização: diz-se ao servidor em que ecrã se está (só o nome do ecrã, no máximo uma vez a cada 10 segundos por ecrã).
+  const vistos = new Map();
+  const contarEcra = (caminho) => {
+    const area = caminho.split("/")[1] || "painel", t = Date.now();
+    if (t - (vistos.get(area) || 0) < 10000) return;
+    vistos.set(area, t);
+    fetch("/api/uso", { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "eink" }, body: JSON.stringify({ area }) }).catch(() => {});
+  };
   const ir = async () => {
     EINK.aoSair && EINK.aoSair();
     const caminho = location.hash.replace(/^#/, "");
+    contarEcra(caminho);
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
       if (m) { try { await fn(...m.slice(1)); } catch { /* o aviso já foi mostrado */ } document.getElementById("vista").focus(); return; }

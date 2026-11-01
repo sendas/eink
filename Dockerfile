@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json server.js ./
 COPY lib ./lib
 COPY public ./public
+COPY modelos-quiz ./modelos-quiz
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node

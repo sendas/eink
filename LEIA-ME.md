@@ -11,28 +11,37 @@ npm run dev      # http://localhost:3000, entrada de teste sem Microsoft (só em
 npm test
 ```
 
-## Instalação na VPS (Ubuntu 24 ou Debian 12/13, Docker)
+## Instalação na VPS (Ubuntu 24 ou Debian 12/13)
 
-1. **Entra ID:** em Microsoft Entra → Registos de aplicações → Nova. Tipo «Web», endereço de redirecionamento
-   `https://<domínio>/auth/callback`. Copia o ID do diretório (`TENANT_ID`), o ID da aplicação (`CLIENT_ID`) e cria um segredo (`CLIENT_SECRET`).
-2. **DNS:** registo A do domínio para o IPv4 da VPS.
-3. **Servidor:**
-   ```bash
-   git clone https://github.com/sendas/eink && cd eink
-   cp .env.example .env && nano .env
-   docker compose up -d --build
-   ```
-4. **Docentes:** põe em `GRUPO_DOCENTES_ID` o ID do objeto do grupo «docentes» do Entra ID (Entra → Grupos → o grupo → ID do objeto).
-   Quem pertence ao grupo entra sozinho; quem sai do grupo deixa de poder entrar no acesso seguinte (a sessão dura `SESSAO_HORAS`).
-   Só conta a pertença direta (como no helpdesk-escolar). Sem a variável, o administrador adiciona os docentes pelo email, em «Docentes».
-5. Entra com o administrador (`ADMIN_USERS`, ou o grupo `GRUPO_ADMIN_ID`). Em «Critérios», define para cada grupo disciplinar os critérios e os pesos (somam 100 %)
-   e as casas decimais da nota final (1 ou 2); em «Docentes», atribui o grupo disciplinar a cada docente.
+**1. Registar a aplicação no Microsoft Entra ID** (portal.azure.com → Microsoft Entra ID → Registos de aplicações → Novo registo)
+- Nome: eink. Tipos de conta: «apenas neste diretório». URI de redirecionamento: tipo **Web**, `https://<domínio>/auth/callback`.
+- Copia o **ID da aplicação (cliente)** e o **ID do diretório (inquilino)**.
+- Certificados e segredos → Novo segredo do cliente: copia o **valor** (só aparece uma vez) e anota a data de validade; quando expirar, ninguém consegue entrar.
+- Permissões de API: basta a delegada `User.Read` (vem por defeito). Não é preciso consentimento de administrador.
+- Se vais usar o grupo «docentes»: Entra ID → Grupos → o grupo → copia o **ID do objeto**.
 
-Os dados ficam no volume `eink-dados` (a base de dados é `eink.db`).
+**2. DNS:** cria um registo **A** do domínio (por exemplo `sala.techpro.pt`) para o IPv4 da VPS.
+
+**3. Na VPS, como root:**
+```bash
+git clone https://github.com/sendas/eink && cd eink
+sudo bash scripts/instalar.sh
+```
+O script instala o Docker, ativa a firewall (SSH, 80 e 443) e as atualizações automáticas de segurança, pergunta os dados do passo 1, cria o `.env` (só o root o lê),
+verifica se o DNS aponta para a VPS e arranca tudo. O certificado HTTPS é pedido sozinho pelo Caddy. Se faltar alguma configuração, a aplicação não arranca e diz o que falta
+(`docker compose logs eink`).
+
+**4. Primeira entrada:** abre `https://<domínio>` com um administrador (`ADMIN_USERS`). Em «Gestão → Critérios» define os critérios de cada disciplina e ano,
+e em «Docentes» atribui a disciplina a cada docente.
+
+**Atualizar:** `sudo bash scripts/atualizar.sh` (faz uma cópia de segurança, puxa a versão nova do GitHub e reconstrói).
+O repositório é privado: na VPS, usa uma chave de implementação (deploy key) só de leitura ou um token do GitHub.
+
+**Configuração manual:** copia `.env.example` para `.env`, preenche e corre `docker compose up -d --build`.
 
 ### Cópias de segurança e reposição
 
-A plataforma copia a base de dados todos os dias para `copias/` (no mesmo volume) e guarda as 14 mais recentes. Como estão na mesma VPS, descarrega uma de vez em quando
+A plataforma copia a base de dados todos os dias para `copias/` (no volume de dados, `eink.db`) e guarda as 14 mais recentes. Como estão na mesma VPS, descarrega uma de vez em quando
 (Gestão, Cópias de segurança) e guarda-a noutro sítio, por exemplo no OneDrive da escola. Para repor uma cópia:
 
 ```bash
@@ -40,7 +49,6 @@ docker compose stop eink
 docker run --rm -v eink_eink-dados:/d -v $PWD:/b alpine sh -c 'gunzip -c /b/eink-AAAA-MM-DD-HHMMSS.db.gz > /d/eink.db && rm -f /d/eink.db-wal /d/eink.db-shm'
 docker compose start eink
 ```
- `docker compose exec eink wget -qO- localhost:3000/healthz` verifica o serviço.
 
 ## Regras importantes
 

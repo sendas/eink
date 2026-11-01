@@ -652,3 +652,59 @@ test("API: quizzes (editor, modelos do tic) e jogo ao vivo sem contas de aluno",
   assert.strictEqual((await j1("")).estado, 404);
   assert.strictEqual((await fetch(`${base}/j/api/000000`)).status, 404);
 });
+
+test("API: estatísticas de acesso (só contagens, só para administradores)", async (t) => {
+  const { base, servidor, entrar, db } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt" });
+  const ana = await entrar("ana@escola.pt");
+  await entrar("ana@escola.pt"); // segunda entrada no mesmo dia
+  for (const area of ["pauta", "pauta", "quizzes", "<script>", "não-existe"]) await ana.chamar("POST", "/api/uso", { area });
+  const { d: { id: tid } } = await ana.chamar("POST", "/api/turmas", { nome: "7.º A" });
+  await fetch(`${base}/api/periodos/${(await ana.chamar("GET", "/api/turmas/" + tid)).d.periodos[0].id}/pauta.csv`, { headers: { cookie: ana.ck } });
+  // páginas dos alunos
+  const { d: { codigo, id } } = await ana.chamar("POST", "/api/sondagens", { pergunta: "Q?", opcoes: ["a", "b"] });
+  await fetch(`${base}/s/${codigo}`);
+  await fetch(`${base}/s/api/${codigo}/votar`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ opcao: 0 }) });
+  void id;
+  const { d: { id: qid } } = await ana.chamar("POST", "/api/quizzes", { titulo: "Q", perguntas: [{ texto: "?", opcoes: ["a", "b"], certa: 0 }] });
+  const { d: { pin } } = await ana.chamar("POST", `/api/quizzes/${qid}/vivo`, {});
+  await fetch(`${base}/j/${pin}`);
+  await fetch(`${base}/j/api/${pin}/entrar`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ alcunha: "Gato" }) });
+
+  assert.strictEqual((await ana.chamar("GET", "/api/admin/estatisticas")).estado, 403);
+  const e = (await adm.chamar("GET", "/api/admin/estatisticas?dias=7")).d;
+  assert.strictEqual(e.serie.length, 7);
+  const hoje = e.serie[6];
+  assert.strictEqual(hoje.logins, 3, "admin + 2 entradas da Ana");
+  assert.strictEqual(hoje.docentes, 2);
+  assert.strictEqual(hoje.vistas, 3, "pauta ×2 e quizzes; ecrãs desconhecidos ignoram-se");
+  assert.deepStrictEqual(e.areas.map((a) => [a.area, a.n]), [["pauta", 2], ["quizzes", 1]]);
+  assert.strictEqual(e.exportacoes, 1);
+  assert.strictEqual(e.jogosCriados, 1);
+  assert.deepStrictEqual(e.publicoTotais, { sondagem_pagina: 1, sondagem_voto: 1, jogo_pagina: 1, jogo_entrada: 1 });
+  assert.strictEqual(e.resumo.docentesAtivos7, 2);
+  assert.strictEqual(e.docentes.find((d) => d.upn === "ana@escola.pt").logins, 2);
+  assert.strictEqual(e.dados.turmas, 1);
+  // Sem IP nem conteúdos: as tabelas só têm contagens.
+  assert.deepStrictEqual(db.prepare("PRAGMA table_info(uso)").all().map((c) => c.name), ["dia", "prof_id", "area", "n"]);
+  assert.deepStrictEqual(db.prepare("PRAGMA table_info(uso_publico)").all().map((c) => c.name), ["dia", "tipo", "n"]);
+  // Limpeza do que é antigo
+  db.prepare("INSERT INTO uso_publico (dia, tipo, n) VALUES ('2020-01-01', 'sondagem_voto', 9)").run();
+  require("../lib/m-estatisticas").criar(db).limpar();
+  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM uso_publico WHERE dia = '2020-01-01'").get().n, 0);
+});
+
+test("Configuração de produção: o arranque recusa configurações incompletas", () => {
+  const { verificarConfig } = require("../server");
+  const boa = { BASE_URL: "https://sala.techpro.pt", TENANT_ID: "11111111-2222-3333-4444-555555555555", CLIENT_ID: "a", CLIENT_SECRET: "b", ADMIN_USERS: "x@escola.pt" };
+  assert.deepStrictEqual(verificarConfig(boa), []);
+  assert.ok(verificarConfig({}).length >= 5);
+  assert.match(verificarConfig({ ...boa, BASE_URL: "http://sala.techpro.pt" }).join(), /https/);
+  assert.match(verificarConfig({ ...boa, BASE_URL: "https://sala.techpro.pt/" }).join(), /sem barra/);
+  assert.match(verificarConfig({ ...boa, DEV_LOGIN: "1" }).join(), /DEV_LOGIN/);
+  assert.match(verificarConfig({ ...boa, CLIENT_SECRET: " " }).join(), /CLIENT_SECRET/);
+  assert.match(verificarConfig({ ...boa, GRUPO_DOCENTES_ID: "grupo-docentes" }).join(), /GUID/);
+  assert.deepStrictEqual(verificarConfig({ ...boa, GRUPO_DOCENTES_ID: "11111111-2222-3333-4444-555555555555" }), []);
+});

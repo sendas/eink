@@ -68,6 +68,7 @@
     ["👥", "Docentes", "Quem tem acesso e a disciplina de cada um", "#/admin"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
+    ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"],
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
 
   async function fecho() {
@@ -120,5 +121,32 @@
     $("#f-apagar").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/api/admin/privacidade/apagar", { confirmar: new FormData(e.target).get("confirmar") }); aviso(`${x.turmas} turma(s) apagada(s).`); privacidadeAdmin(); } catch { /* aviso mostrado */ } };
   }
 
-  EINK.rotas.push([/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
+
+  // ---------- estatísticas de acesso ----------
+  const NOME_AREA = { painel: "Painel", turmas: "Turmas", "turmas-arquivadas": "Turmas arquivadas", turma: "Turma e alunos", pauta: "Pauta", grelha: "Grelha de teste", intercalares: "Intercalares", temporizador: "Temporizador", sorteio: "Sorteio", chamada: "Chamada", listas: "Listas", sondagens: "Sondagens", sondagem: "Sondagem (resultados)", mapa: "Mapa de sala", quadros: "Quadros", quadro: "Quadro", quizzes: "Quizzes", quiz: "Editor de quiz", "quiz-resultados": "Resultados de quiz", vivo: "Jogo ao vivo", gestao: "Gestão", admin: "Docentes", criterios: "Critérios", fecho: "Fecho de períodos", auditoria: "Registo de alterações", copias: "Cópias de segurança", "privacidade-admin": "Privacidade", estatisticas: "Estatísticas" };
+  const NOME_PUBLICO = { sondagem_pagina: "Aberturas da página de sondagem", sondagem_voto: "Votos em sondagens", jogo_pagina: "Aberturas da página do jogo", jogo_entrada: "Alunos que entraram em jogos" };
+  async function estatisticas(dias = 30) {
+    const d = await api("GET", "/api/admin/estatisticas?dias=" + dias);
+    const max = Math.max(1, ...d.serie.map((x) => x.vistas));
+    const r = d.resumo;
+    const fmt = (iso) => (iso ? iso.slice(0, 10) : "nunca");
+    mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Estatísticas de acesso</h1>
+      <p class="linha">${[7, 30, 90, 365].map((n) => `<a class="botao ${n === dias ? "" : "sec"}" href="#/estatisticas/${n}">${n} dias</a>`).join("")}<button class="sec" id="e-csv" type="button">Descarregar (CSV)</button></p>
+      <p class="pequeno">De ${esc(d.de)} a ${esc(d.ate)}. Só se guardam contagens por dia, docente e ecrã (nunca endereços IP nem conteúdos), durante 400 dias.</p>
+      <div class="cartoes">${[["Docentes ativos (7 dias)", `${r.docentesAtivos7} de ${r.docentesTotal}`], ["Docentes ativos (30 dias)", `${r.docentesAtivos30} de ${r.docentesTotal}`], [`Entradas (${dias} dias)`, r.logins], [`Ecrãs vistos (${dias} dias)`, r.vistas], ["Ficheiros exportados", d.exportacoes], ["Jogos de quiz criados", d.jogosCriados]].map(([t, v]) => `<div class="cartao"><span><strong style="font-size:1.5rem">${v}</strong><small>${t}</small></span></div>`).join("")}</div>
+      ${r.nuncaEntraram ? `<p class="pequeno">${r.nuncaEntraram} docente(s) com acesso ainda nunca entraram.</p>` : ""}
+      <h2>Utilização por dia</h2>
+      <div class="e-grafico" role="img" aria-label="Ecrãs vistos por dia">${d.serie.map((x) => `<div class="e-col" title="${esc(x.dia)}: ${x.vistas} ecrãs, ${x.logins} entradas, ${x.docentes} docentes"><div class="e-barra" style="height:${Math.round((x.vistas / max) * 100)}%"></div></div>`).join("")}</div>
+      <details><summary>Ver os números por dia</summary><div class="tabela-rolagem"><table><thead><tr><th>Dia</th><th class="num">Entradas</th><th class="num">Docentes</th><th class="num">Ecrãs vistos</th></tr></thead><tbody>${[...d.serie].reverse().map((x) => `<tr><td>${esc(x.dia)}</td><td class="num">${x.logins}</td><td class="num">${x.docentes}</td><td class="num">${x.vistas}</td></tr>`).join("")}</tbody></table></div></details>
+      <h2>Ecrãs mais usados</h2><div class="painel"><ul class="lista">${d.areas.map((a) => `<li><span>${esc(NOME_AREA[a.area] || a.area)}</span><strong>${a.n}</strong></li>`).join("") || '<li class="pequeno">Ainda sem dados.</li>'}</ul></div>
+      <h2>Docentes</h2><div class="tabela-rolagem"><table><thead><tr><th>Docente</th><th>Último acesso</th><th class="num">Entradas</th><th class="num">Ecrãs vistos</th><th class="num">Exportações</th></tr></thead><tbody>${d.docentes.map((x) => `<tr><td>${esc(x.nome || x.upn)} <span class="pequeno">${esc(x.upn)}</span></td><td>${esc(fmt(x.ultimo_acesso))}</td><td class="num">${x.logins}</td><td class="num">${x.vistas}</td><td class="num">${x.exportacoes}</td></tr>`).join("")}</tbody></table></div>
+      <h2>Páginas dos alunos (sem identificação)</h2><div class="painel"><ul class="lista">${Object.entries(NOME_PUBLICO).map(([k, t]) => `<li><span>${t}</span><strong>${d.publicoTotais[k] || 0}</strong></li>`).join("")}</ul></div>
+      <h2>Dados guardados</h2><div class="painel"><ul class="lista">${Object.entries({ "Turmas ativas": d.dados.turmas, Alunos: d.dados.alunos, Avaliações: d.dados.avaliacoes, "Notas lançadas": d.dados.notas, Quizzes: d.dados.quizzes, Sondagens: d.dados.sondagens, "Jogos terminados": d.dados.jogosTerminados }).map(([t, v]) => `<li><span>${t}</span><strong>${v}</strong></li>`).join("")}</ul></div>`);
+    $("#e-csv").onclick = () => {
+      const linhas = [["Dia", "Entradas", "Docentes", "Ecrãs vistos"], ...d.serie.map((x) => [x.dia, x.logins, x.docentes, x.vistas])].map((l) => l.join(";")).join("\r\n");
+      const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8,%EF%BB%BF" + encodeURIComponent(linhas); a.download = "estatisticas-acesso.csv"; a.click();
+    };
+  }
+
+  EINK.rotas.push([/^\/estatisticas$/, () => estatisticas(30)], [/^\/estatisticas\/(7|30|90|365)$/, (n) => estatisticas(+n)], [/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
 })();
