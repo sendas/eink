@@ -309,3 +309,57 @@ table.folha .av-tit { font-size: 1.02rem; }
 .caixa-entrar { background: var(--cartao); border: 1px solid var(--linha); border-radius: 26px; padding: 2.4rem 2.2rem; box-shadow: var(--sombra); max-width: 440px; }
 .caixa-entrar h1 { font-size: 2.6rem; color: var(--marca); }
 @media (max-width: 640px) { .heroi { padding: 1.3rem; } .heroi h1 { font-size: 2.1rem; } .turma-corpo { grid-template-columns: 1fr; justify-items: center; } .turma-niveis { width: 100%; } .topo { flex-wrap: wrap; } }
+
+/* Escala 1 a 5 por aluno, fotografias e pauta final em cartões */
+.escala { position: relative; display: flex; gap: 2px; height: .6rem; margin-top: .35rem; min-width: 5.5rem; }
+.escala .lv { border-radius: 3px; }
+.escala .lv:first-child { border-radius: 999px 3px 3px 999px; } .escala .lv:nth-child(5) { border-radius: 3px 999px 999px 3px; }
+.escala-marca { position: absolute; top: -.28rem; width: .3rem; height: 1.15rem; background: var(--texto); border: 2px solid var(--cartao); border-radius: 4px; transform: translateX(-50%); box-sizing: border-box; }
+.escala.escala-g { height: 1rem; margin: .7rem 0 .5rem; }
+.escala.escala-g .escala-marca { top: -.4rem; height: 1.8rem; width: .4rem; }
+.fin-n { font-weight: 700; }
+td[data-c="final"] { min-width: 7rem; }
+.foto-bot { padding: 0; border: 0; background: none; border-radius: 50%; line-height: 0; cursor: pointer; }
+.foto-linha { margin-top: .3rem; }
+.foto { width: 3.2rem; height: 3.2rem; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--marca-fundo); color: var(--marca); font-weight: 700; font-size: 1rem; line-height: 1; border: 2px solid var(--cartao); box-shadow: 0 0 0 1px var(--grelha); }
+.foto-vazia { border-style: dashed; }
+.foto-bot:hover .foto { box-shadow: 0 0 0 2px var(--marca); }
+.foto-bot.foto-g .foto { width: 5.5rem; height: 5.5rem; font-size: 1.6rem; }
+.foto-dlg { border: 1px solid var(--linha); border-radius: 20px; background: var(--cartao); color: var(--texto); max-width: 24rem; box-shadow: var(--sombra); }
+.foto-dlg::backdrop { background: rgba(10, 14, 20, .55); }
+.foto-grande { display: grid; place-items: center; margin: .8rem 0; }
+.foto-grande img, .foto-grande .foto { width: 12rem; height: 12rem; border-radius: 24px; object-fit: cover; font-size: 3.5rem; }
+.barra-pauta { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; margin: .8rem 0; }
+.barra-pauta label { flex-direction: row; align-items: center; gap: .4rem; color: var(--texto); font-size: .95rem; }
+.troca-vista { display: inline-flex; gap: .3rem; padding: .25rem; background: var(--marca-fundo); border-radius: 14px; }
+.troca-vista button { border-color: transparent; background: transparent; color: var(--suave); padding: .45rem 1rem; }
+.troca-vista button.ativo { background: var(--cartao); color: var(--marca); box-shadow: var(--sombra); }
+.cartoes-final { display: grid; grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr)); gap: 1rem; }
+.cartoes-final[hidden], .tabela-rolagem[hidden] { display: none; }
+.aluno-cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: 22px; padding: 1.2rem 1.3rem; box-shadow: var(--sombra); text-align: center; }
+.aluno-cartao .foto-bot { margin: 0 auto .5rem; }
+.aluno-cartao h3 { margin: 0; font-size: 1.2rem; }
+.aluno-cartao p { margin: 0; }
+.aluno-final { display: flex; align-items: baseline; justify-content: center; gap: .25rem; margin-top: .6rem; }
+.aluno-final strong { font-size: 2.8rem; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.aluno-final span { color: var(--suave); font-weight: 600; }
+.aluno-mencao { font-weight: 600; font-size: .95rem; }
+.aluno-mencao .lv { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .3rem; }
+@media print { .barra-pauta, .troca-vista { display: none; } }
+
+/* Página de entrada com slideshow */
+body.entrar { display: block; place-items: unset; }
+.entrada { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 2.6rem; align-items: center; max-width: 1280px; margin: 0 auto; min-height: 100vh; padding: 2rem 1.4rem; }
+.slides-quadro { position: relative; aspect-ratio: 1200 / 737; border-radius: 22px; overflow: hidden; border: 1px solid var(--linha); box-shadow: var(--sombra); background: var(--cartao); }
+.slide { position: absolute; inset: 0; margin: 0; opacity: 0; transition: opacity .6s ease; pointer-events: none; }
+.slide.ativo { opacity: 1; pointer-events: auto; }
+.slide img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.slide figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 2.2rem 1.4rem 1rem; color: #fff; font-weight: 600; background: linear-gradient(to top, rgba(15, 25, 30, .78), rgba(15, 25, 30, 0)); }
+.slides-controlo { display: flex; align-items: center; justify-content: center; gap: .8rem; margin-top: .9rem; }
+.slides-controlo > button { padding: .2rem .8rem; font-size: 1.4rem; line-height: 1.2; }
+.slides-pontos { display: flex; gap: .55rem; }
+.ponto { width: .8rem; height: .8rem; padding: 0; border-radius: 50%; border: 0; background: var(--grelha); }
+.ponto[aria-current="true"] { background: var(--marca); transform: scale(1.25); }
+.entrada .caixa-entrar { width: 100%; max-width: 440px; justify-self: center; }
+@media (max-width: 900px) { .entrada { grid-template-columns: 1fr; min-height: 0; } .entrada .caixa-entrar { order: -1; } }
+@media (prefers-reduced-motion: reduce) { .slide { transition: none; } }

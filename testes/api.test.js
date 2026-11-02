@@ -1042,3 +1042,33 @@ test("Início: resumo por turma com média, níveis e progresso das notas", asyn
   assert.strictEqual(r.turmas[0].esperadas, 2); assert.strictEqual(r.turmas[0].notas, 1);
   assert.strictEqual(r.turmas[0].media, 100); assert.strictEqual(r.turmas[0].foco.id, per);
 });
+
+test("Fotografias dos alunos: guardar, ver só o próprio docente, limites e apagar com o aluno", async (t) => {
+  const { base, servidor, entrar, db } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const outra = await entrar("ana@escola.pt");
+  const g = (await adm.chamar("GET", "/api/grupos")).d[0].id;
+  const tu = (await adm.chamar("POST", "/api/turmas", { nome: "9.º C", ano_letivo: "2026/2027", ano: 9, grupo_id: g })).d;
+  await adm.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Rui" });
+  const per = (await adm.chamar("GET", "/api/atalhos")).d[0].periodos[0].id;
+  const al = (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0];
+  assert.strictEqual(al.foto, null);
+  const jpeg = "data:image/jpeg;base64," + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0]).toString("base64");
+  assert.strictEqual((await adm.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: jpeg })).estado, 200);
+  assert.strictEqual((await adm.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: "data:image/jpeg;base64," + Buffer.from("isto não é uma imagem").toString("base64") })).estado, 400, "o conteúdo tem de ser mesmo uma imagem");
+  assert.strictEqual((await adm.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: "data:text/html;base64,PGI+" })).estado, 400, "só imagens");
+  assert.strictEqual((await adm.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: "data:image/jpeg;base64," + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(310000)]).toString("base64") })).estado, 413, "máximo 300 KB");
+  assert.ok((await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].foto, "a pauta indica que tem fotografia");
+  const ver = (ck) => fetch(base + `/api/alunos/${al.id}/foto`, { headers: { cookie: ck } });
+  const r = await ver(adm.ck); assert.strictEqual(r.status, 200); assert.strictEqual(r.headers.get("content-type"), "image/jpeg"); assert.strictEqual((await r.arrayBuffer()).byteLength, 11);
+  assert.strictEqual((await ver(outra.ck)).status, 404, "outro docente não vê");
+  assert.strictEqual((await outra.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: jpeg })).estado, 404, "nem muda");
+  assert.strictEqual((await fetch(base + `/api/alunos/${al.id}/foto`)).status, 401, "sem sessão");
+  assert.strictEqual((await adm.chamar("DELETE", `/api/alunos/${al.id}/foto`)).estado, 200);
+  assert.strictEqual((await ver(adm.ck)).status, 404);
+  await adm.chamar("PUT", `/api/alunos/${al.id}/foto`, { imagem: jpeg });
+  await adm.chamar("DELETE", "/api/alunos/" + al.id);
+  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM fotos").get().n, 0, "a fotografia apaga-se com o aluno");
+});

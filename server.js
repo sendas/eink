@@ -144,6 +144,8 @@ function criarServidor(env = process.env) {
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
     const niveis = new Map(db.prepare("SELECT criterio_id c, aluno_id l, nivel n FROM niveis WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.n]));
     const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, casas: grupo.casas });
+    const fotos = new Map(db.prepare("SELECT f.aluno_id id, f.atualizada t FROM fotos f JOIN alunos a ON a.id = f.aluno_id WHERE a.turma_id = ?").all(per.turma_id).map((r) => [r.id, r.t]));
+    for (const a of alunos) a.foto = fotos.get(a.id) || null;
     return { periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
   }
   const csv = (d) => {
@@ -572,6 +574,20 @@ function criarServidor(env = process.env) {
   });
   rota("GET", "/api/atalhos", (c) => db.prepare("SELECT id, nome, ano_letivo, ano FROM turmas WHERE prof_id = ? AND arquivada = 0 ORDER BY ano, nome").all(c.p.id)
     .map((t) => ({ ...t, periodos: db.prepare("SELECT id, nome, fechado FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id).map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })) })));
+  // Fotografia do aluno: o navegador reduz a imagem (quadrada, 256 px) e envia-a como data URL; só o docente da turma a vê.
+  const MAGIA = { "image/jpeg": [0xff, 0xd8, 0xff], "image/png": [0x89, 0x50, 0x4e, 0x47] };
+  rota("PUT", "/api/alunos/:id/foto", (c) => {
+    existe(alunoDe(c.p, c.id[0]));
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(c.b.imagem || ""));
+    if (!m) throw erro(400, "A fotografia tem de ser uma imagem JPEG, PNG ou WebP.");
+    const buf = Buffer.from(m[2], "base64");
+    if (buf.length > 300000) throw erro(413, "A fotografia é demasiado grande (máximo 300 KB). Escolhe uma mais pequena.");
+    const ok = m[1] === "image/webp" ? buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP" : MAGIA[m[1]].every((b, i) => buf[i] === b);
+    if (!ok) throw erro(400, "O ficheiro não é uma imagem válida.");
+    db.prepare("INSERT INTO fotos (aluno_id, mime, dados, atualizada) VALUES (?, ?, ?, datetime('now')) ON CONFLICT (aluno_id) DO UPDATE SET mime = excluded.mime, dados = excluded.dados, atualizada = excluded.atualizada").run(c.id[0], m[1], buf);
+    return { ok: true, foto: db.prepare("SELECT atualizada FROM fotos WHERE aluno_id = ?").get(c.id[0]).atualizada };
+  });
+  rota("DELETE", "/api/alunos/:id/foto", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM fotos WHERE aluno_id = ?").run(c.id[0]); return { ok: true }; });
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
@@ -801,6 +817,13 @@ function criarServidor(env = process.env) {
           if (!r) return json(res, 404, { erro: "Imagem inexistente." });
           res.writeHead(200, { "Content-Type": r.mime, "Cache-Control": "private, max-age=3600" });
           return res.end(Buffer.from(r.dados));
+        }
+        const fotoAluno = /^\/api\/alunos\/(\d+)\/foto$/.exec(p);
+        if (metodo === "GET" && fotoAluno) {
+          const f = alunoDe(prof, Number(fotoAluno[1])) && db.prepare("SELECT mime, dados FROM fotos WHERE aluno_id = ?").get(Number(fotoAluno[1]));
+          if (!f) return json(res, 404, { erro: "Sem fotografia." });
+          res.writeHead(200, { "Content-Type": f.mime, "Cache-Control": "private, max-age=86400" });
+          return res.end(Buffer.from(f.dados));
         }
         const cpDown = /^\/api\/admin\/copias\/descarregar$/.exec(p);
         if (metodo === "GET" && cpDown) {

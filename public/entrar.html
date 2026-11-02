@@ -8,20 +8,31 @@
 <script src="/tema.js?v=__V__"></script>
 </head>
 <body class="entrar">
-<main class="caixa-entrar">
-  <h1>Avaliar Eça</h1>
-  <p>Ferramentas de sala de aula e avaliação para docentes.</p>
-  <a class="botao grande" href="/auth/entrar">Entrar com a conta da escola</a>
-  <p class="pequeno">Só entram docentes da escola com acesso autorizado.</p>
-  <details class="painel" id="local"><summary>Entrar com utilizador e palavra-passe</summary>
-    <form id="f-local" class="linha" style="flex-direction:column;align-items:stretch">
-      <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
-      <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
-      <button>Entrar</button><p id="erro-local" class="pequeno" role="alert"></p>
-    </form>
-    <p class="pequeno">Para docentes que não têm conta Office da escola. Pede os dados a um administrador.</p>
-  </details>
-</main>
+<div class="entrada">
+  <section class="slides" aria-roledescription="carrossel" aria-label="Capturas de ecrã da plataforma">
+    <div class="slides-quadro">
+      <figure class="slide ativo"><img src="/img/slide-1.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-2.jpg" alt="Pauta com os critérios separados por cor, a fotografia de cada aluno e a escala da nota final" width="1200" height="737" loading="lazy"><figcaption>Pauta ao estilo do Excel, com os critérios bem separados e a escala de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-3.jpg" alt="Pauta final em cartões, cada um com a fotografia, a nota e a escala de 1 a 5" width="1200" height="737" loading="lazy"><figcaption>Pauta final em cartões, com a fotografia e a escala de 1 a 5 de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-4.jpg" alt="Grelha de um teste com a pontuação de cada aluno em cada questão" width="1200" height="737" loading="lazy"><figcaption>Grelha de cada teste: pontuação por questão, colada do Excel ou escrita à mão.</figcaption></figure>
+    </div>
+    <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button></div>
+  </section>
+  <main class="caixa-entrar">
+    <h1>Avaliar Eça</h1>
+    <p>Ferramentas de sala de aula e avaliação para docentes.</p>
+    <a class="botao grande" href="/auth/entrar">Entrar com a conta da escola</a>
+    <p class="pequeno">Só entram docentes da escola com acesso autorizado.</p>
+    <details class="painel" id="local"><summary>Entrar com utilizador e palavra-passe</summary>
+      <form id="f-local" class="linha" style="flex-direction:column;align-items:stretch">
+        <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
+        <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
+        <button>Entrar</button><p id="erro-local" class="pequeno" role="alert"></p>
+      </form>
+      <p class="pequeno">Para docentes que não têm conta Office da escola. Pede os dados a um administrador.</p>
+    </details>
+  </main>
+</div>
 <script src="/entrar.js?v=__V__"></script>
 </body>
 </html>
