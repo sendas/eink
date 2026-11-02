@@ -1072,3 +1072,30 @@ test("Fotografias dos alunos: guardar, ver só o próprio docente, limites e apa
   await adm.chamar("DELETE", "/api/alunos/" + al.id);
   assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM fotos").get().n, 0, "a fotografia apaga-se com o aluno");
 });
+
+test("Entrada: erro em página (não em ficheiro) e pedido recuperado noutro navegador só do mesmo IP", async (t) => {
+  const { base, servidor } = await arrancar();
+  t.after(() => servidor.close());
+  const r = await fetch(base + "/auth/callback?code=x&state=y");
+  assert.strictEqual(r.status, 400);
+  assert.match(r.headers.get("content-type"), /text\/html/);
+  assert.match(await r.text(), /Voltar e tentar outra vez/);
+
+  // Fluxo com a Microsoft simulada: o cookie não chega (outro navegador), mas o pedido guardado no servidor serve.
+  const criarAuth = require("../lib/auth");
+  const falso = { authorization_endpoint: "https://m/auth", token_endpoint: "https://m/token", issuer: "https://m", jwks_uri: "https://m/keys" };
+  const original = global.fetch; let trocas = 0;
+  global.fetch = async (url) => (String(url).includes("openid-configuration") ? { ok: true, json: async () => falso } : (trocas++, { ok: false, json: async () => ({ error: "invalid_grant" }) }));
+  t.after(() => { global.fetch = original; });
+  const auth = criarAuth({ tenant: "t", clientId: "c", clientSecret: "s", baseUrl: "https://x.pt", issuerBase: "https://login.example", segredo: "seg", sessaoHoras: 1 });
+  const res = () => { const h = {}; return { getHeader: (k) => h[k], setHeader: (k, v) => { h[k] = v; } }; };
+  const sem = { headers: {} };
+  const url = await auth.iniciar(res(), { ip: "10.0.0.5" });
+  const state = new URL(url).searchParams.get("state");
+  const volta = (st) => new URL(`https://x.pt/auth/callback?code=abc&state=${st}`);
+  await assert.rejects(() => auth.concluir(sem, res(), volta(state), { ip: "10.9.9.9" }), /expirou/, "outro IP: recusado");
+  const url2 = await auth.iniciar(res(), { ip: "10.0.0.5" }), state2 = new URL(url2).searchParams.get("state");
+  await assert.rejects(() => auth.concluir(sem, res(), volta(state2), { ip: "10.0.0.5" }), /troca do código falhou/, "mesmo IP, sem cookie: passa à troca do código");
+  assert.strictEqual(trocas, 1);
+  await assert.rejects(() => auth.concluir(sem, res(), volta(state2), { ip: "10.0.0.5" }), /expirou/, "o pedido só serve uma vez");
+});

@@ -763,15 +763,15 @@ function criarServidor(env = process.env) {
           auth.criarSessao(res, upn, prof.nome);
           res.writeHead(302, { Location: "/" }); return res.end();
         }
-        res.writeHead(302, { Location: await auth.iniciar(res) }); return res.end();
+        res.writeHead(302, { Location: await auth.iniciar(res, { ip: ip(req) }) }); return res.end();
       }
       if (p === "/auth/correio/ligar") {
         const adm = sessaoDe(req);
         if (!adm || !adm.admin) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Só um administrador com sessão iniciada pode ligar o envio de email."); }
-        res.writeHead(302, { Location: await auth.iniciar(res, { modo: "correio", scope: "openid profile email User.Read offline_access Mail.Send" }) }); return res.end();
+        res.writeHead(302, { Location: await auth.iniciar(res, { ip: ip(req), modo: "correio", scope: "openid profile email User.Read offline_access Mail.Send" }) }); return res.end();
       }
       if (p === "/auth/callback") {
-        const c = await auth.concluir(req, res, u);
+        const c = await auth.concluir(req, res, u, { ip: ip(req) });
         if (c.modo === "correio") {
           const adm = sessaoDe(req);
           if (!adm || !adm.admin) throw Object.assign(erro(403, "Só um administrador com sessão iniciada pode ligar o envio de email."), { publico: true });
@@ -870,8 +870,15 @@ function criarServidor(env = process.env) {
       const codigo = e.codigo || 500;
       if (codigo === 500) console.error(e);
       if (p.startsWith("/api/")) return json(res, codigo, { erro: codigo === 500 ? "Erro interno." : e.message });
+      const msg = e.publico || codigo < 500 ? e.message : "Erro interno.";
+      // Os erros da entrada vão numa página (e não em texto simples, que alguns navegadores do telemóvel descarregam como ficheiro).
+      if (p.startsWith("/auth/")) {
+        const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+        res.writeHead(codigo, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        return res.end(`<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Não foi possível entrar · Avaliar Eça</title><link rel="stylesheet" href="/estilo.css?v=${VERSAO}"></head><body class="entrar"><main class="caixa-entrar" style="margin:12vh auto"><h1>Avaliar Eça</h1><h2 style="margin-top:0">Não foi possível entrar</h2><p>${esc(msg)}</p><p><a class="botao grande" href="/entrar.html">Voltar e tentar outra vez</a></p></main></body></html>`);
+      }
       res.writeHead(codigo, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end(e.publico || codigo < 500 ? e.message : "Erro interno.");
+      res.end(msg);
     }
   });
   servidor.on("close", () => { clearInterval(relogioCopias); clearInterval(limpezaContadores); db.close(); });
