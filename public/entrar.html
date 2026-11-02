@@ -76,12 +76,12 @@
   <h2>Ver como é</h2>
   <section class="slides" aria-roledescription="carrossel" aria-label="Capturas de ecrã da plataforma">
     <div class="slides-quadro">
-      <figure class="slide ativo"><img src="/img/slide-1.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-2.jpg" alt="Pauta com os critérios separados por cor, a fotografia de cada aluno e a escala da nota final" width="1200" height="737" loading="lazy"><figcaption>Pauta ao estilo do Excel, com os critérios bem separados e a escala de cada aluno.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-3.jpg" alt="Pauta final em cartões, cada um com a fotografia, a nota e a escala de 1 a 5" width="1200" height="737" loading="lazy"><figcaption>Pauta final em cartões, com a fotografia e a escala de 1 a 5 de cada aluno.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-4.jpg" alt="Grelha de um teste com a pontuação de cada aluno em cada questão" width="1200" height="737" loading="lazy"><figcaption>Grelha de cada teste: pontuação por questão, colada do Excel ou escrita à mão.</figcaption></figure>
+      <figure class="slide ativo"><img src="/img/slide-1.jpg" data-grande="/img/slide-1-g.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-2.jpg" data-grande="/img/slide-2-g.jpg" alt="Pauta com os critérios separados por cor, a fotografia de cada aluno e a escala da nota final" width="1200" height="737" loading="lazy"><figcaption>Pauta ao estilo do Excel, com os critérios bem separados e a escala de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-3.jpg" data-grande="/img/slide-3-g.jpg" alt="Pauta final em cartões, cada um com a fotografia, a nota e a escala de 1 a 5" width="1200" height="737" loading="lazy"><figcaption>Pauta final em cartões, com a fotografia e a escala de 1 a 5 de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-4.jpg" data-grande="/img/slide-4-g.jpg" alt="Grelha de um teste com a pontuação de cada aluno em cada questão" width="1200" height="737" loading="lazy"><figcaption>Grelha de cada teste: pontuação por questão, colada do Excel ou escrita à mão.</figcaption></figure>
     </div>
-    <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button></div>
+    <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button><button type="button" class="sec" id="sl-ampliar">Ampliar</button></div>
   </section>
   <p class="pequeno pe-nota-img">Capturas com turmas e alunos inventados.</p>
 </section>
@@ -113,6 +113,13 @@
 </section>
 
 <footer class="pe-rodape"><span>Eça Avalia</span><a href="/privacidade.html">Privacidade</a></footer>
+<dialog class="lightbox" id="lb" aria-label="Captura ampliada">
+  <button type="button" class="lb-fechar" id="lb-fechar" aria-label="Fechar">×</button>
+  <button type="button" class="lb-nav lb-ant" id="lb-ant" aria-label="Captura anterior">‹</button>
+  <figure class="lb-fig"><img id="lb-img" alt=""><figcaption id="lb-legenda"></figcaption></figure>
+  <button type="button" class="lb-nav lb-seg" id="lb-seg" aria-label="Captura seguinte">›</button>
+  <button type="button" class="lb-ecra" id="lb-ecra" hidden>Ecrã inteiro</button>
+</dialog>
 <script src="/entrar.js?v=__V__"></script>
 </body>
 </html>

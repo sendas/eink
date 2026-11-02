@@ -50,7 +50,14 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.waitForSelector("#cred-senha");
   const senhaLocal = await p.textContent("#cred-senha");
   const pl = await (await browser.newContext()).newPage(); vigiar(pl, "docente local");
-  await pl.goto(`${base}/entrar.html`); await pl.click("#local summary");
+  await pl.goto(`${base}/entrar.html`);
+  // Slideshow: ampliar a captura (versão grande), passar à seguinte com a seta e fechar com Esc
+  await pl.click("#sl-ampliar"); await pl.waitForSelector("#lb[open]");
+  assert.match(await pl.getAttribute("#lb-img", "src"), /slide-1-g\.jpg/);
+  await pl.keyboard.press("ArrowRight"); assert.match(await pl.getAttribute("#lb-img", "src"), /slide-2-g\.jpg/);
+  assert.match(await pl.textContent("#lb-legenda"), /2 de 4/);
+  await pl.keyboard.press("Escape"); await pl.waitForFunction(() => !document.getElementById("lb").open);
+  await pl.click("#local summary");
   await pl.fill("#f-local [name=utilizador]", "rui.local"); await pl.fill("#f-local [name=senha]", "errada1234"); await pl.click("#f-local button");
   await pl.waitForFunction(() => /errados/.test(document.getElementById("erro-local").textContent));
   await pl.fill("#f-local [name=senha]", senhaLocal); await pl.click("#f-local button");
