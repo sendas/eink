@@ -8,9 +8,24 @@
     mostrar(`<h1>Docentes com acesso</h1>
       ${EINK.eu.grupoDocentes ? `<p class="painel">O acesso é dado pelo grupo «docentes» do Entra ID: quem pertence ao grupo entra e aparece aqui ao fazer o primeiro acesso; quem sai do grupo deixa de poder entrar. Aqui só se escolhe o grupo disciplinar de cada docente.</p>`
         : `<form class="painel linha" id="f-prof"><label>Email da escola<input name="upn" type="email" required placeholder="nome@escola.pt"></label><label>Nome<input name="nome" maxlength="120"></label><button>Dar acesso</button></form>`}
-      <div class="painel"><ul class="lista">${l.map((p) => `<li><span>${esc(p.upn)} ${p.admin ? "· administrador" : ""} ${p.ativo ? "" : "· desativado"}</span>
+      <form class="painel linha" id="f-local"><strong>Conta local</strong> <label>Utilizador<input name="utilizador" required maxlength="40" placeholder="ana.silva" autocapitalize="none" spellcheck="false"></label><label>Nome<input name="nome" maxlength="120"></label><label class="linha"><input type="checkbox" name="admin"> Administrador</label><button>Criar conta local</button>
+        <span class="pequeno">Para docentes sem conta Office. Gera-se uma palavra-passe que só vês uma vez; o docente muda-a na primeira entrada.</span></form>
+      <div id="credenciais"></div>
+      <div class="painel"><ul class="lista">${l.map((p) => `<li><span>${esc(p.upn)} <span class="pequeno">${p.local ? "conta local" : "conta Office"}</span> ${p.nome && p.nome !== p.upn ? "· " + esc(p.nome) : ""} ${p.admin ? "· administrador" : ""} ${p.ativo ? "" : "· desativado"}${p.trocar ? " · tem de mudar a palavra-passe" : ""}<br><span class="pequeno">${p.ultimo_acesso ? "Último acesso: " + esc(p.ultimo_acesso.slice(0, 16)) : "Ainda não entrou"}</span></span>
         <span class="linha">${p.ativo ? `<label>Grupo disciplinar<select data-grupo="${p.id}"><option value="">–</option>${grupos.map((g) => `<option value="${g.id}" ${g.id === p.grupo_id ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>` : ""}
+        ${p.upn !== EINK.eu.upn ? `<label class="linha"><input type="checkbox" data-adm="${p.id}" ${p.admin ? "checked" : ""}> Administrador</label>` : ""}
+        ${p.local ? `<button class="sec" data-nova="${p.id}">Nova palavra-passe</button>` : ""}
+        ${!p.ativo ? `<button class="sec" data-on="${p.id}">Reativar</button>` : ""}
         ${p.ativo && p.upn !== EINK.eu.upn ? `<button class="perigo" data-off="${p.id}">Retirar acesso</button>` : ""}</span></li>`).join("")}</ul></div>`);
+    const mostrarCred = (d, titulo) => {
+      $("#credenciais").innerHTML = `<div class="painel" role="status"><strong>${titulo}</strong><p>Utilizador: <code>${esc(d.utilizador)}</code><br>Palavra-passe: <code id="cred-senha">${esc(d.senha)}</code></p><p class="pequeno">Guarda estes dados agora: a palavra-passe não volta a aparecer. Entrega-os ao docente por um meio privado. Tem de a mudar na primeira entrada.</p><button class="sec" id="cred-copiar" type="button">Copiar utilizador e palavra-passe</button></div>`;
+      $("#cred-copiar").onclick = async () => { try { await navigator.clipboard.writeText(`Utilizador: ${d.utilizador}\nPalavra-passe: ${d.senha}`); aviso("Copiado."); } catch { aviso("Não foi possível copiar. Seleciona o texto e copia à mão.", true); } };
+      $("#credenciais").scrollIntoView({ block: "nearest" });
+    };
+    $("#f-local").onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const d = await api("POST", "/api/admin/professores/locais", { utilizador: f.get("utilizador"), nome: f.get("nome"), admin: f.get("admin") === "on" }); await docentes(); mostrarCred(d, "Conta local criada"); };
+    $$("[data-nova]").forEach((b) => { b.onclick = async () => { if (confirm("Gerar uma palavra-passe nova? A anterior deixa de funcionar.")) { const d = await api("POST", `/api/admin/professores/${b.dataset.nova}/senha`, {}); mostrarCred(d, "Nova palavra-passe"); } }; });
+    $$("[data-on]").forEach((b) => { b.onclick = async () => { await api("POST", `/api/admin/professores/${b.dataset.on}/reativar`, {}); docentes(); }; });
+    $$("[data-adm]").forEach((k) => { k.onchange = async () => { try { await api("PUT", `/api/admin/professores/${k.dataset.adm}/admin`, { admin: k.checked }); aviso("Papel guardado."); } catch { k.checked = !k.checked; } }; });
     if ($("#f-prof")) $("#f-prof").onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); await api("POST", "/api/admin/professores", { upn: f.get("upn"), nome: f.get("nome") }); docentes(); };
     $$("[data-off]").forEach((b) => { b.onclick = async () => { if (confirm("Retirar o acesso a este docente?")) { await api("DELETE", "/api/admin/professores/" + b.dataset.off); docentes(); } }; });
     $$("[data-grupo]").forEach((s) => { s.onchange = async () => { await api("PUT", `/api/admin/professores/${s.dataset.grupo}/grupo`, { grupo_id: s.value ? Number(s.value) : null }); aviso("Grupo guardado."); }; });
@@ -65,7 +80,7 @@
 
   // ---------- gestão: hub, fecho de períodos, alterações, cópias e privacidade ----------
   const hub = () => mostrar(`<h1>Gestão</h1>${EINK.avisoSegredo()}<p class="pequeno">Só para administradores.</p><div class="cartoes">${[
-    ["👥", "Docentes", "Quem tem acesso e a disciplina de cada um", "#/admin"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
+    ["👥", "Docentes", "Contas Office e locais, e a disciplina de cada um", "#/admin"], ["✉️", "Email e avisos", "Aviso antes de o segredo do Entra expirar", "#/correio"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
     ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],

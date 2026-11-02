@@ -22,7 +22,7 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
     page.setDefaultTimeout(15000);
     page.on("pageerror", (e) => erros.push(`${quem}: ${e.message}`));
     // Um 409 faz parte de um fluxo normal (pede confirmação antes de apagar notas), por isso não conta como erro.
-    page.on("console", (m) => { if (m.type() === "error" && !/status of 409/.test(m.text())) erros.push(`${quem}: ${m.text()}`); });
+    page.on("console", (m) => { if (m.type() === "error" && !/status of 409/.test(m.text()) && !(quem === "docente local" && /status of 401/.test(m.text()))) erros.push(`${quem}: ${m.text()}`); });
     page.on("dialog", (d) => (d.type() === "prompt" ? d.accept(d.defaultValue()) : d.accept())); // confirmações e pedidos de texto (aceita o valor sugerido)
   };
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -42,6 +42,22 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.click("#tema"); assert.strictEqual(await tema(), "claro");
   await p.click("#tema"); assert.strictEqual(await tema(), "escuro");
   await p.click("#tema"); assert.strictEqual(await tema(), null);
+
+  // Contas locais: o administrador cria uma, o docente entra com ela e é obrigado a mudar a palavra-passe
+  await ir("/admin", "#f-local");
+  await p.fill("#f-local [name=utilizador]", "rui.local"); await p.fill("#f-local [name=nome]", "Rui Local"); await p.click("#f-local button");
+  await p.waitForSelector("#cred-senha");
+  const senhaLocal = await p.textContent("#cred-senha");
+  const pl = await (await browser.newContext()).newPage(); vigiar(pl, "docente local");
+  await pl.goto(`${base}/entrar.html`); await pl.click("#local summary");
+  await pl.fill("#f-local [name=utilizador]", "rui.local"); await pl.fill("#f-local [name=senha]", "errada1234"); await pl.click("#f-local button");
+  await pl.waitForFunction(() => /errados/.test(document.getElementById("erro-local").textContent));
+  await pl.fill("#f-local [name=senha]", senhaLocal); await pl.click("#f-local button");
+  await pl.waitForSelector("#f-senha");
+  await pl.fill("[name=atual]", senhaLocal); await pl.fill("[name=nova]", "palavraNova2026"); await pl.fill("[name=nova2]", "palavraNova2026"); await pl.click("#f-senha button");
+  await pl.waitForSelector(".cartoes");
+  await pl.context().close();
+  await ir("/correio", "text=Email e avisos");
 
   // Turma, alunos colados do Excel, teste e nota
   await ir("/turmas", "#f-turma");

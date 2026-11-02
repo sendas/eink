@@ -42,3 +42,14 @@ Pré-requisito: o domínio `queiroz.pt` tem de estar na mesma conta Cloudflare d
 5. Cloudflare → techpro.pt → Rules → Redirect Rules: de `avaliar.techpro.pt/*` para `https://<nome>.queiroz.pt/${1}` (301, manter query string). Assim os links e QR codes de sondagens e quizzes já distribuídos continuam a funcionar. Depois remove o Public Hostname antigo do túnel e o URI antigo do Entra.
 
 Efeitos: todos os docentes têm de entrar de novo (os cookies são por endereço). Os alunos não são afetados. Os administradores `ADMIN_USERS` e o grupo de docentes não mudam.
+
+## 5. Contas locais e avisos por email
+
+**Contas locais** (para docentes sem conta Office): Gestão, Docentes, «Criar conta local». A palavra-passe gerada só se vê uma vez e o docente muda-a na primeira entrada (mínimo 10 caracteres). Entram em «Entrar com utilizador e palavra-passe» na página de entrada. Há limite de tentativas por IP e por utilizador. Uma conta local não se abre pelo botão Office, nem o contrário.
+
+**Aviso de expiração do segredo por email** (Microsoft Graph). Uma só vez:
+1. Entra, a aplicação, Permissões de API, Adicionar uma permissão, Microsoft Graph, **Permissões delegadas**: `Mail.Send` e `offline_access`. Se a escola exigir, «Conceder consentimento de administrador».
+2. No `.env`: `CLIENT_SECRET_EXPIRA=aaaa-mm-dd` (a data da coluna «Expira» do segredo).
+3. Na plataforma: Gestão, **Email e avisos**, «Ligar o envio de email» (entra com a conta de administrador de onde sairão os emails), depois «Enviar email de teste».
+
+A verificação corre ao arrancar e de 6 em 6 horas; envia um aviso quando faltam 60, 30, 14, 7, 3 e 1 dias, aos administradores com conta Office e à conta ligada. Quando renovares o segredo e mudares `CLIENT_SECRET_EXPIRA`, recomeça. Se o segredo expirar, o envio deixa de funcionar (a renovação do token usa o mesmo segredo), por isso os avisos são antes. `CORREIO=0` desliga a verificação automática.

@@ -897,3 +897,101 @@ test("API: imagens nas perguntas dos quizzes e sondagem aberta com nuvem de pala
   await ana.chamar("POST", `/api/sondagens/${s.id}/estado`, { aberta: false });
   assert.strictEqual((await enviar("tarde")).status, 409);
 });
+
+test("API: contas locais (criar, entrar, mudar a palavra-passe, repor) e conta Office separada", async (t) => {
+  const { base, servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const outro = await entrar("ana@escola.pt"); // não é administradora (sem grupo, mas entra por ser administrador? não): ver abaixo
+  void outro;
+
+  const c = await adm.chamar("POST", "/api/admin/professores/locais", { utilizador: "ana.silva", nome: "Ana Silva" });
+  assert.strictEqual(c.estado, 200);
+  assert.match(c.d.senha, /^[A-Za-z0-9]{14}$/);
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/professores/locais", { utilizador: "ana.silva" })).estado, 409, "utilizador repetido");
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/professores/locais", { utilizador: "A b" })).estado, 400, "utilizador inválido");
+
+  const login = (utilizador, senha) => fetch(base + "/auth/local", { method: "POST", headers: { "content-type": "application/json", "x-requested-with": "eink" }, body: JSON.stringify({ utilizador, senha }) });
+  assert.strictEqual((await login("ana.silva", "errada")).status, 401);
+  assert.strictEqual((await login("nao.existe", "qualquer")).status, 401, "mesma resposta para utilizador inexistente");
+  assert.strictEqual((await fetch(base + "/auth/local", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status, 403, "sem cabeçalho anti-CSRF");
+
+  const r = await login("ana.silva", c.d.senha);
+  assert.strictEqual(r.status, 200);
+  const ck = r.headers.getSetCookie()[0].split(";")[0];
+  const como = async (m, u, b) => { const r2 = await fetch(base + u, { method: m, headers: { cookie: ck, "x-requested-with": "eink", "content-type": "application/json" }, body: b === undefined ? undefined : JSON.stringify(b) }); return { estado: r2.status, d: await r2.json().catch(() => null) }; };
+  const eu = await como("GET", "/api/eu");
+  assert.ok(eu.d.local && eu.d.trocar, "conta local que tem de mudar a palavra-passe");
+  assert.strictEqual((await como("GET", "/api/turmas")).estado, 403, "bloqueada até mudar a palavra-passe");
+  assert.strictEqual((await como("POST", "/api/eu/senha", { atual: "errada", nova: "umaSenhaNova123" })).estado, 403);
+  assert.strictEqual((await como("POST", "/api/eu/senha", { atual: c.d.senha, nova: "curta" })).estado, 400);
+  assert.strictEqual((await como("POST", "/api/eu/senha", { atual: c.d.senha, nova: "umaSenhaNova123" })).estado, 200);
+  assert.strictEqual((await como("GET", "/api/turmas")).estado, 200, "livre depois de mudar");
+  assert.strictEqual((await como("GET", "/api/admin/professores")).estado, 403, "não é administradora");
+  assert.strictEqual((await login("ana.silva", c.d.senha)).status, 401, "a palavra-passe antiga deixou de servir");
+  assert.strictEqual((await login("ana.silva", "umaSenhaNova123")).status, 200);
+
+  // A conta local não se abre pela entrada Office, mesmo com o mesmo upn.
+  assert.strictEqual((await entrar("ana.silva@local")).status, 403);
+
+  // Nova palavra-passe pelo administrador e desativação.
+  const lista = (await adm.chamar("GET", "/api/admin/professores")).d;
+  const ana = lista.find((p) => p.upn === "ana.silva@local");
+  assert.ok(ana.local && !ana.trocar);
+  const nova = await adm.chamar("POST", `/api/admin/professores/${ana.id}/senha`, {});
+  assert.strictEqual(nova.estado, 200);
+  assert.strictEqual((await login("ana.silva", "umaSenhaNova123")).status, 401);
+  assert.strictEqual((await login("ana.silva", nova.d.senha)).status, 200);
+  assert.strictEqual((await adm.chamar("POST", `/api/admin/professores/${lista.find((p) => p.upn === "admin@escola.pt").id}/senha`, {})).estado, 400, "contas Office não têm palavra-passe aqui");
+  await adm.chamar("DELETE", `/api/admin/professores/${ana.id}`);
+  assert.strictEqual((await login("ana.silva", nova.d.senha)).status, 401, "conta desativada não entra");
+  await adm.chamar("POST", `/api/admin/professores/${ana.id}/reativar`, {});
+  assert.strictEqual((await login("ana.silva", nova.d.senha)).status, 200);
+
+  // Limite de tentativas por utilizador.
+  let ultimo = 0; for (let i = 0; i < 12; i++) ultimo = (await login("alvo.teste", "x" + i)).status;
+  assert.strictEqual(ultimo, 429, "demasiadas tentativas são travadas");
+});
+
+test("Correio: avisos de expiração do segredo pelo Graph (limiares, token cifrado, falhas)", async () => {
+  const { abrir } = require("../lib/db");
+  const criarCorreio = require("../lib/correio");
+  const db = abrir(":memory:");
+  db.prepare("INSERT INTO professores (upn, nome, admin) VALUES ('adm@escola.pt', 'Adm', 1)").run();
+  db.prepare("INSERT INTO professores (upn, nome, admin, local, senha) VALUES ('loc@local', 'Loc', 1, 1, 'x')").run();
+  db.prepare("INSERT INTO professores (upn, nome, admin) VALUES ('doc@escola.pt', 'Doc', 0)").run();
+  let t = Date.parse("2026-11-02T12:00:00Z"), enviados = [], falha = false;
+  const env = { CLIENT_SECRET_EXPIRA: "2026-12-20" };
+  const auth = { renovar: async () => ({ access_token: "AT", refresh_token: "RT2" }) };
+  const fetchFn = async (url, o) => { enviados.push({ url, o, corpo: JSON.parse(o.body) }); return falha ? { status: 403, json: async () => ({ error: { message: "Mail.Send em falta" } }) } : { status: 202, json: async () => ({}) }; };
+  const cor = criarCorreio({ db, auth, segredo: "s", graphUrl: "https://g/v1.0", env, baseUrl: "https://avaliar.techpro.pt", fetchFn, agora: () => t });
+
+  assert.deepStrictEqual((await cor.verificar()).enviado, false, "sem ligação não envia");
+  cor.ligar({ conta: "adm@escola.pt", nome: "Adm", refresh: "RT1-segredo", por: "adm@escola.pt" });
+  assert.ok(!JSON.stringify(db.prepare("SELECT * FROM config").all()).includes("RT1-segredo"), "o token está cifrado");
+
+  let r = await cor.verificar();           // faltam 48 dias: o limiar de 60 já foi atingido
+  assert.ok(r.enviado && r.limiar === 60);
+  assert.strictEqual(enviados.length, 1);
+  assert.strictEqual(enviados[0].url, "https://g/v1.0/me/sendMail");
+  assert.strictEqual(enviados[0].o.headers.Authorization, "Bearer AT");
+  assert.deepStrictEqual(enviados[0].corpo.message.toRecipients.map((x) => x.emailAddress.address), ["adm@escola.pt"], "só administradores Office, sem repetidos nem contas locais");
+  assert.match(enviados[0].corpo.message.subject, /20\/12\/2026/);
+  assert.ok(!/[–—]/.test(enviados[0].corpo.message.body.content), "sem travessões");
+
+  assert.strictEqual((await cor.verificar()).enviado, false, "não repete no mesmo limiar");
+  t += 20 * 86400000;                       // faltam 28 dias
+  r = await cor.verificar(); assert.ok(r.enviado && r.limiar === 30);
+  assert.deepStrictEqual(cor.estado().avisosEnviados.sort((a, b) => a - b), [30, 60]);
+
+  env.CLIENT_SECRET_EXPIRA = "2027-12-20";  // segredo renovado: recomeça
+  assert.strictEqual((await cor.verificar()).enviado, false);
+  assert.deepStrictEqual(cor.estado().avisosEnviados, []);
+
+  env.CLIENT_SECRET_EXPIRA = "2026-12-01"; falha = true;
+  await assert.rejects(() => cor.verificar(), /Mail.Send em falta/);
+  assert.match(cor.estado().erro, /Mail.Send/);
+  falha = false; r = await cor.verificar(); assert.ok(r.enviado, "tenta outra vez depois de uma falha");
+  assert.strictEqual(cor.estado().erro, null);
+  cor.desligar(); assert.strictEqual(cor.estado().ligado, false);
+});

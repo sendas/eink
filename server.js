@@ -12,6 +12,9 @@ const { lerAlunos } = require("./lib/xlsx-ler");
 const APR = require("./public/apreciacao.js");
 const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
+const registarContas = require("./lib/m-contas");
+const CONTAS = require("./lib/contas");
+const criarCorreio = require("./lib/correio");
 const ferramentas = require("./lib/m-ferramentas");
 const registarQuiz = require("./lib/m-quiz");
 const registarNotas = require("./lib/m-notas");
@@ -83,6 +86,7 @@ function criarServidor(env = process.env) {
   function professorDe(upn, nome, grupo, adminGrupo) {
     const admin = ADMINS.includes(upn) || adminGrupo === true;
     let p = db.prepare("SELECT * FROM professores WHERE upn = ?").get(upn);
+    if (p && p.local) return null; // uma conta local nunca se abre pela entrada Office
     if (grupo !== undefined) {
       // Modo grupo: a pertença ao grupo manda. Quem sai do grupo fica desativado e deixa de ter sessão válida.
       if (!grupo && !admin) { if (p && p.ativo) db.prepare("UPDATE professores SET ativo = 0 WHERE id = ?").run(p.id); return null; }
@@ -174,7 +178,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
@@ -529,6 +533,20 @@ function criarServidor(env = process.env) {
   // Administração: quem pode entrar
   const soAdmin = (c) => { if (!c.p.admin) throw erro(403, "Só para administradores."); };
   registarAdmin({ rota, db, erro, texto, inteiro, existe, transacao, soAdmin, turmaDe, periodoDe, dadosPauta, copias });
+  const CORREIO = criarCorreio({ db, auth, segredo, graphUrl: GRAPH_URL, env, baseUrl: BASE_URL });
+  rota("GET", "/api/admin/correio", (c) => { soAdmin(c); return CORREIO.estado(); });
+  rota("POST", "/api/admin/correio/desligar", (c) => { soAdmin(c); CORREIO.desligar(); return CORREIO.estado(); });
+  rota("POST", "/api/admin/correio/teste", async (c) => {
+    soAdmin(c);
+    const dest = c.p.local ? CORREIO.destinatarios() : [c.p.upn];
+    const n = await CORREIO.enviar(dest, "eink: email de teste", "O envio de email do eink está a funcionar. Os avisos de expiração do segredo do Entra chegam a este endereço.");
+    return { ok: true, enviados: n, para: dest };
+  });
+  if ((env.DB_FILE || "x") !== ":memory:" && env.CORREIO !== "0") {
+    const avisar = () => CORREIO.verificar().then((r) => { if (r.enviado) console.log(`Aviso de expiração do segredo enviado a ${r.destinatarios} destinatário(s).`); }).catch((e) => console.error("Aviso por email falhou:", e.message));
+    setTimeout(avisar, 60000).unref(); const relogioCorreio = setInterval(avisar, 6 * 3600000); relogioCorreio.unref();
+  }
+  registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
   ferramentas.registar(XF);
@@ -633,7 +651,7 @@ function criarServidor(env = process.env) {
     return { ok: true };
   });
 
-  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, grupo_id, ultimo_acesso FROM professores ORDER BY upn").all(); });
+  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, local, trocar, grupo_id, ultimo_acesso FROM professores ORDER BY local, upn").all(); });
   rota("POST", "/api/admin/professores", (c) => {
     soAdmin(c);
     const upn = texto(c.b.upn, 120).toLowerCase();
@@ -701,8 +719,20 @@ function criarServidor(env = process.env) {
         }
         res.writeHead(302, { Location: await auth.iniciar(res) }); return res.end();
       }
+      if (p === "/auth/correio/ligar") {
+        const adm = sessaoDe(req);
+        if (!adm || !adm.admin) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Só um administrador com sessão iniciada pode ligar o envio de email."); }
+        res.writeHead(302, { Location: await auth.iniciar(res, { modo: "correio", scope: "openid profile email User.Read offline_access Mail.Send" }) }); return res.end();
+      }
       if (p === "/auth/callback") {
         const c = await auth.concluir(req, res, u);
+        if (c.modo === "correio") {
+          const adm = sessaoDe(req);
+          if (!adm || !adm.admin) throw Object.assign(erro(403, "Só um administrador com sessão iniciada pode ligar o envio de email."), { publico: true });
+          if (!c.refreshToken) throw Object.assign(erro(400, "A Microsoft não deu permissão de envio. Confirma no Entra que a aplicação tem as permissões delegadas Mail.Send e offline_access."), { publico: true });
+          CORREIO.ligar({ conta: c.upn, nome: c.nome, refresh: c.refreshToken, por: adm.upn });
+          res.writeHead(302, { Location: "/#/correio" }); return res.end();
+        }
         if (DOMINIOS.length && !DOMINIOS.includes(c.dominio)) throw Object.assign(erro(403, "Este domínio não tem acesso."), { publico: true });
         let doGrupo, adminGrupo;
         if (GRUPO_DOCENTES) doGrupo = await ehMembro(c.accessToken, GRUPO_DOCENTES, { graphUrl: GRAPH_URL });
@@ -714,12 +744,25 @@ function criarServidor(env = process.env) {
         auth.criarSessao(res, c.upn, c.nome);
         res.writeHead(302, { Location: "/" }); return res.end();
       }
+      if (p === "/auth/local" && req.method === "POST") {
+        if (req.headers["x-requested-with"] !== "eink") return json(res, 403, { erro: "Pedido recusado." });
+        const b = await corpo(req), nome = texto(b.utilizador, 40).toLowerCase();
+        if (!limitar("loc-ip:" + ip(req), 20, 900000) || !limitar("loc-u:" + nome, 10, 900000)) return json(res, 429, { erro: "Demasiadas tentativas. Espera uns minutos e tenta outra vez." });
+        const prof = db.prepare("SELECT * FROM professores WHERE upn = ? AND local = 1").get(nome + "@local");
+        const certa = await CONTAS.conferir(String(b.senha || "").slice(0, 200), prof && prof.senha);
+        if (!prof || !certa || !prof.ativo) return json(res, 401, { erro: "Utilizador ou palavra-passe errados." });
+        db.prepare("UPDATE professores SET ultimo_acesso = datetime('now') WHERE id = ?").run(prof.id);
+        est.contar(prof.id, "login");
+        auth.criarSessao(res, prof.upn, prof.nome);
+        return json(res, 200, { ok: true });
+      }
       if (p === "/auth/sair") { auth.terminar(res); res.writeHead(302, { Location: "/entrar.html" }); return res.end(); }
 
       if (p.startsWith("/api/")) {
         const prof = sessaoDe(req);
         if (!prof) return json(res, 401, { erro: "Sessão terminada. Entra outra vez." });
         const metodo = req.method;
+        if (prof.trocar && p !== "/api/eu" && p !== "/api/eu/senha") return json(res, 403, { erro: "Tens de mudar a palavra-passe antes de continuar.", trocar: true });
         // Defesa contra pedidos de outros sites: as escritas têm de trazer este cabeçalho, que o navegador não deixa um site de fora pôr.
         if (metodo !== "GET" && req.headers["x-requested-with"] !== "eink") return json(res, 403, { erro: "Pedido recusado." });
         const imgQuiz = /^\/api\/quizzes\/(\d+)\/imagens\/(\d+)$/.exec(p);

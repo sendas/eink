@@ -13,6 +13,15 @@
   <p>Ferramentas de sala de aula e avaliação para docentes.</p>
   <a class="botao grande" href="/auth/entrar">Entrar com a conta da escola</a>
   <p class="pequeno">Só entram docentes da escola com acesso autorizado.</p>
+  <details class="painel" id="local"><summary>Entrar com utilizador e palavra-passe</summary>
+    <form id="f-local" class="linha" style="flex-direction:column;align-items:stretch">
+      <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
+      <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
+      <button>Entrar</button><p id="erro-local" class="pequeno" role="alert"></p>
+    </form>
+    <p class="pequeno">Para docentes que não têm conta Office da escola. Pede os dados a um administrador.</p>
+  </details>
 </main>
+<script src="/entrar.js"></script>
 </body>
 </html>

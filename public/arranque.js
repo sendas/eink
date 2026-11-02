@@ -4,6 +4,7 @@
   try { EINK.eu = await EINK.api("GET", "/api/eu"); } catch { return; }
   document.getElementById("nome").textContent = EINK.eu.nome || EINK.eu.upn;
   if (EINK.eu.admin) document.getElementById("nav-gestao").hidden = false;
+  if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
   if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
   // Botão do tema: Automático (sistema) → Claro → Escuro
   const botaoTema = document.getElementById("tema"), NOME = { auto: "Tema: automático", claro: "Tema: claro", escuro: "Tema: escuro" };
@@ -14,13 +15,14 @@
   const vistos = new Map();
   const contarEcra = (caminho) => {
     const area = caminho.split("/")[1] || "painel", t = Date.now();
-    if (t - (vistos.get(area) || 0) < 10000) return;
+    if (EINK.eu.trocar || t - (vistos.get(area) || 0) < 10000) return;
     vistos.set(area, t);
     fetch("/api/uso", { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "eink" }, body: JSON.stringify({ area }) }).catch(() => {});
   };
   const ir = async () => {
     EINK.aoSair && EINK.aoSair();
-    const caminho = location.hash.replace(/^#/, "");
+    let caminho = location.hash.replace(/^#/, "");
+    if (EINK.eu.trocar && caminho !== "/senha") { location.hash = "#/senha"; return; }
     contarEcra(caminho);
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
