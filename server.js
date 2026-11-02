@@ -682,7 +682,10 @@ function criarServidor(env = process.env) {
     if (!f.startsWith(PUBLIC + path.sep)) return false;
     let st; try { st = fs.statSync(f); } catch { return false; }
     if (!st.isFile()) return false;
-    res.writeHead(200, { "Content-Type": TIPOS[path.extname(f)] || "application/octet-stream", "Cache-Control": "no-cache" });
+    const cab = { "Content-Type": TIPOS[path.extname(f)] || "application/octet-stream", "Cache-Control": "no-cache" };
+    // Nas páginas HTML, __V__ vira a versão: cada versão nova usa endereços novos para o CSS e o JS, e nem o navegador nem o Cloudflare servem cópias antigas.
+    if (path.extname(f) === ".html") { res.writeHead(200, cab); res.end(fs.readFileSync(f, "utf8").replaceAll("__V__", VERSAO)); return true; }
+    res.writeHead(200, cab);
     fs.createReadStream(f).pipe(res);
     return true;
   }
