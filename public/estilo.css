@@ -495,3 +495,15 @@ html { scroll-behavior: smooth; }
   table.folha .folha-letras { display: none; }
   .folha-barra .folha-rotulo { display: none; }
 }
+
+/* Passos com ícones coloridos */
+:root { --ic1: #0f766e; --ic2: #2f6fa3; --ic3: #b4532a; --ic4: #6b4e9b; --ic5: #9a6b1f; }
+:root[data-tema="escuro"] { --ic1: #5eead4; --ic2: #8cb9e8; --ic3: #f0a37d; --ic4: #b9a3ee; --ic5: #e3bd6b; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { --ic1: #5eead4; --ic2: #8cb9e8; --ic3: #f0a37d; --ic4: #b9a3ee; --ic5: #e3bd6b; } }
+.pe-ico { display: grid; place-items: center; width: 3.4rem; height: 3.4rem; border-radius: 18px; margin-bottom: .6rem; color: var(--ic); background: color-mix(in srgb, var(--ic) 15%, var(--cartao)); border: 1px solid color-mix(in srgb, var(--ic) 28%, transparent); }
+.pe-ico.ic1 { --ic: var(--ic1); } .pe-ico.ic2 { --ic: var(--ic2); } .pe-ico.ic3 { --ic: var(--ic3); } .pe-ico.ic4 { --ic: var(--ic4); } .pe-ico.ic5 { --ic: var(--ic5); }
+.pe-passo-n { display: block; margin-bottom: .15rem; font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.pe-passos li:not(:last-child)::after { top: 2.6rem; }
+.pe-ico { width: 4rem; height: 4rem; border-radius: 20px; background: color-mix(in srgb, var(--ic) 22%, var(--cartao)); border-color: color-mix(in srgb, var(--ic) 40%, transparent); margin-bottom: .8rem; }
+.pe-ico svg { width: 32px; height: 32px; stroke-width: 2.1; }
+.pe-passos li:not(:last-child)::after { top: 3rem; }
