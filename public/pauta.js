@@ -18,7 +18,7 @@
       if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a, ai) => `<th class="col-av ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col" title="${esc(a.titulo)} · ${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""} · peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}">
-        <div class="av-tit">${esc(a.titulo)}</div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
+        <div class="av-tit"><a href="#/grelha/${a.id}" title="Abrir a grelha de ${esc(a.titulo)}">${esc(a.titulo)}</a></div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
         <details class="menu-col"><summary aria-label="Opções de ${esc(a.titulo)}">⋯</summary><div class="menu-col-lista">
           <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a>${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button>`}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso (${num(a.peso)})</button><button class="perigo" data-del="${a.id}">Apagar</button>`}</div></details></th>`).join("") + `<th class="num fim ${g(gi)}${doCrit(k).length ? "" : " ini"}" scope="col">Média %</th>`;
     }).join("");
@@ -32,7 +32,7 @@
       <td class="num res-ini" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
 
-    mostrar(`<p><a href="#/turma/${d.periodo.turma_id}">← Turma</a></p><h1>${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
+    mostrar(`<p class="linha"><a href="#/turma/${d.periodo.turma_id}">← Turma</a><span id="troca"></span></p><h1>${esc(d.periodo.turma_nome)} · ${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
       ${fechado ? `<p class="banner-fechado" role="status"><strong>Período fechado</strong> pelo administrador${d.periodo.fechado_em ? " em " + esc(d.periodo.fechado_em.slice(0, 10)) : ""}: as notas estão bloqueadas. Podes consultar, exportar e ver o histórico.</p>` : `<form class="painel linha" id="f-aval">
         <label>Título<input name="titulo" required maxlength="80" placeholder="Teste 1"></label>
         <label>Critério<select name="criterio">${testes.map((k) => `<option value="${k.id}">${esc(k.nome)} (${k.peso} %)</option>`).join("")}</select></label>
@@ -46,6 +46,7 @@
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
       <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a><button class="sec" id="hist-bot" type="button">Histórico de alterações</button></p><div id="hist"></div>`);
+    EINK.lembrarPauta(id, `${d.periodo.turma_nome || ""} ${d.periodo.nome}`.trim()); if ($("#troca")) EINK.trocaPauta($("#troca"), id);
     $("#hist-bot").onclick = async () => {
       const h = await api("GET", `/api/periodos/${id}/auditoria`);
       $("#hist").innerHTML = `<h2>Histórico de alterações</h2>` + (h.length ? `<div class="tabela-rolagem"><table class="hist-lista"><thead><tr><th>Quando</th><th>Quem</th><th>Aluno</th><th>O quê</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${h.map((x) => `<tr><td>${esc(x.quando)}</td><td>${esc(x.quem)}</td><td>${esc(x.aluno)}</td><td>${esc(x.acao)}${x.detalhe ? " · " + esc(x.detalhe) : ""}</td><td>${esc(x.antes)}</td><td>${esc(x.depois)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="pequeno">Ainda não há alterações.</p>');

@@ -1,17 +1,17 @@
 :root {
-  --fundo: #f4f6fb; --cartao: #fff; --texto: #1d2433; --suave: #5b6578; --linha: #dfe4ef;
-  --marca: #3b5bdb; --marca-fundo: #e7ecff; --sobre-marca: #fff; --ok: #2b8a3e; --aviso: #e8590c; --erro: #c92a2a;
+  --fundo: #f6f5f1; --cartao: #fffefc; --texto: #1f2430; --suave: #656b78; --linha: #e5e2d9;
+  --marca: #0f766e; --marca-fundo: #e6f1ee; --sobre-marca: #fff; --ok: #2b7a3e; --aviso: #b4532a; --erro: #b3372f;
   --raio: 14px; color-scheme: light;
 }
 /* Modo escuro: automático pelo sistema, ou escolhido no botão do cabeçalho (data-tema="claro" | "escuro" no <html>, ver tema.js). */
 :root[data-tema="escuro"] {
-  --fundo: #12151d; --cartao: #1b202c; --texto: #e8ecf5; --suave: #a3adc2; --linha: #2c3445;
-  --marca: #8da2ff; --marca-fundo: #262f52; --sobre-marca: #0f1530; --ok: #69db7c; --aviso: #ffa94d; --erro: #ff8787; color-scheme: dark;
+  --fundo: #14171c; --cartao: #1c2027; --texto: #e9e7e1; --suave: #a0a6b2; --linha: #2a2f38;
+  --marca: #5eead4; --marca-fundo: #1d3a37; --sobre-marca: #0b2220; --ok: #86d99a; --aviso: #f0a37d; --erro: #f2938c; color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
-    --fundo: #12151d; --cartao: #1b202c; --texto: #e8ecf5; --suave: #a3adc2; --linha: #2c3445;
-    --marca: #8da2ff; --marca-fundo: #262f52; --sobre-marca: #0f1530; --ok: #69db7c; --aviso: #ffa94d; --erro: #ff8787; color-scheme: dark;
+    --fundo: #14171c; --cartao: #1c2027; --texto: #e9e7e1; --suave: #a0a6b2; --linha: #2a2f38;
+    --marca: #5eead4; --marca-fundo: #1d3a37; --sobre-marca: #0b2220; --ok: #86d99a; --aviso: #f0a37d; --erro: #f2938c; color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
@@ -53,9 +53,9 @@ th, td { border: 1px solid var(--linha); padding: .35rem .5rem; text-align: left
 th { background: var(--marca-fundo); font-weight: 600; font-size: .85rem; }
 td input.nota { width: 5rem; text-align: right; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.n1, .n2 { background: color-mix(in srgb, var(--erro) 18%, transparent); }
-.n3 { background: color-mix(in srgb, var(--aviso) 14%, transparent); }
-.n4, .n5 { background: color-mix(in srgb, var(--ok) 16%, transparent); }
+.n1, .n2 { background: color-mix(in srgb, var(--erro) 10%, transparent); }
+.n3 { background: color-mix(in srgb, var(--aviso) 8%, transparent); }
+.n4, .n5 { background: color-mix(in srgb, var(--ok) 10%, transparent); }
 .entrar { display: grid; place-items: center; min-height: 100vh; }
 .caixa-entrar { text-align: center; max-width: 420px; padding: 1.5rem; }
 #aviso { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--texto); color: var(--fundo); padding: .6rem 1rem; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
@@ -169,26 +169,24 @@ table.folha td.fo-ativa { background: var(--cartao); box-shadow: inset 0 0 0 2px
 table.folha td.fo-sel input { user-select: none; }
 
 /* Grelha mais legível: linhas fortes e cada critério (por exemplo 70 % e 30 %) com a sua cor e barras grossas nos limites */
-:root { --grelha: #7b869e; --g0: #3b5bdb; --g1: #d9480f; --g2: #7048e8; }
-:root[data-tema="escuro"] { --grelha: #5d6985; --g0: #8da2ff; --g1: #ffa94d; --g2: #b197fc; }
-@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { --grelha: #5d6985; --g0: #8da2ff; --g1: #ffa94d; --g2: #b197fc; } }
+:root { --grelha: #cdc9bb; --g0: #0f766e; --g1: #b4532a; --g2: #6b4e9b; }
+:root[data-tema="escuro"] { --grelha: #3a414d; --g0: #5eead4; --g1: #f0a37d; --g2: #b9a3ee; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { --grelha: #3a414d; --g0: #5eead4; --g1: #f0a37d; --g2: #b9a3ee; } }
 table.folha th, table.folha td { border-color: var(--grelha); }
 table.folha .g0 { --gc: var(--g0); } table.folha .g1 { --gc: var(--g1); } table.folha .g2 { --gc: var(--g2); }
-table.folha th.crit { background: var(--gc); color: #fff; text-align: left; font-size: 1rem; padding: .5rem .7rem; }
-:root[data-tema="escuro"] table.folha th.crit { color: #11151f; }
-@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) table.folha th.crit { color: #11151f; } }
-table.folha th.crit .peso-crit { font-size: 1.15rem; font-weight: 800; margin-left: .4rem; padding: .05rem .5rem; border-radius: 999px; background: rgba(255,255,255,.25); }
+table.folha th.crit { background: color-mix(in srgb, var(--gc) 13%, var(--cartao)); color: var(--texto); text-align: left; font-size: .95rem; padding: .45rem .7rem; border-top: 3px solid var(--gc); }
+table.folha th.crit .peso-crit { font-size: .95rem; font-weight: 700; margin-left: .4rem; padding: .05rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--gc) 18%, var(--cartao)); color: var(--gc); }
 table.folha th.crit .nome-crit { font-weight: 700; }
-table.folha thead th.g0:not(.crit), table.folha thead th.g1:not(.crit), table.folha thead th.g2:not(.crit) { background: color-mix(in srgb, var(--gc) 16%, var(--cartao)); border-bottom: 3px solid var(--gc); }
+table.folha thead th.g0:not(.crit), table.folha thead th.g1:not(.crit), table.folha thead th.g2:not(.crit) { background: color-mix(in srgb, var(--gc) 7%, var(--cartao)); border-bottom: 2px solid var(--gc); }
 table.folha tbody td.g0, table.folha tbody td.g1, table.folha tbody td.g2 { box-shadow: inset 0 -1px 0 var(--grelha); }
-table.folha .ini { border-left: 4px solid var(--gc, var(--grelha)); }
-table.folha .fim { border-right: 4px solid var(--gc, var(--grelha)); }
-table.folha .res-ini { border-left: 4px solid var(--texto); }
+table.folha .ini { border-left: 3px solid color-mix(in srgb, var(--gc, var(--grelha)) 70%, var(--cartao)); }
+table.folha .fim { border-right: 3px solid color-mix(in srgb, var(--gc, var(--grelha)) 70%, var(--cartao)); }
+table.folha .res-ini { border-left: 3px solid var(--suave); }
 table.folha tbody tr td.fim[data-c^="crit-"] { font-weight: 700; background: color-mix(in srgb, var(--gc) 14%, transparent); }
 table.folha tbody tr:last-child td { border-bottom: 3px solid var(--grelha); }
 /* Cada critério tem o seu tom de fundo; a cor do nível da linha só aparece em Final, Nível e Menção */
-table.folha tbody td.g0, table.folha tbody td.g1, table.folha tbody td.g2 { background: color-mix(in srgb, var(--gc) 9%, var(--cartao)); }
-table.folha tbody td.g0.fim, table.folha tbody td.g1.fim, table.folha tbody td.g2.fim { background: color-mix(in srgb, var(--gc) 22%, var(--cartao)); }
+table.folha tbody td.g0, table.folha tbody td.g1, table.folha tbody td.g2 { background: color-mix(in srgb, var(--gc) 5%, var(--cartao)); }
+table.folha tbody td.g0.fim, table.folha tbody td.g1.fim, table.folha tbody td.g2.fim { background: color-mix(in srgb, var(--gc) 11%, var(--cartao)); }
 table.folha tbody tr td.res-ini, table.folha tbody tr td.res-ini ~ td { border-bottom-color: var(--grelha); }
 table.folha tbody tr:hover td.g0, table.folha tbody tr:hover td.g1, table.folha tbody tr:hover td.g2 { background: color-mix(in srgb, var(--gc) 16%, var(--cartao)); }
 table.folha td.fo-sel { background: color-mix(in srgb, var(--marca) 28%, var(--cartao)) !important; }
@@ -210,3 +208,15 @@ a.versao { font-size: .78rem; font-weight: 600; padding: .1rem .5rem; border: 1p
 a.versao:hover { background: var(--marca-fundo); }
 .etiqueta-versao { font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: var(--marca-fundo); color: var(--texto); vertical-align: middle; }
 .etiqueta-versao.atual { background: var(--marca); color: var(--sobre-marca); }
+
+/* Atalhos para as notas */
+.notas-turmas { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); margin: .5rem 0 1rem; }
+.notas-turma { background: var(--cartao); border: 1px solid var(--linha); border-radius: 12px; padding: .7rem .9rem; }
+.notas-periodos { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.notas-periodos .botao { padding: .3rem .75rem; font-size: .9rem; }
+.botao.fantasma { background: transparent; border-color: transparent; color: var(--suave); }
+.troca-pauta { margin-left: auto; font-size: .85rem; }
+.troca-pauta select { width: auto; }
+.av-tit a { color: inherit; text-decoration: none; }
+.av-tit a:hover { text-decoration: underline; }
+.troca-pauta { display: inline-flex; flex-direction: row; align-items: center; gap: .4rem; }

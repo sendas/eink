@@ -1008,3 +1008,17 @@ test("Versões: a primeira entrada é a versão do package.json, com data e hora
   const datas = v.lista.map((x) => x.data); assert.deepStrictEqual(datas, [...datas].sort().reverse(), "mais recente primeiro");
   assert.strictEqual((await fetch(base + "/api/versoes")).status, 401, "só com sessão");
 });
+
+test("Atalhos: turmas ativas com os períodos, só as do docente", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const outro = await entrar("ana@escola.pt");
+  const grupos = (await adm.chamar("GET", "/api/grupos")).d;
+  await adm.chamar("POST", "/api/turmas", { nome: "7.º A", ano_letivo: "2026/2027", ano: 7, grupo_id: grupos[0].id });
+  const l = (await adm.chamar("GET", "/api/atalhos")).d;
+  assert.strictEqual(l.length, 1);
+  assert.ok(l[0].periodos.length >= 1 && l[0].periodos[0].id && l[0].periodos[0].nome);
+  assert.strictEqual((await outro.chamar("GET", "/api/atalhos")).d.length, 0, "cada docente só vê as suas turmas");
+});

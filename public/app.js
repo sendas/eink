@@ -48,8 +48,9 @@ function avisoSegredo() {
 }
 EINK.avisoSegredo = avisoSegredo;
 async function painel() {
-  mostrar(`<h1>Olá, ${esc((EINK.eu.nome || "").split(" ")[0])}</h1><p class="pequeno">O que queres fazer hoje?</p>${avisoSegredo()}<div id="alertas"></div>` + CARTOES.map(([t, l]) => `
+  mostrar(`<h1>Olá, ${esc((EINK.eu.nome || "").split(" ")[0])}</h1><p class="pequeno">O que queres fazer hoje?</p>${avisoSegredo()}<div id="alertas"></div><section id="atalhos"></section>` + CARTOES.map(([t, l]) => `
     <h2>${t}</h2><div class="cartoes">${l.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`).join(""));
+  if (EINK.atalhosPainel) EINK.atalhosPainel($("#atalhos"));
   // Alunos a acompanhar (nota baixa ou muitas faltas), sem atrasar o painel.
   try {
     const r = await api("GET", "/api/alertas");
