@@ -1131,3 +1131,17 @@ test("Grupo do Entra: lido do nome, departamento ou cargo, ligado ao grupo disci
   assert.strictEqual(r.grupo.nome, "Geral", "a escolha do administrador não é desfeita pelo Entra");
   assert.strictEqual(r.grupo.ad, "550 Informática");
 });
+
+test("Partilha do endereço: título sem «Entrar», imagem absoluta, tipos corretos e ícone", async (t) => {
+  const { base, servidor } = await arrancar();
+  t.after(() => servidor.close());
+  const h = await (await fetch(base + "/entrar.html")).text();
+  assert.match(h, /<title>Eça Avalia · /); assert.ok(!/<title>Entrar/.test(h), "o título não começa por Entrar");
+  assert.match(h, /<meta property="og:title" content="Eça Avalia">/);
+  assert.match(h, /<meta property="og:image" content="http:\/\/localhost\/img\/og\.jpg">/, "a imagem leva o endereço completo (BASE_URL)");
+  assert.ok(!h.includes("__BASE__") && !h.includes("__V__"), "sem marcas por substituir");
+  const img = await fetch(base + "/img/og.jpg"); assert.strictEqual(img.status, 200); assert.strictEqual(img.headers.get("content-type"), "image/jpeg");
+  const fav = await fetch(base + "/favicon.ico"); assert.strictEqual(fav.status, 200); assert.match(fav.headers.get("content-type"), /image\/png/);
+  assert.strictEqual((await fetch(base + "/apple-touch-icon.png")).status, 200);
+  assert.strictEqual((await fetch(base + "/", { redirect: "manual" })).headers.get("location"), "/entrar.html", "a raiz sem sessão vai para a entrada");
+});
