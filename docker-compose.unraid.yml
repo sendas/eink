@@ -1,4 +1,5 @@
 # Unraid (como o tic.techpro.pt): sem Caddy, o HTTPS vem do Cloudflare Tunnel (ou do proxy que já usas) que aponta para a porta 8093.
+# Pasta dos dados: por defeito /mnt/user/appdata/eink-dados. Se a partilha appdata recusar escrever, põe no .env: EINK_DADOS=/mnt/cache/appdata/eink-dados
 # Atualizar:  cd /mnt/user/appdata/eink && git pull origin main && docker compose -f docker-compose.unraid.yml up -d --build
 services:
   eink:
@@ -9,7 +10,7 @@ services:
       - "8093:3000"
     env_file: .env
     volumes:
-      - /mnt/user/appdata/eink-dados:/data
+      - ${EINK_DADOS:-/mnt/user/appdata/eink-dados}:/data
     # Unraid usa nobody:users (99:100). Noutros sistemas podes remover esta linha.
     user: "99:100"
     security_opt:
