@@ -6,9 +6,15 @@ services:
     ports:
       - "8000:8000"   # o proxy inverso / túnel aponta para aqui
     environment:
-      UI_USER: ${UI_USER:-admin}
-      UI_PASSWORD: ${UI_PASSWORD:?defina UI_PASSWORD no ficheiro .env}
       DEVICE_TOKEN: ${DEVICE_TOKEN:?defina DEVICE_TOKEN no ficheiro .env}
+      # Só usados no primeiro arranque, para criar o administrador local
+      UI_USER: ${UI_USER:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:-}
+      # Office 365 (opcional): ver README
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      MS_TENANT_ID: ${MS_TENANT_ID:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
       TZ: Europe/Lisbon
     volumes:
       - ./data:/data

@@ -28,10 +28,19 @@ Duas peças (`slim_bezel.stl` e `slim_back.stl`, geradas por `case/eink_case_sli
 
 ## 3. NAS
 1. Copiar este repositório para o NAS.
-2. `cp .env.example .env` e preencher `UI_PASSWORD` e `DEVICE_TOKEN` com valores longos e aleatórios (`openssl rand -hex 24`).
+2. `cp .env.example .env` e preencher `DEVICE_TOKEN` e `UI_PASSWORD` com valores longos e aleatórios (`openssl rand -hex 24`).
 3. `docker compose up -d --build`
 4. Cloudflare: apontar `avaliar.techpro.pt` → porta 8000 do NAS, por túnel (`cloudflared`) ou por registo DNS com proxy e SSL "Full (strict)".
-   **Não exponha sem HTTPS**: a palavra-passe viaja em Basic Auth.
+
+### Utilizadores e Office 365
+- O primeiro arranque cria o administrador local (`UI_USER` / `UI_PASSWORD`). Depois, em **/admin**, o administrador cria utilizadores locais, autoriza contas Office 365 (por email) e define o perfil: `admin` (gere utilizadores e ecrã) ou `editor` (só o ecrã).
+- Opcionalmente pode permitir **qualquer** utilizador do tenant como editor (caixa em /admin).
+- Para ativar o Office 365, no portal Azure (Microsoft Entra ID):
+  1. App registrations → New registration → "Accounts in this organizational directory only".
+  2. Redirect URI (Web): `https://avaliar.techpro.pt/auth/microsoft`
+  3. Copiar **Directory (tenant) ID** e **Application (client) ID**; em Certificates & secrets criar um **client secret**.
+  4. Preencher `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` e `PUBLIC_URL` no `.env` e `docker compose up -d`.
+- O Raspberry Pi continua a autenticar-se com `DEVICE_TOKEN` (rotas `/api/*`), por isso essas rotas **não** podem ficar atrás do Cloudflare Access.
 
 ## 4. Raspberry Pi
 1. **Cartão SD:** no *Raspberry Pi Imager*, escolher "Raspberry Pi OS Lite (64-bit)" e, nas definições, indicar nome `eink`, utilizador/palavra-passe, Wi-Fi, SSH ativo e fuso `Europe/Lisbon`.
