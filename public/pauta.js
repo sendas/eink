@@ -17,8 +17,10 @@
     const l2 = d.criterios.map((k, gi) => {
       if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
-      return doCrit(k).map((a, ai) => `<th class="num ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
-        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button> `}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num fim ${g(gi)}${doCrit(k).length ? "" : " ini"}" scope="col">Média %</th>`;
+      return doCrit(k).map((a, ai) => `<th class="col-av ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col" title="${esc(a.titulo)} · ${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""} · peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}">
+        <div class="av-tit">${esc(a.titulo)}</div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
+        <details class="menu-col"><summary aria-label="Opções de ${esc(a.titulo)}">⋯</summary><div class="menu-col-lista">
+          <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a>${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button>`}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso (${num(a.peso)})</button><button class="perigo" data-del="${a.id}">Apagar</button>`}</div></details></th>`).join("") + `<th class="num fim ${g(gi)}${doCrit(k).length ? "" : " ini"}" scope="col">Média %</th>`;
     }).join("");
 
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>
@@ -68,6 +70,14 @@
       catch { i.focus(); }
     }; });
     $$("[data-nivel]").forEach((s) => { s.onchange = async () => { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(s.dataset.nivel), aluno: Number(s.dataset.aluno), nivel: s.value || null }); await recalcular(); }; });
+    // Menus «⋯» dos cabeçalhos: abrem por cima da tabela (posição fixa), um de cada vez, e fecham ao clicar fora.
+    $$("details.menu-col").forEach((m) => { m.addEventListener("toggle", () => {
+      if (!m.open) return;
+      $$("details.menu-col").forEach((o) => { if (o !== m) o.open = false; });
+      const r = $("summary", m).getBoundingClientRect(), l = $(".menu-col-lista", m);
+      l.style.top = r.bottom + 4 + "px"; l.style.left = Math.max(8, Math.min(r.left, innerWidth - 190)) + "px";
+    }); });
+    document.addEventListener("click", (e) => { if (!e.target.closest("details.menu-col")) $$("details.menu-col[open]").forEach((m) => { m.open = false; }); });
     const tabelaP = $(".tabela-rolagem table");
     if (tabelaP && !fechado) EINK.folha(tabelaP, { aplicar: async (lista) => {
       const por = new Map();

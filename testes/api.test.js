@@ -995,3 +995,16 @@ test("Correio: avisos de expiração do segredo pelo Graph (limiares, token cifr
   assert.strictEqual(cor.estado().erro, null);
   cor.desligar(); assert.strictEqual(cor.estado().ligado, false);
 });
+
+test("Versões: a primeira entrada é a versão do package.json, com data e hora, mais recente primeiro", async (t) => {
+  const { base, servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const pkg = require("../package.json"), adm = await entrar("admin@escola.pt");
+  const v = (await adm.chamar("GET", "/api/versoes")).d;
+  assert.strictEqual(v.atual, pkg.version);
+  assert.strictEqual(v.lista[0].versao, pkg.version, "ao subir a versão, acrescenta a entrada no topo de lib/versoes.js");
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.versao, pkg.version);
+  for (const x of v.lista) { assert.match(x.data, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/); assert.ok(x.itens.length && ["novidade", "melhoria", "correção"].includes(x.tipo)); assert.ok(!/[–—]/.test(x.itens.join(" ")), "sem travessões"); }
+  const datas = v.lista.map((x) => x.data); assert.deepStrictEqual(datas, [...datas].sort().reverse(), "mais recente primeiro");
+  assert.strictEqual((await fetch(base + "/api/versoes")).status, 401, "só com sessão");
+});

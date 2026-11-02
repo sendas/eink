@@ -4,6 +4,7 @@
   try { EINK.eu = await EINK.api("GET", "/api/eu"); } catch { return; }
   document.getElementById("nome").textContent = EINK.eu.nome || EINK.eu.upn;
   if (EINK.eu.admin) document.getElementById("nav-gestao").hidden = false;
+  if (EINK.eu.versao) { const v = document.getElementById("versao"); v.textContent = "v" + EINK.eu.versao; v.hidden = false; }
   if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
   if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
   // Botão do tema: Automático (sistema) → Claro → Escuro

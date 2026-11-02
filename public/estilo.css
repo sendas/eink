@@ -193,3 +193,20 @@ table.folha tbody tr td.res-ini, table.folha tbody tr td.res-ini ~ td { border-b
 table.folha tbody tr:hover td.g0, table.folha tbody tr:hover td.g1, table.folha tbody tr:hover td.g2 { background: color-mix(in srgb, var(--gc) 16%, var(--cartao)); }
 table.folha td.fo-sel { background: color-mix(in srgb, var(--marca) 28%, var(--cartao)) !important; }
 table.folha td.fo-ativa { background: var(--cartao) !important; }
+
+/* Cabeçalhos das avaliações compactos: título, resumo numa linha e um menu «⋯» com as ações */
+table.folha th.col-av { min-width: 5.4rem; max-width: 7.5rem; text-align: center; vertical-align: top; padding: .35rem .3rem; white-space: normal; }
+.av-tit { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-sub { font-size: .72rem; font-weight: 400; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+details.menu-col > summary { list-style: none; cursor: pointer; display: inline-block; margin-top: .2rem; padding: 0 .55rem; border: 1px solid var(--grelha); border-radius: 6px; background: var(--cartao); font-weight: 700; line-height: 1.3; }
+details.menu-col > summary::-webkit-details-marker { display: none; }
+details.menu-col[open] > summary { background: var(--marca); color: var(--sobre-marca); }
+.menu-col-lista { position: fixed; z-index: 30; display: grid; gap: .35rem; min-width: 11rem; padding: .5rem; background: var(--cartao); border: 1px solid var(--grelha); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); text-align: left; }
+.menu-col-lista .botao, .menu-col-lista button { width: 100%; text-align: left; }
+table.folha td input.nota { min-width: 4.2rem; }
+
+/* Versão no topo e página de versões */
+a.versao { font-size: .78rem; font-weight: 600; padding: .1rem .5rem; border: 1px solid var(--grelha); border-radius: 999px; color: var(--suave); text-decoration: none; }
+a.versao:hover { background: var(--marca-fundo); }
+.etiqueta-versao { font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: var(--marca-fundo); color: var(--texto); vertical-align: middle; }
+.etiqueta-versao.atual { background: var(--marca); color: var(--sobre-marca); }

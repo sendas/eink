@@ -14,6 +14,8 @@ const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
 const registarContas = require("./lib/m-contas");
 const CONTAS = require("./lib/contas");
+const VERSOES = require("./lib/versoes");
+const VERSAO = require("./package.json").version;
 const criarCorreio = require("./lib/correio");
 const ferramentas = require("./lib/m-ferramentas");
 const registarQuiz = require("./lib/m-quiz");
@@ -178,7 +180,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
@@ -546,6 +548,7 @@ function criarServidor(env = process.env) {
     const avisar = () => CORREIO.verificar().then((r) => { if (r.enviado) console.log(`Aviso de expiração do segredo enviado a ${r.destinatarios} destinatário(s).`); }).catch((e) => console.error("Aviso por email falhou:", e.message));
     setTimeout(avisar, 60000).unref(); const relogioCorreio = setInterval(avisar, 6 * 3600000); relogioCorreio.unref();
   }
+  rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
