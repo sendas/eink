@@ -1,4 +1,4 @@
-# eink
+# Avaliar Eça
 
 Plataforma para docentes: ferramentas de sala de aula (como o TeacherStack) e avaliação (testes, períodos, pauta), no estilo do tic.techpro.pt.
 

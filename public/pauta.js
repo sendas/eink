@@ -12,20 +12,22 @@
     const somaPesos = (k) => doCrit(k).reduce((z, a) => z + a.peso, 0);
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
-    const l1 = d.criterios.map((k) => `<th class="crit" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup">${esc(k.nome)} <span class="pequeno">${k.peso} %</span></th>`).join("");
-    const l2 = d.criterios.map((k) => {
-      if (k.tipo === "nivel") return `<th scope="col">Nível 1 a 5</th>`;
+    const g = (gi) => "g" + (gi % 3);
+    const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span></th>`).join("");
+    const l2 = d.criterios.map((k, gi) => {
+      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}">Nível 1 a 5</th>`;
       const sp = somaPesos(k);
-      return doCrit(k).map((a) => `<th class="num" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
-        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button> `}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num" scope="col">Média %</th>`;
+      return doCrit(k).map((a, ai) => `<th class="num ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col">${esc(a.titulo)}<br><span class="pequeno">${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""}<br>peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}</span><br>
+        <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a> ${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button> `}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso</button> <button class="perigo" data-del="${a.id}" aria-label="Apagar ${esc(a.titulo)}">✕</button>`}</th>`).join("") + `<th class="num fim ${g(gi)}${doCrit(k).length ? "" : " ini"}" scope="col">Média %</th>`;
     }).join("");
 
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>
-      ${d.criterios.map((k) => {
-        if (k.tipo === "nivel") return `<td><select ${dis} data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
-        return doCrit(k).map((a) => { const v = d.notas[a.id + ":" + al.id]; return `<td><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : dis} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num" data-c="crit-${k.id}"></td>`;
+      ${d.criterios.map((k, gi) => {
+        if (k.tipo === "nivel") return `<td class="ini fim ${g(gi)}"><select ${dis} data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
+        const av = doCrit(k);
+        return av.map((a, ai) => { const v = d.notas[a.id + ":" + al.id]; return `<td class="${g(gi)}${ai === 0 ? " ini" : ""}"><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : dis} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num fim ${g(gi)}${av.length ? "" : " ini"}" data-c="crit-${k.id}"></td>`;
       }).join("")}
-      <td class="num" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
+      <td class="num res-ini" data-c="final"></td><td class="num" data-c="nivel"></td><td data-c="mencao"></td></tr>`).join("");
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
 
     mostrar(`<p><a href="#/turma/${d.periodo.turma_id}">← Turma</a></p><h1>${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
@@ -39,7 +41,7 @@
         <button>Adicionar avaliação</button>
       </form>`}
       <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p>
-      <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
+      <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
       <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a><button class="sec" id="hist-bot" type="button">Histórico de alterações</button></p><div id="hist"></div>`);
     $("#hist-bot").onclick = async () => {

@@ -539,7 +539,7 @@ function criarServidor(env = process.env) {
   rota("POST", "/api/admin/correio/teste", async (c) => {
     soAdmin(c);
     const dest = c.p.local ? CORREIO.destinatarios() : [c.p.upn];
-    const n = await CORREIO.enviar(dest, "eink: email de teste", "O envio de email do eink está a funcionar. Os avisos de expiração do segredo do Entra chegam a este endereço.");
+    const n = await CORREIO.enviar(dest, "Avaliar Eça: email de teste", "O envio de email do Avaliar Eça está a funcionar. Os avisos de expiração do segredo do Entra chegam a este endereço.");
     return { ok: true, enviados: n, para: dest };
   });
   if ((env.DB_FILE || "x") !== ":memory:" && env.CORREIO !== "0") {

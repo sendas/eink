@@ -1,4 +1,4 @@
-# eink
+# Avaliar Eça (nome técnico: eink)
 
 Ferramentas de sala de aula e avaliação para docentes (painel de cartões, turmas, períodos, testes, pauta e presenças).
 Node 22 sem dependências externas, dados em SQLite (`node:sqlite`), entrada pela conta da escola (Microsoft Entra ID).
