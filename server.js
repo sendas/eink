@@ -13,6 +13,7 @@ const APR = require("./public/apreciacao.js");
 const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
 const registarContas = require("./lib/m-contas");
+const registarCriterios = require("./lib/m-criterios");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -605,6 +606,7 @@ function criarServidor(env = process.env) {
   rota("DELETE", "/api/alunos/:id/foto", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM fotos WHERE aluno_id = ?").run(c.id[0]); return { ok: true }; });
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
+  registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
   ferramentas.registar(XF);

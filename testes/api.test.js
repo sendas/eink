@@ -1145,3 +1145,52 @@ test("Partilha do endereço: título sem «Entrar», imagem absoluta, tipos corr
   assert.strictEqual((await fetch(base + "/apple-touch-icon.png")).status, 200);
   assert.strictEqual((await fetch(base + "/", { redirect: "manual" })).headers.get("location"), "/entrar.html", "a raiz sem sessão vai para a entrada");
 });
+
+test("Critérios: importar de todos os grupos de uma vez (pré-visualização, regras e confirmação) e exportar", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana = await entrar("ana@escola.pt");
+  const linhas = (l) => l.map((x) => x.join("\t")).join("\n");
+  const ok = linhas([["Grupo", "Ano", "Critério", "Tipo", "Peso", "Casas decimais"],
+    ["550 Informática", "Todos", "Testes e trabalhos", "testes", "60", "2"], ["550 Informática", "Todos", "Comportamento", "nível", "20", "2"], ["550 Informática", "Todos", "Participação", "nível", "20", "2"],
+    ["550 Informática", "7.º", "Testes", "testes", "80", "1"], ["550 Informática", "7.º", "Comportamento", "nível", "20", "1"],
+    ["520 Biologia e Geologia", "Todos", "Testes", "testes", "70", ""], ["520 Biologia e Geologia", "Todos", "Atitudes", "nível", "30", ""]]);
+  assert.strictEqual((await ana.chamar("POST", "/api/admin/criterios/importar", { texto: ok })).estado, 403, "só administradores");
+  let r = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: ok })).d;
+  assert.strictEqual(r.plano.length, 3); assert.strictEqual(r.aplicaveis, 3);
+  assert.ok(r.plano.every((p) => !p.problemas.length));
+  assert.strictEqual((await adm.chamar("GET", "/api/grupos")).d.some((g) => g.nome === "550 Informática"), false, "a pré-visualização não grava");
+
+  // Pesos que não somam 100 e tipo inválido
+  r = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: linhas([["X", "Todos", "A", "testes", "60"], ["X", "Todos", "B", "nível", "30"], ["Y", "Todos", "C", "estranho", "100"]]) })).d;
+  assert.match(r.plano[0].problemas.join(" "), /somam 90/); assert.match(r.problemasGerais.join(" "), /tipo/);
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/criterios/importar", { texto: linhas([["X", "Todos", "A", "testes", "60"]]), aplicar: true })).estado, 400, "não grava com problemas");
+
+  const g = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: ok, aplicar: true })).d;
+  assert.strictEqual(g.criados, 3);
+  const grupos = (await adm.chamar("GET", "/api/grupos")).d, inf = grupos.find((x) => x.nome === "550 Informática");
+  assert.strictEqual(inf.esquemas.length, 2);
+  const todos = inf.esquemas.find((e) => e.ano === 0);
+  assert.strictEqual(todos.casas, 2); assert.deepStrictEqual(todos.criterios.map((k) => [k.nome, k.peso, k.tipo]), [["Testes e trabalhos", 60, "testes"], ["Comportamento", 20, "nivel"], ["Participação", 20, "nivel"]]);
+  assert.strictEqual(inf.esquemas.find((e) => e.ano === 7).casas, 1);
+
+  // Voltar a importar o mesmo: sem alterações. Mudar um peso: substitui.
+  r = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: ok })).d;
+  assert.ok(r.plano.every((p) => p.acao === "igual")); assert.strictEqual(r.aplicaveis, 0);
+  r = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: ok.replace("\t60\t2", "\t50\t2").replace("Comportamento\tnível\t20\t2", "Comportamento\tnível\t30\t2") })).d;
+  assert.strictEqual(r.plano.find((p) => p.grupo === "550 Informática" && p.ano === 0).acao, "substituir");
+
+  // Critério com avaliações lançadas não se retira
+  const tu = (await ana.chamar("POST", "/api/turmas", { nome: "7.º A", ano_letivo: "2026/2027", ano: 7, grupo_id: inf.id })).d;
+  const per = (await ana.chamar("GET", "/api/atalhos")).d[0].periodos[0].id;
+  const crit = (await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.criterios.find((k) => k.tipo === "testes");
+  await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "T1", criterio: crit.id, tipo: "teste", peso: 1, maximo: 20 });
+  r = (await adm.chamar("POST", "/api/admin/criterios/importar", { texto: linhas([["550 Informática", "7", "Outro", "testes", "100", "1"]]) })).d;
+  assert.strictEqual(r.plano[0].acao, "bloqueado"); assert.match(r.plano[0].problemas.join(" "), /avaliações lançadas/);
+
+  const ex = (await adm.chamar("GET", "/api/admin/criterios/exportar")).d.csv;
+  assert.ok(ex.startsWith("﻿Grupo;Ano;Critério;Tipo;Peso;Casas decimais")); assert.match(ex, /550 Informática;Todos;Testes e trabalhos;testes;60;2/);
+  assert.match(ex, /520 Biologia e Geologia;Todos;Atitudes;nível;30;1/);
+});

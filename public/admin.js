@@ -44,6 +44,11 @@
     mostrar(`<h1>Critérios de avaliação</h1>
       <p class="pequeno">Os critérios variam por disciplina (grupo disciplinar) e por ano de escolaridade. Cada disciplina tem um esquema para «todos os anos» e pode ter esquemas próprios para anos concretos: uma turma usa o do seu ano e, se não houver, o de «todos os anos». Os docentes lançam testes e trabalhos dentro dos critérios de «testes»; a nota final é a média ponderada dos critérios, que têm de somar 100 %.</p>
       <form class="painel linha" id="f-grupo"><label>Nova disciplina / grupo disciplinar<input name="nome" required maxlength="60" placeholder="550 Informática"></label><button>Criar</button></form>
+      <details class="painel" id="imp-crit"><summary><strong>Importar os critérios de todos os grupos</strong> <span class="pequeno">de um ficheiro Excel ou colando do Excel</span></summary>
+        <p class="pequeno">Uma linha por critério, com as colunas <strong>Grupo, Ano, Critério, Tipo, Peso, Casas decimais</strong>. «Ano» é «Todos» ou de 1 a 12; «Tipo» é «testes» ou «nível»; os pesos de cada grupo e ano somam 100. Antes de gravar vês o que vai acontecer. Os grupos que não aparecerem ficam como estão.</p>
+        <p class="linha"><button class="sec" type="button" id="imp-modelo">Descarregar os critérios atuais (para editar)</button><label>Ficheiro (.xlsx ou .csv)<input type="file" id="imp-ficheiro" accept=".xlsx,.csv,.txt"></label></p>
+        <label>Ou cola aqui as linhas<textarea id="imp-texto" rows="6" placeholder="550 Informática&#9;Todos&#9;Testes e trabalhos&#9;testes&#9;70&#9;1&#10;550 Informática&#9;Todos&#9;Comportamento&#9;nível&#9;30&#9;1"></textarea></label>
+        <p class="linha"><button type="button" id="imp-ver">Ver o que vai acontecer</button></p><div id="imp-res"></div></details>
       ${grupos.map((g) => `<section class="painel" data-grupo="${g.id}"><div class="linha"><label>Disciplina<input class="g-nome" value="${esc(g.nome)}" maxlength="60"></label><button class="sec g-ren" type="button">Mudar nome</button><button class="perigo g-del" type="button">Apagar</button></div>
         ${g.esquemas.map((e) => `<div class="painel" data-esquema="${e.id}" data-ano="${e.ano}"><div class="linha"><strong>${anoTxt(e)}</strong>
             <label>Nota final com<select class="g-casas"><option value="1" ${e.casas === 1 ? "selected" : ""}>1 casa decimal</option><option value="2" ${e.casas === 2 ? "selected" : ""}>2 casas decimais</option></select></label>
@@ -53,6 +58,36 @@
           <p class="g-soma"></p><p><button class="g-gravar" type="button">Guardar</button></p></div>`).join("")}
         <p class="linha"><label>Esquema próprio para o ano<select class="e-ano">${[5, 6, 7, 8, 9, 10, 11, 12].filter((a) => !g.esquemas.some((e) => e.ano === a)).map((a) => `<option value="${a}">${a}.º ano</option>`).join("")}</select></label><button class="sec e-add" type="button">Criar (copia «todos os anos»)</button></p></section>`).join("")}`);
 
+    // Importar critérios: pré-visualização e confirmação.
+    let ficheiroCrit = null;
+    const lerTexto = (buf) => { try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch { return new TextDecoder("windows-1252").decode(buf); } };
+    $("#imp-ficheiro").onchange = async (e) => {
+      const f = e.target.files[0]; ficheiroCrit = null; if (!f) return;
+      if (f.size > 600000) { aviso("O ficheiro é demasiado grande (máximo 600 KB).", true); return; }
+      const buf = await f.arrayBuffer();
+      if (/\.xlsx$/i.test(f.name)) { const b = new Uint8Array(buf); let bin = ""; for (let i = 0; i < b.length; i += 8192) bin += String.fromCharCode(...b.subarray(i, i + 8192)); ficheiroCrit = { nome: f.name, base64: btoa(bin) }; $("#imp-texto").value = ""; aviso("Ficheiro Excel carregado. Carrega em «Ver o que vai acontecer»."); }
+      else { $("#imp-texto").value = lerTexto(buf); aviso("Linhas lidas. Carrega em «Ver o que vai acontecer»."); }
+    };
+    $("#imp-modelo").onclick = async () => {
+      const r = await api("GET", "/api/admin/criterios/exportar"), a = document.createElement("a");
+      a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(r.csv); a.download = "criterios-de-avaliacao.csv"; document.body.append(a); a.click(); a.remove();
+    };
+    const ACAO = { novo: "Novo esquema", "novo grupo": "Novo grupo", substituir: "Substitui os critérios", igual: "Sem alterações", bloqueado: "Bloqueado" };
+    $("#imp-ver").onclick = async () => {
+      try {
+        const corpo = ficheiroCrit && !$("#imp-texto").value.trim() ? ficheiroCrit : { texto: $("#imp-texto").value };
+        const r = await api("POST", "/api/admin/criterios/importar", corpo);
+        const bloqueia = r.problemasGerais.length > 0 || r.plano.some((p) => p.problemas.length && p.acao !== "bloqueado");
+        $("#imp-res").innerHTML = `${r.problemasGerais.length ? `<div class="banner-fechado" role="alert"><strong>Linhas com problemas:</strong><ul>${r.problemasGerais.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+          <div class="tabela-rolagem"><table><thead><tr><th>Grupo</th><th>Ano</th><th>Critérios</th><th>O que acontece</th></tr></thead><tbody>${r.plano.map((p) => `<tr class="${p.problemas.length ? "n1" : p.acao === "igual" ? "" : "n4"}"><td>${esc(p.grupo)}</td><td>${p.ano ? p.ano + ".º ano" : "Todos"}</td>
+            <td>${p.criterios.map((k) => `${esc(k.nome)} <strong>${k.peso} %</strong> <span class="pequeno">${k.tipo === "nivel" ? "nível" : "testes"}</span>`).join("<br>")}</td>
+            <td><strong>${ACAO[p.acao] || p.acao}</strong>${p.problemas.map((x) => `<br><span class="pequeno" style="color:var(--erro)">${esc(x)}</span>`).join("")}${p.avisos.map((x) => `<br><span class="pequeno">${esc(x)}</span>`).join("")}</td></tr>`).join("")}</tbody></table></div>
+          ${bloqueia ? `<p class="banner-fechado" role="alert">Corrige os esquemas a vermelho e volta a carregar em «Ver o que vai acontecer». Só se grava quando está tudo certo.</p>` : ""}
+          <p>${r.aplicaveis} esquema(s) para gravar.</p><p><button type="button" id="imp-ok" ${r.aplicaveis && !bloqueia ? "" : "disabled"}>Gravar ${r.aplicaveis} esquema(s)</button></p>`;
+        const ok = $("#imp-ok");
+        ok.onclick = async () => { try { const g = await api("POST", "/api/admin/criterios/importar", { ...corpo, aplicar: true }); aviso(`Critérios gravados: ${g.criados} novo(s), ${g.substituidos} substituído(s).`); criterios(); } catch { /* aviso mostrado */ } };
+      } catch { /* aviso mostrado */ }
+    };
     $("#f-grupo").onsubmit = async (e) => { e.preventDefault(); await api("POST", "/api/admin/grupos", { nome: new FormData(e.target).get("nome") }); criterios(); };
     $$("section[data-grupo]").forEach((sec) => {
       const gid = Number(sec.dataset.grupo);
