@@ -1099,3 +1099,35 @@ test("Entrada: erro em página (não em ficheiro) e pedido recuperado noutro nav
   assert.strictEqual(trocas, 1);
   await assert.rejects(() => auth.concluir(sem, res(), volta(state2), { ip: "10.0.0.5" }), /expirou/, "o pedido só serve uma vez");
 });
+
+test("Grupo do Entra: lido do nome, departamento ou cargo, ligado ao grupo disciplinar e mostrado no início", async (t) => {
+  const { grupoDeTexto, semGrupo } = require("../lib/grupo");
+  assert.deepStrictEqual(grupoDeTexto(["Docente-550 - Informática"]), { codigo: "550", nome: "Informática" });
+  assert.deepStrictEqual(grupoDeTexto([null, "", "Pedro Sendas Docente-550 - Informática"]), { codigo: "550", nome: "Informática" });
+  assert.deepStrictEqual(grupoDeTexto(["520 Biologia e Geologia"]), { codigo: "520", nome: "Biologia e Geologia" });
+  assert.strictEqual(grupoDeTexto(["Ana Silva"]), null);
+  assert.strictEqual(semGrupo("Pedro Sendas de Moura Pereira Docente-550 - Informática"), "Pedro Sendas de Moura Pereira");
+  assert.strictEqual(semGrupo("Ana Silva"), "Ana Silva");
+
+  const { servidor, entrar, db } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
+  const eu = (await adm.chamar("GET", "/api/eu")).d;
+  assert.strictEqual(eu.grupo_ad, "550 Informática");
+  const g = db.prepare("SELECT id, nome FROM grupos WHERE nome LIKE '550%'").all();
+  assert.strictEqual(g.length, 1, "cria o grupo 550 Informática se não existir");
+  assert.strictEqual(g[0].nome, "550 Informática");
+  let r = (await adm.chamar("GET", "/api/inicio")).d;
+  assert.strictEqual(r.grupo.nome, "550 Informática");
+  assert.ok(r.grupo.esquemas[0].criterios.length >= 1 && r.grupo.esquemas[0].criterios[0].peso > 0);
+  // Entrar outra vez não cria outro grupo nem muda o que o administrador já escolheu.
+  await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
+  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM grupos WHERE nome LIKE '550%'").get().n, 1);
+  const geral = (await adm.chamar("GET", "/api/grupos")).d.find((x) => x.nome === "Geral");
+  const meu = (await adm.chamar("GET", "/api/admin/professores")).d.find((p) => p.upn === "admin@escola.pt");
+  await adm.chamar("PUT", `/api/admin/professores/${meu.id}/grupo`, { grupo_id: geral.id });
+  await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
+  r = (await adm.chamar("GET", "/api/inicio")).d;
+  assert.strictEqual(r.grupo.nome, "Geral", "a escolha do administrador não é desfeita pelo Entra");
+  assert.strictEqual(r.grupo.ad, "550 Informática");
+});

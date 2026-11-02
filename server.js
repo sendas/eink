@@ -25,7 +25,7 @@ const registarPartilhas = require("./lib/m-partilhas");
 const estatisticas = require("./lib/m-estatisticas");
 const criarPublico = require("./lib/m-publico");
 const VIVO = require("./lib/vivo");
-const { ehMembro } = require("./lib/grupo");
+const { ehMembro, perfil, grupoDeTexto, semGrupo } = require("./lib/grupo");
 
 function criarServidor(env = process.env) {
   const DATA_DIR = env.DATA_DIR || path.join(__dirname, "data");
@@ -101,6 +101,20 @@ function criarServidor(env = process.env) {
     }
     if (p && ADMINS.includes(upn) && !p.admin) { db.prepare("UPDATE professores SET admin = 1 WHERE id = ?").run(p.id); p.admin = 1; }
     return p && p.ativo ? p : null;
+  }
+  // O grupo de recrutamento vem do Entra (departamento, cargo ou nome). Guarda-se em grupo_ad e, se o docente ainda não tem grupo disciplinar,
+  // associa-se ao grupo com esse código (ou cria-se «550 Informática» com os critérios por defeito, para o administrador acertar).
+  function aplicarGrupoAd(prof, textos) {
+    try {
+      const g = grupoDeTexto(textos); if (!g) return;
+      const ad = `${g.codigo} ${g.nome}`;
+      if (prof.grupo_ad !== ad) { db.prepare("UPDATE professores SET grupo_ad = ? WHERE id = ?").run(ad, prof.id); prof.grupo_ad = ad; }
+      if (!prof.grupo_id) {
+        let gr = db.prepare("SELECT id FROM grupos WHERE nome LIKE ? ORDER BY id LIMIT 1").get(g.codigo + "%");
+        if (!gr) { const id = Number(db.prepare("INSERT INTO grupos (nome) VALUES (?)").run(ad).lastInsertRowid); criarEsquema(db, id, 0); gr = { id }; }
+        db.prepare("UPDATE professores SET grupo_id = ? WHERE id = ?").run(gr.id, prof.id); prof.grupo_id = gr.id;
+      }
+    } catch (e) { console.error("Grupo do Entra:", e.message); }
   }
   function sessaoDe(req) {
     const s = auth.sessao(req);
@@ -182,7 +196,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
@@ -570,7 +584,8 @@ function criarServidor(env = process.env) {
       return r;
     });
     const comMedia = turmas.filter((t) => t.media !== null);
-    return { nome: c.p.nome, turmas, totais: { turmas: turmas.length, alunos: turmas.reduce((z, t) => z + t.alunos, 0), acompanhar: turmas.reduce((z, t) => z + t.acompanhar, 0), media: comMedia.length ? Math.round((comMedia.reduce((z, t) => z + t.media, 0) / comMedia.length) * 10) / 10 : null } };
+    const grupo = c.p.grupo_id ? grupoCompleto(c.p.grupo_id) : null;
+    return { nome: c.p.nome, grupo: grupo && { id: grupo.id, nome: grupo.nome, ad: c.p.grupo_ad || null, esquemas: grupo.esquemas.map((e) => ({ ano: e.ano, casas: e.casas, criterios: e.criterios.map((k) => ({ nome: k.nome, peso: k.peso, tipo: k.tipo })) })), anosTurmas: [...new Set(turmas.map((t) => t.ano))].sort() }, turmas, totais: { turmas: turmas.length, alunos: turmas.reduce((z, t) => z + t.alunos, 0), acompanhar: turmas.reduce((z, t) => z + t.acompanhar, 0), media: comMedia.length ? Math.round((comMedia.reduce((z, t) => z + t.media, 0) / comMedia.length) * 10) / 10 : null } };
   });
   rota("GET", "/api/atalhos", (c) => db.prepare("SELECT id, nome, ano_letivo, ano FROM turmas WHERE prof_id = ? AND arquivada = 0 ORDER BY ano, nome").all(c.p.id)
     .map((t) => ({ ...t, periodos: db.prepare("SELECT id, nome, fechado FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id).map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })) })));
@@ -694,7 +709,7 @@ function criarServidor(env = process.env) {
     return { ok: true };
   });
 
-  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, local, trocar, grupo_id, ultimo_acesso FROM professores ORDER BY local, upn").all(); });
+  rota("GET", "/api/admin/professores", (c) => { soAdmin(c); return db.prepare("SELECT id, upn, nome, admin, ativo, local, trocar, grupo_id, grupo_ad, ultimo_acesso FROM professores ORDER BY local, upn").all(); });
   rota("POST", "/api/admin/professores", (c) => {
     soAdmin(c);
     const upn = texto(c.b.upn, 120).toLowerCase();
@@ -759,6 +774,7 @@ function criarServidor(env = process.env) {
           const prof = professorDe(upn, upn.split("@")[0], GRUPO_DOCENTES ? u.searchParams.get("fora") !== "1" : undefined, GRUPO_ADMIN ? u.searchParams.get("admin") === "1" : undefined);
           if (!prof) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Conta sem acesso."); }
           est.contar(prof.id, "login");
+          aplicarGrupoAd(prof, [u.searchParams.get("ad")]);
           db.prepare("UPDATE professores SET ultimo_acesso = datetime('now') WHERE id = ?").run(prof.id);
           auth.criarSessao(res, upn, prof.nome);
           res.writeHead(302, { Location: "/" }); return res.end();
@@ -785,9 +801,12 @@ function criarServidor(env = process.env) {
         if (GRUPO_ADMIN) adminGrupo = await ehMembro(c.accessToken, GRUPO_ADMIN, { graphUrl: GRAPH_URL });
         const prof = professorDe(c.upn, c.nome, doGrupo, adminGrupo);
         if (!prof) throw Object.assign(erro(403, GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta ainda não tem acesso. Pede a um administrador que a adicione."), { publico: true });
-        db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(c.nome, prof.id);
+        const perf = await perfil(c.accessToken, { graphUrl: GRAPH_URL });
+        aplicarGrupoAd(prof, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
+        const nomeLimpo = semGrupo(c.nome);
+        db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(nomeLimpo, prof.id);
         est.contar(prof.id, "login");
-        auth.criarSessao(res, c.upn, c.nome);
+        auth.criarSessao(res, c.upn, nomeLimpo);
         res.writeHead(302, { Location: "/" }); return res.end();
       }
       if (p === "/auth/local" && req.method === "POST") {

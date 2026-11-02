@@ -29,16 +29,44 @@
     </article>`;
   };
 
+  const anoTxt = (a) => (a ? `${a}.º ano` : "Todos os anos");
+  const barraPesos = (cr) => `<div class="cg-barra" role="img" aria-label="${cr.map((k) => `${k.nome} ${k.peso} %`).join(", ")}">${cr.map((k, i) => `<span class="g${i % 3}" style="flex:${Math.max(1, k.peso)}">${k.peso} %</span>`).join("")}</div>
+    <div class="cg-leg">${cr.map((k, i) => `<span><i class="g${i % 3}"></i>${esc(k.nome)} <small>${k.tipo === "nivel" ? "nível 1 a 5 dado por ti" : "média dos testes e trabalhos"}</small></span>`).join("")}</div>`;
+  // Resumo dos critérios do grupo do docente: o esquema do ano de cada turma (ou o de «todos os anos»), com vista completa numa janela.
+  const cartaoCriterios = (g, admin) => {
+    const porAno = (ano) => g.esquemas.find((e) => e.ano === ano) || g.esquemas.find((e) => e.ano === 0);
+    const anos = g.anosTurmas.length ? g.anosTurmas : [0], usados = [];
+    for (const a of anos) { const e = porAno(a); if (e && !usados.some((u) => u.e === e)) usados.push({ e, anos: anos.filter((x) => porAno(x) === e) }); }
+    return `<div class="painel cg"><div class="cg-topo"><div><p class="rotulo">Critérios de avaliação</p><h2 style="margin:0">${esc(g.nome)}</h2></div><div class="linha"><button type="button" class="sec" id="cg-ver">Ver na totalidade</button>${admin ? '<a class="botao fantasma" href="#/criterios">Editar</a>' : ""}</div></div>
+      ${usados.map(({ e, anos: an }) => `<div class="cg-esq"><p class="pequeno"><strong>${an.map((a) => anoTxt(a)).join(", ")}</strong> · nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</p>${barraPesos(e.criterios)}</div>`).join("")}
+      <p class="pequeno">Definidos pelo administrador para o teu grupo disciplinar${g.ad ? ` (no Entra: ${esc(g.ad)})` : ""}.</p></div>`;
+  };
+  const janelaCriterios = (g) => {
+    const dlg = document.createElement("dialog"); dlg.className = "cg-dlg";
+    dlg.innerHTML = `<h2 style="margin-top:0">Critérios de avaliação · ${esc(g.nome)}</h2>
+      ${g.esquemas.map((e) => `<section class="cg-esq"><h3>${anoTxt(e.ano)} <small class="pequeno">nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</small></h3>${barraPesos(e.criterios)}
+        <table><thead><tr><th>Critério</th><th>Como se calcula</th><th class="num">Peso</th></tr></thead><tbody>${e.criterios.map((k) => `<tr><td>${esc(k.nome)}</td><td>${k.tipo === "nivel" ? "Nível de 1 a 5 dado pelo docente" : "Média ponderada dos testes e trabalhos lançados"}</td><td class="num">${k.peso} %</td></tr>`).join("")}</tbody></table></section>`).join("")}
+      <p class="pequeno"><strong>Níveis:</strong> 1 (0 a 19 %), 2 (20 a 49 %), 3 (50 a 69 %), 4 (70 a 89 %) e 5 (90 a 100 %). Quando falta um critério, a nota final usa os que existem e fica marcada como parcial.</p>
+      <p class="linha"><button type="button" class="sec" id="cg-fechar">Fechar</button></p>`;
+    document.body.append(dlg); dlg.showModal();
+    const fechar = () => { dlg.close(); dlg.remove(); }; dlg.querySelector("#cg-fechar").onclick = fechar; dlg.addEventListener("cancel", () => dlg.remove());
+    dlg.addEventListener("click", (e) => { if (e.target === dlg) fechar(); });
+  };
+
   EINK.inicio = async () => {
     const nome = (EINK.eu.nome || "").split(" ")[0];
-    mostrar(`${EINK.avisoSegredo()}<section class="heroi"><div><p class="heroi-data">${esc(dataHoje())}</p><h1>${saudacao()}${nome ? ", " + esc(nome) : ""}</h1><p class="heroi-sub" id="heroi-sub">A preparar o teu resumo…</p></div>
+    mostrar(`${EINK.avisoSegredo()}<section class="heroi"><div><p class="heroi-data">${esc(dataHoje())}</p><h1>${saudacao()}${nome ? ", " + esc(nome) : ""}</h1><p class="heroi-grupo" id="heroi-grupo"></p><p class="heroi-sub" id="heroi-sub">A preparar o teu resumo…</p></div>
         <div class="heroi-acoes" id="heroi-acoes"><a class="botao grande" href="#/notas">Abrir notas</a></div></section>
-      <div class="kpis" id="kpis"></div><div id="alertas"></div>
+      <div class="kpis" id="kpis"></div><section id="criterios-grupo"></section><div id="alertas"></div>
       <h2>As minhas turmas</h2><div class="turmas-grelha" id="turmas"><p class="pequeno">A carregar…</p></div>
       <h2>Ferramentas de sala</h2><div class="cartoes ferramentas">${FERRAMENTAS.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
     try {
       const r = await api("GET", "/api/inicio"), T = r.totais;
       let ultima = null; try { ultima = JSON.parse(localStorage.getItem("eink.ultimaPauta") || "null"); } catch { /* sem armazenamento */ }
+      if (r.grupo) {
+        $("#heroi-grupo").innerHTML = `<span class="chip-grupo">Grupo ${esc(r.grupo.nome)}</span>`;
+        $("#criterios-grupo").innerHTML = cartaoCriterios(r.grupo, EINK.eu.admin); $("#cg-ver").onclick = () => janelaCriterios(r.grupo);
+      } else if (EINK.eu.grupo_ad) $("#heroi-grupo").innerHTML = `<span class="chip-grupo">Grupo ${esc(EINK.eu.grupo_ad)}</span>`;
       $("#heroi-sub").textContent = T.turmas ? `${T.turmas} turma${T.turmas === 1 ? "" : "s"} e ${T.alunos} aluno${T.alunos === 1 ? "" : "s"}${T.acompanhar ? `. ${T.acompanhar} a precisar de atenção.` : "."}` : "Começa por criar a tua primeira turma.";
       $("#heroi-acoes").innerHTML = (ultima ? `<a class="botao grande" href="#/pauta/${ultima.id}">Continuar: ${esc(ultima.nome)}</a>` : r.turmas.length && r.turmas[0].foco ? `<a class="botao grande" href="#/pauta/${r.turmas[0].foco.id}">Abrir a pauta de ${esc(r.turmas[0].nome)}</a>` : "") + (T.turmas ? `<a class="botao sec grande" href="#/notas">Todas as notas</a>` : `<a class="botao grande" href="#/turmas">Criar turma</a>`);
       $("#kpis").innerHTML = [[T.turmas, T.turmas === 1 ? "turma" : "turmas"], [T.alunos, T.alunos === 1 ? "aluno" : "alunos"], [T.media === null ? "–" : n1(T.media), "média geral (%)"], [T.acompanhar, "a acompanhar"]].map(([v, l], i) => `<div class="kpi k${i}"><strong>${v}</strong><span>${l}</span></div>`).join("");
