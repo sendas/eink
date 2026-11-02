@@ -368,7 +368,7 @@ body.entrar { display: block; place-items: unset; }
 body.pagina-entrada { display: block; min-height: 0; }
 .pe-topo { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 1180px; margin: 0 auto; padding: 1rem 1.4rem; }
 .pe-marca { font-weight: 800; font-size: 1.3rem; letter-spacing: -.02em; color: var(--marca); }
-.pe-topo nav { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+.pe-topo nav { display: flex; gap: 1.1rem; flex-wrap: wrap; margin-left: auto; }
 .pe-topo nav a { color: var(--suave); text-decoration: none; font-weight: 600; }
 .pe-topo nav a:hover { color: var(--texto); }
 .pe-heroi { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 3rem; align-items: center; max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.4rem 3.5rem; }
@@ -507,3 +507,16 @@ html { scroll-behavior: smooth; }
 .pe-ico { width: 4rem; height: 4rem; border-radius: 20px; background: color-mix(in srgb, var(--ic) 22%, var(--cartao)); border-color: color-mix(in srgb, var(--ic) 40%, transparent); margin-bottom: .8rem; }
 .pe-ico svg { width: 32px; height: 32px; stroke-width: 2.1; }
 .pe-passos li:not(:last-child)::after { top: 3rem; }
+
+/* Interruptor de tema (claro/escuro) */
+.tema-sw { display: inline-flex; align-items: center; gap: .55rem; }
+.tema-switch { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .55rem; border: 1px solid var(--grelha); border-radius: 999px; background: var(--cartao); color: var(--suave); }
+.tema-switch:hover { color: var(--texto); }
+.ts-pista { position: relative; width: 2.3rem; height: 1.3rem; border-radius: 999px; background: var(--grelha); transition: background .15s; }
+.ts-bola { position: absolute; top: .15rem; left: .15rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--cartao); box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .15s; }
+.tema-switch[aria-checked="true"] .ts-pista { background: var(--marca); }
+.tema-switch[aria-checked="true"] .ts-bola { transform: translateX(1rem); }
+.tema-auto { padding: .25rem .6rem; font-size: .8rem; border-radius: 999px; background: transparent; color: var(--suave); border-color: transparent; }
+.tema-auto[aria-pressed="true"] { background: var(--marca-fundo); color: var(--marca); }
+@media (max-width: 760px) { .tema-auto { display: none; } .tema-switch { padding: .25rem .45rem; } }
+@media (prefers-reduced-motion: reduce) { .ts-pista, .ts-bola { transition: none; } }

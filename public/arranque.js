@@ -7,12 +7,6 @@
   if (EINK.eu.versao) { const v = document.getElementById("versao"); v.textContent = "v" + EINK.eu.versao; v.hidden = false; }
   if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
   if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
-  // Botão do tema: Automático (sistema) → Claro → Escuro
-  const botaoTema = document.getElementById("tema"), NOME = { auto: "Tema: automático", claro: "Tema: claro", escuro: "Tema: escuro" };
-  const CURTO = { auto: "Auto", claro: "Claro", escuro: "Escuro" };
-  const pintarTema = () => { const t = window.EINK_TEMA.ler(); botaoTema.textContent = matchMedia("(max-width: 760px)").matches ? CURTO[t] : NOME[t]; botaoTema.setAttribute("aria-label", NOME[t] + ". Mudar o tema."); };
-  botaoTema.onclick = () => { window.EINK_TEMA.ciclo(); pintarTema(); };
-  pintarTema();
   // Estatísticas de utilização: diz-se ao servidor em que ecrã se está (só o nome do ecrã, no máximo uma vez a cada 10 segundos por ecrã).
   const vistos = new Map();
   const contarEcra = (caminho) => {

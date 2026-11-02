@@ -39,9 +39,10 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   // Tema: automático → claro → escuro → automático
   const tema = () => p.evaluate(() => document.documentElement.getAttribute("data-tema"));
   assert.strictEqual(await tema(), null);
-  await p.click("#tema"); assert.strictEqual(await tema(), "claro");
-  await p.click("#tema"); assert.strictEqual(await tema(), "escuro");
-  await p.click("#tema"); assert.strictEqual(await tema(), null);
+  assert.strictEqual(await p.getAttribute(".tema-switch", "aria-checked"), "false", "sem escolha segue o sistema (claro no teste)");
+  await p.click(".tema-switch"); assert.strictEqual(await tema(), "escuro"); assert.strictEqual(await p.getAttribute(".tema-switch", "aria-checked"), "true");
+  await p.click(".tema-switch"); assert.strictEqual(await tema(), "claro"); assert.strictEqual(await p.getAttribute(".tema-switch", "aria-checked"), "false");
+  await p.click(".tema-auto"); assert.strictEqual(await tema(), null);
 
   // Contas locais: o administrador cria uma, o docente entra com ela e é obrigado a mudar a palavra-passe
   await ir("/admin", "#f-local");
