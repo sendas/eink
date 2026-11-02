@@ -35,7 +35,7 @@ const num = (v, casas = 1) => (v === null || v === undefined ? "" : String(Math.
 function avisoSegredo() {
   const s = EINK.eu && EINK.eu.segredo;
   if (!s || s.dias > 60) return "";
-  return `<p class="banner-fechado" role="alert"><strong>${s.dias < 0 ? "O segredo do Microsoft Entra expirou" : `O segredo do Microsoft Entra expira em ${s.dias} dia(s)`}</strong> (${s.expira}). ${s.dias < 0 ? "Ninguém consegue entrar até ser renovado." : "Depois dessa data ninguém consegue entrar."} No Entra: Registos de aplicações → a aplicação Avaliar Eça → Certificados e segredos → novo segredo; depois atualiza <code>CLIENT_SECRET</code> e <code>CLIENT_SECRET_EXPIRA</code> no <code>.env</code> e reinicia.</p>`;
+  return `<p class="banner-fechado" role="alert"><strong>${s.dias < 0 ? "O segredo do Microsoft Entra expirou" : `O segredo do Microsoft Entra expira em ${s.dias} dia(s)`}</strong> (${s.expira}). ${s.dias < 0 ? "Ninguém consegue entrar até ser renovado." : "Depois dessa data ninguém consegue entrar."} No Entra: Registos de aplicações → a aplicação Eça Avalia → Certificados e segredos → novo segredo; depois atualiza <code>CLIENT_SECRET</code> e <code>CLIENT_SECRET_EXPIRA</code> no <code>.env</code> e reinicia.</p>`;
 }
 EINK.avisoSegredo = avisoSegredo;
 async function painel() { return EINK.inicio(); }

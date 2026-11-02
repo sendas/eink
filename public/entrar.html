@@ -3,24 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrar · Avaliar Eça</title>
+<title>Entrar · Eça Avalia</title>
+<meta name="description" content="Eça Avalia: lançar e calcular notas, acompanhar alunos e preparar avaliações intercalares, com ferramentas de sala de aula, para docentes.">
 <link rel="stylesheet" href="/estilo.css?v=__V__">
 <script src="/tema.js?v=__V__"></script>
 </head>
-<body class="entrar">
-<div class="entrada">
-  <section class="slides" aria-roledescription="carrossel" aria-label="Capturas de ecrã da plataforma">
-    <div class="slides-quadro">
-      <figure class="slide ativo"><img src="/img/slide-1.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-2.jpg" alt="Pauta com os critérios separados por cor, a fotografia de cada aluno e a escala da nota final" width="1200" height="737" loading="lazy"><figcaption>Pauta ao estilo do Excel, com os critérios bem separados e a escala de cada aluno.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-3.jpg" alt="Pauta final em cartões, cada um com a fotografia, a nota e a escala de 1 a 5" width="1200" height="737" loading="lazy"><figcaption>Pauta final em cartões, com a fotografia e a escala de 1 a 5 de cada aluno.</figcaption></figure>
-      <figure class="slide"><img src="/img/slide-4.jpg" alt="Grelha de um teste com a pontuação de cada aluno em cada questão" width="1200" height="737" loading="lazy"><figcaption>Grelha de cada teste: pontuação por questão, colada do Excel ou escrita à mão.</figcaption></figure>
-    </div>
-    <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button></div>
-  </section>
+<body class="entrar pagina-entrada">
+<header class="pe-topo"><span class="pe-marca">Eça Avalia</span><nav><a href="#como">Como funciona</a><a href="#nota">A nota</a><a href="#ver">Ver</a><a href="#ferramentas">Ferramentas</a></nav></header>
+
+<section class="pe-heroi">
+  <div class="pe-texto">
+    <p class="pe-etiqueta">Para docentes do Agrupamento de Escolas Eça de Queirós</p>
+    <h1>Eça Avalia</h1>
+    <p class="pe-lead">A plataforma onde os docentes lançam e calculam as notas, acompanham os alunos e preparam as avaliações intercalares, com as ferramentas de sala de aula sempre à mão.</p>
+    <ul class="pe-pontos">
+      <li><strong>Pauta clara.</strong> Os critérios da tua disciplina e ano, vários testes por critério e a nota final calculada pela média ponderada.</li>
+      <li><strong>Como no Excel.</strong> Escreves, colas e copias notas em grelha, e importas listas e notas de ficheiros do Excel.</li>
+      <li><strong>Menos trabalho.</strong> Níveis de 1 a 5, menções e textos sugeridos para as avaliações intercalares.</li>
+      <li><strong>Para a aula.</strong> Temporizador, sorteio, chamada, sondagens, mapa de sala e quizzes ao vivo, sem contas para os alunos.</li>
+    </ul>
+  </div>
   <main class="caixa-entrar">
-    <h1>Avaliar Eça</h1>
-    <p>Ferramentas de sala de aula e avaliação para docentes.</p>
+    <h2 class="pe-entrar">Entrar</h2>
     <a class="botao grande" href="/auth/entrar">Entrar com a conta da escola</a>
     <p class="pequeno">Só entram docentes da escola com acesso autorizado.</p>
     <details class="painel" id="local"><summary>Entrar com utilizador e palavra-passe</summary>
@@ -32,7 +36,83 @@
       <p class="pequeno">Para docentes que não têm conta Office da escola. Pede os dados a um administrador.</p>
     </details>
   </main>
-</div>
+</section>
+
+<section class="pe-sec" id="como">
+  <h2>Como funciona</h2>
+  <p class="pe-intro">Do primeiro dia de aulas ao conselho de turma, em cinco passos.</p>
+  <ol class="pe-passos">
+    <li><span class="pe-num">1</span><h3>Turmas e alunos</h3><p>Crias a turma e coles a lista de alunos do Excel. Cada docente vê só as suas turmas.</p></li>
+    <li><span class="pe-num">2</span><h3>Testes e grelhas</h3><p>Defines cada teste e, se quiseres, as questões e as cotações. Lanças as pontuações como numa folha de Excel.</p></li>
+    <li><span class="pe-num">3</span><h3>Pauta automática</h3><p>Os critérios e os pesos da tua disciplina dão a nota final de cada aluno, sempre atualizada.</p></li>
+    <li><span class="pe-num">4</span><h3>Níveis e intercalares</h3><p>Nível de 1 a 5, menção e uma proposta de texto para as avaliações intercalares.</p></li>
+    <li><span class="pe-num">5</span><h3>Exportar e guardar</h3><p>Pauta em Excel, histórico de alterações, fecho de períodos e cópias de segurança.</p></li>
+  </ol>
+</section>
+
+<section class="pe-sec pe-alt" id="nota">
+  <h2>Como se chega à nota</h2>
+  <p class="pe-intro">Os critérios e os pesos são definidos pelo administrador para cada disciplina e ano. Eis um exemplo.</p>
+  <div class="pe-formula">
+    <div class="pe-pesos" role="img" aria-label="Exemplo: testes e trabalhos valem 70 por cento e comportamento 30 por cento">
+      <div class="pe-peso g0" style="flex:70"><strong>70 %</strong><span>Testes e trabalhos</span><small>média ponderada dos testes</small></div>
+      <div class="pe-peso g1" style="flex:30"><strong>30 %</strong><span>Comportamento</span><small>nível de 1 a 5 dado por ti</small></div>
+    </div>
+    <p class="pe-seta" aria-hidden="true">↓</p>
+    <p class="pe-final"><strong>Nota final</strong> em percentagem, arredondada a 1 ou 2 casas decimais</p>
+    <p class="pe-seta" aria-hidden="true">↓</p>
+    <div class="pe-escala" aria-label="Escala de níveis">
+      <div class="pe-nivel lv1"><strong>1</strong><span>Muito insuficiente</span><small>0 a 19 %</small></div>
+      <div class="pe-nivel lv2"><strong>2</strong><span>Insuficiente</span><small>20 a 49 %</small></div>
+      <div class="pe-nivel lv3"><strong>3</strong><span>Suficiente</span><small>50 a 69 %</small></div>
+      <div class="pe-nivel lv4"><strong>4</strong><span>Bom</span><small>70 a 89 %</small></div>
+      <div class="pe-nivel lv5"><strong>5</strong><span>Muito bom</span><small>90 a 100 %</small></div>
+    </div>
+    <p class="pequeno">Os limites dos níveis são os da escola e podem ser ajustados. Quando falta um critério, a nota final é calculada com os que existem e fica marcada como parcial.</p>
+  </div>
+</section>
+
+<section class="pe-sec" id="ver">
+  <h2>Ver como é</h2>
+  <section class="slides" aria-roledescription="carrossel" aria-label="Capturas de ecrã da plataforma">
+    <div class="slides-quadro">
+      <figure class="slide ativo"><img src="/img/slide-1.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-2.jpg" alt="Pauta com os critérios separados por cor, a fotografia de cada aluno e a escala da nota final" width="1200" height="737" loading="lazy"><figcaption>Pauta ao estilo do Excel, com os critérios bem separados e a escala de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-3.jpg" alt="Pauta final em cartões, cada um com a fotografia, a nota e a escala de 1 a 5" width="1200" height="737" loading="lazy"><figcaption>Pauta final em cartões, com a fotografia e a escala de 1 a 5 de cada aluno.</figcaption></figure>
+      <figure class="slide"><img src="/img/slide-4.jpg" alt="Grelha de um teste com a pontuação de cada aluno em cada questão" width="1200" height="737" loading="lazy"><figcaption>Grelha de cada teste: pontuação por questão, colada do Excel ou escrita à mão.</figcaption></figure>
+    </div>
+    <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button></div>
+  </section>
+  <p class="pequeno pe-nota-img">Capturas com turmas e alunos inventados.</p>
+</section>
+
+<section class="pe-sec pe-alt" id="ferramentas">
+  <h2>E ferramentas para a sala de aula</h2>
+  <p class="pe-intro">Para usar no quadro ou no telemóvel. Os alunos não precisam de conta.</p>
+  <div class="pe-ferr">
+    <div><strong>Temporizador</strong><span>Contagem decrescente para o ecrã da sala.</span></div>
+    <div><strong>Sorteio</strong><span>Um aluno ou grupos ao acaso.</span></div>
+    <div><strong>Chamada</strong><span>Presenças por aula.</span></div>
+    <div><strong>Listas</strong><span>Listas de verificação.</span></div>
+    <div><strong>Sondagem</strong><span>Pergunta rápida com um código, com resultados em direto.</span></div>
+    <div><strong>Mapa de sala</strong><span>Os lugares dos alunos.</span></div>
+    <div><strong>Quadros</strong><span>Notas e ideias da aula.</span></div>
+    <div><strong>Quizzes ao vivo</strong><span>Jogo com PIN, ao estilo Kahoot.</span></div>
+  </div>
+</section>
+
+<section class="pe-sec" id="confianca">
+  <h2>Os dados dos alunos</h2>
+  <ul class="pe-conf">
+    <li><strong>Só docentes autorizados</strong> entram, com a conta Microsoft da escola ou uma conta local criada por um administrador.</li>
+    <li><strong>Cada docente</strong> só vê as suas turmas.</li>
+    <li><strong>Registo de alterações</strong>: fica guardado quem mudou cada nota e quando, e os períodos fecham-se depois do conselho de turma.</li>
+    <li><strong>Nos jogos e sondagens</strong> os alunos entram com uma alcunha, sem conta.</li>
+    <li><strong>Prazos de retenção</strong> e cópias de segurança definidos pela escola. Lê o <a href="/privacidade.html">aviso de privacidade</a>.</li>
+  </ul>
+</section>
+
+<footer class="pe-rodape"><span>Eça Avalia</span><a href="/privacidade.html">Privacidade</a></footer>
 <script src="/entrar.js?v=__V__"></script>
 </body>
 </html>

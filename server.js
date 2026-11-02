@@ -543,7 +543,7 @@ function criarServidor(env = process.env) {
   rota("POST", "/api/admin/correio/teste", async (c) => {
     soAdmin(c);
     const dest = c.p.local ? CORREIO.destinatarios() : [c.p.upn];
-    const n = await CORREIO.enviar(dest, "Avaliar Eça: email de teste", "O envio de email do Avaliar Eça está a funcionar. Os avisos de expiração do segredo do Entra chegam a este endereço.");
+    const n = await CORREIO.enviar(dest, "Eça Avalia: email de teste", "O envio de email do Eça Avalia está a funcionar. Os avisos de expiração do segredo do Entra chegam a este endereço.");
     return { ok: true, enviados: n, para: dest };
   });
   if ((env.DB_FILE || "x") !== ":memory:" && env.CORREIO !== "0") {
@@ -875,7 +875,7 @@ function criarServidor(env = process.env) {
       if (p.startsWith("/auth/")) {
         const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
         res.writeHead(codigo, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-        return res.end(`<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Não foi possível entrar · Avaliar Eça</title><link rel="stylesheet" href="/estilo.css?v=${VERSAO}"></head><body class="entrar"><main class="caixa-entrar" style="margin:12vh auto"><h1>Avaliar Eça</h1><h2 style="margin-top:0">Não foi possível entrar</h2><p>${esc(msg)}</p><p><a class="botao grande" href="/entrar.html">Voltar e tentar outra vez</a></p></main></body></html>`);
+        return res.end(`<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Não foi possível entrar · Eça Avalia</title><link rel="stylesheet" href="/estilo.css?v=${VERSAO}"></head><body class="entrar"><main class="caixa-entrar" style="margin:12vh auto"><h1>Eça Avalia</h1><h2 style="margin-top:0">Não foi possível entrar</h2><p>${esc(msg)}</p><p><a class="botao grande" href="/entrar.html">Voltar e tentar outra vez</a></p></main></body></html>`);
       }
       res.writeHead(codigo, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(msg);
