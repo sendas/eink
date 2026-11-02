@@ -425,3 +425,73 @@ html { scroll-behavior: smooth; }
   .pe-topo nav { display: none; }
 }
 @media (max-width: 560px) { .pe-passos { grid-template-columns: 1fr; } .pe-escala { grid-template-columns: 1fr; } .pe-nivel { grid-auto-flow: column; justify-content: space-between; align-items: center; } .pe-pesos { flex-direction: column; } }
+
+/* ===== Telemóvel: cabeçalho compacto, menu que desliza e conteúdo na largura do ecrã ===== */
+@media (max-width: 760px) {
+  body { font-size: 16px; }
+  main { padding: 1rem .9rem 4rem; }
+  .topo { flex-wrap: wrap; gap: .35rem .7rem; padding: .55rem .9rem .4rem; }
+  .marca { font-size: 1.2rem; }
+  .topo nav { order: 3; flex: 1 0 100%; min-width: 0; overflow-x: auto; gap: .15rem; margin: 0 -.3rem; padding-bottom: .2rem; scrollbar-width: none; }
+  .topo nav::-webkit-scrollbar { display: none; }
+  .topo nav a { flex: none; white-space: nowrap; padding: .4rem .85rem; }
+  .utilizador { margin-left: auto; display: flex; align-items: center; gap: .45rem; font-size: .85rem; }
+  .utilizador #nome { display: none; }
+  .tema-bot { padding: .3rem .65rem; font-size: .8rem; }
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.25rem; margin-top: 1.7rem; }
+  .heroi { padding: 1.2rem 1.1rem; border-radius: 20px; }
+  .heroi h1 { font-size: 2rem; }
+  .heroi-sub { font-size: 1rem; }
+  .heroi-acoes { width: 100%; }
+  .heroi-acoes .botao { flex: 1 1 100%; text-align: center; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .kpi { padding: .8rem 1rem; }
+  .kpi strong { font-size: 2.3rem; }
+  .turmas-grelha, .notas-turmas { grid-template-columns: minmax(0, 1fr); }
+  .turma-cartao { padding: 1.1rem; }
+  .cartoes.ferramentas { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .cartoes.ferramentas .cartao { padding: .9rem; gap: .5rem; font-size: 1rem; border-radius: 16px; }
+  .cartoes.ferramentas .cartao .icone { width: 2.6rem; height: 2.6rem; font-size: 1.4rem; border-radius: 12px; }
+  .cartoes.ferramentas .cartao small { font-size: .82rem; }
+  .resumo-pauta { grid-template-columns: minmax(0, 1fr); gap: .7rem; }
+  .resumo-pauta strong.grande-n { font-size: 2.3rem; }
+  .barra-pauta { gap: .6rem; }
+  .troca-vista button { padding: .4rem .7rem; font-size: .9rem; }
+  .foto-linha { display: none; }
+  .cartoes-final { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .aluno-cartao { padding: 1rem .6rem; border-radius: 18px; }
+  .aluno-cartao h3 { font-size: 1.02rem; }
+  .aluno-final strong { font-size: 2.2rem; }
+  .painel { padding: 1rem; }
+  .linha { gap: .5rem; }
+  .troca-pauta { margin-left: 0; }
+  .folha-caixa { max-height: 70vh; }
+}
+.nova-aval > summary { cursor: pointer; margin-bottom: .2rem; }
+.nova-aval[open] > summary { margin-bottom: .9rem; }
+@media (max-width: 760px) {
+  .topo { background: color-mix(in srgb, var(--cartao) 97%, transparent); }
+  .topo .utilizador { flex-shrink: 0; }
+  h1 small { display: block; margin-top: .2rem; }
+  .nova-aval:not([open]) { padding-top: .8rem; padding-bottom: .8rem; }
+  #f-aval label { flex: 1 1 8rem; }
+  #f-aval button { width: 100%; }
+}
+@media (max-width: 760px) {
+  .topo { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; column-gap: .6rem; row-gap: .3rem; }
+  .topo nav { grid-column: 1 / -1; grid-row: 2; margin: 0 -.3rem; }
+  .utilizador { grid-column: 3; grid-row: 1; justify-self: end; margin-left: 0; }
+}
+.aviso-alerta .lista li { flex-wrap: wrap; row-gap: .1rem; }
+.aviso-alerta .lista .pequeno { white-space: nowrap; }
+@media (max-width: 760px) {
+  .topo nav { -webkit-mask-image: linear-gradient(to right, #000 88%, transparent); mask-image: linear-gradient(to right, #000 88%, transparent); padding-right: 1.5rem; }
+  table.folha { font-size: .95rem; }
+  table.folha tbody th, table.folha tbody td:first-child { padding: .3rem .4rem; white-space: normal; }
+  table.folha tbody th .aluno-nome { display: block; max-width: 6.4rem; line-height: 1.2; }
+  table.folha td input.nota, table.folha td select { font-size: 1rem; padding: .6rem .4rem; min-width: 3.8rem; }
+  table.folha th.col-av { min-width: 4.6rem; }
+  table.folha .folha-letras { display: none; }
+  .folha-barra .folha-rotulo { display: none; }
+}

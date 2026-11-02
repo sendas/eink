@@ -35,7 +35,7 @@
     const nCols = 2 + d.criterios.reduce((z, k) => z + (k.tipo === "nivel" ? 1 : doCrit(k).length + 1), 0) + 3;
 
     mostrar(`<p class="linha"><a href="#/turma/${d.periodo.turma_id}">← Turma</a><span id="troca"></span></p><h1>${esc(d.periodo.turma_nome)} · ${esc(d.periodo.nome)} <small class="pequeno">${esc(d.grupo.nome)} · ${d.grupo.ano ? d.grupo.ano + ".º ano" : "todos os anos"}</small></h1>
-      ${fechado ? `<p class="banner-fechado" role="status"><strong>Período fechado</strong> pelo administrador${d.periodo.fechado_em ? " em " + esc(d.periodo.fechado_em.slice(0, 10)) : ""}: as notas estão bloqueadas. Podes consultar, exportar e ver o histórico.</p>` : `<form class="painel linha" id="f-aval">
+      ${fechado ? `<p class="banner-fechado" role="status"><strong>Período fechado</strong> pelo administrador${d.periodo.fechado_em ? " em " + esc(d.periodo.fechado_em.slice(0, 10)) : ""}: as notas estão bloqueadas. Podes consultar, exportar e ver o histórico.</p>` : `<details class="painel nova-aval" ${innerWidth > 760 ? "open" : ""}><summary><strong>Adicionar avaliação</strong> <span class="pequeno">teste, ficha ou trabalho</span></summary><form class="linha" id="f-aval">
         <label>Título<input name="titulo" required maxlength="80" placeholder="Teste 1"></label>
         <label>Critério<select name="criterio">${testes.map((k) => `<option value="${k.id}">${esc(k.nome)} (${k.peso} %)</option>`).join("")}</select></label>
         <label>Tipo<select name="tipo"><option>teste</option><option>trabalho</option><option>ficha</option><option>oral</option><option>outro</option></select></label>
@@ -43,7 +43,7 @@
         <label>Máximo<input name="maximo" type="number" min="1" step="any" value="100" style="width:6rem"></label>
         <label>Data<input name="data" type="date"></label>
         <button>Adicionar avaliação</button>
-      </form>`}
+      </form></details>`}
       <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p></details>
       <div class="resumo-pauta" id="resumo-pauta"></div>
       <div class="barra-pauta"><div class="troca-vista" role="group" aria-label="Vista da pauta"><button type="button" class="sec ${vistaCart ? "" : "ativo"}" data-vista="tabela">Tabela</button><button type="button" class="sec ${vistaCart ? "ativo" : ""}" data-vista="cartoes">Pauta final em cartões</button></div>
