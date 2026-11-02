@@ -42,7 +42,8 @@
         <label>Data<input name="data" type="date"></label>
         <button>Adicionar avaliação</button>
       </form>`}
-      <p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p>
+      <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p></details>
+      <div class="resumo-pauta" id="resumo-pauta"></div>
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
       <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a><button class="sec" id="hist-bot" type="button">Histórico de alterações</button></p><div id="hist"></div>`);
@@ -59,8 +60,17 @@
       $('[data-c="nivel"]', tr).textContent = al.nivel ?? ""; $('[data-c="mencao"]', tr).textContent = al.mencao;
       tr.className = al.nivel ? "n" + al.nivel : "";
     });
-    pintar(d);
-    const recalcular = async () => pintar(await api("GET", `/api/periodos/${id}/pauta`));
+    // Resumo em números grandes: média da turma, alunos por nível e notas lançadas.
+    const resumo = (dd) => {
+      const fin = dd.alunos.filter((a) => a.final !== null), niv = [0, 0, 0, 0, 0];
+      dd.alunos.forEach((a) => { if (a.nivel) niv[a.nivel - 1]++; });
+      const media = fin.length ? fin.reduce((z, a) => z + a.final, 0) / fin.length : null, esp = dd.avaliacoes.length * dd.alunos.length, lanc = Object.keys(dd.notas).length, pc = esp ? Math.round((lanc / esp) * 100) : 0, ac = niv[0] + niv[1];
+      $("#resumo-pauta").innerHTML = `<div><span class="rotulo">Média da turma</span><strong class="grande-n">${media === null ? "–" : num(media, 1)}<small> %</small></strong><span class="pequeno">${fin.length} de ${dd.alunos.length} alunos com nota final</span></div>
+        <div><span class="rotulo">Alunos por nível</span>${niv.some((x) => x) ? `<div class="niveis">${niv.map((x, i) => (x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="Nível ${i + 1}: ${x}">${x}</span>` : "")).join("")}</div><div class="niveis-leg">${[1, 2, 3, 4, 5].map((i) => `<span><i class="lv lv${i}"></i>${i}</span>`).join("")}</div>` : '<span class="pequeno">Sem níveis ainda.</span>'}</div>
+        <div><span class="rotulo">Notas lançadas</span><strong class="grande-n">${pc}<small> %</small></strong><div class="progresso"><div style="width:${pc}%"></div></div><span class="pequeno">${lanc} de ${esp}${ac ? ` · ${ac} aluno${ac === 1 ? "" : "s"} a acompanhar` : ""}</span></div>`;
+    };
+    pintar(d); resumo(d);
+    const recalcular = async () => { const dd = await api("GET", `/api/periodos/${id}/pauta`); pintar(dd); resumo(dd); };
 
     if (!fechado) $("#f-aval").onsubmit = async (e) => {
       e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));

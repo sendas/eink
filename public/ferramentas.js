@@ -2,7 +2,7 @@
 // Ferramentas de sala: temporizador, sorteio, chamada e listas de verificação.
 (() => {
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
-  const voltar = '<p><a href="#/">← Painel</a></p>';
+  const voltar = '<p><a href="#/">← Início</a></p>';
   let limpeza = null; // o que parar ao sair da vista (relógios, microfone)
   EINK.aoSair = () => { if (limpeza) { limpeza(); limpeza = null; } };
 

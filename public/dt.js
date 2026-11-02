@@ -7,7 +7,7 @@
 
   async function lista() {
     const l = await api("GET", "/api/dt");
-    mostrar(`<p><a href="#/">← Painel</a></p><h1>Direção de turma</h1>
+    mostrar(`<p><a href="#/">← Início</a></p><h1>Direção de turma</h1>
       <p class="pequeno">A pauta de todas as disciplinas da turma, só para consulta. As turmas dos docentes juntam-se pelo ano letivo e pelo nome da turma.</p>
       <div class="painel"><ul class="lista">${l.map((t) => `<li><a href="#/dt/ver?${q({ ano_letivo: t.ano_letivo, turma: t.turma })}"><strong>${esc(t.turma)}</strong></a><span class="pequeno">${esc(t.ano_letivo)} · ${t.disciplinas} disciplina(s)</span></li>`).join("") || '<li class="pequeno">Ainda não és diretor de nenhuma turma.</li>'}</ul></div>`);
   }

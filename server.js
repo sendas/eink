@@ -549,6 +549,27 @@ function criarServidor(env = process.env) {
     setTimeout(avisar, 60000).unref(); const relogioCorreio = setInterval(avisar, 6 * 3600000); relogioCorreio.unref();
   }
   // Turmas ativas com os seus períodos, para chegar às notas num só clique.
+  // Resumo para a página inicial: por turma, o período em foco, a média, os níveis e o progresso das notas.
+  rota("GET", "/api/inicio", (c) => {
+    const ts = db.prepare("SELECT id, nome, ano_letivo, ano FROM turmas WHERE prof_id = ? AND arquivada = 0 ORDER BY ano, nome").all(c.p.id);
+    const turmas = ts.map((t) => {
+      const periodos = db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id);
+      let foco = periodos[0] || null;
+      for (const p of periodos) if (db.prepare("SELECT 1 FROM avaliacoes WHERE periodo_id = ? LIMIT 1").get(p.id)) foco = p;
+      const alunos = db.prepare("SELECT COUNT(*) AS n FROM alunos WHERE turma_id = ?").get(t.id).n;
+      const r = { ...t, alunos, periodos: periodos.map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })), foco: foco ? { id: foco.id, nome: foco.nome } : null, media: null, niveis: [0, 0, 0, 0, 0], acompanhar: 0, avaliacoes: 0, notas: 0, esperadas: 0 };
+      if (foco && alunos) {
+        const d = dadosPauta(foco), fin = d.alunos.filter((a) => a.final !== null);
+        r.media = fin.length ? Math.round((fin.reduce((z, a) => z + a.final, 0) / fin.length) * 10) / 10 : null;
+        for (const a of d.alunos) if (a.nivel) r.niveis[a.nivel - 1]++;
+        r.acompanhar = r.niveis[0] + r.niveis[1];
+        r.avaliacoes = d.avaliacoes.length; r.notas = Object.keys(d.notas).length; r.esperadas = d.avaliacoes.length * d.alunos.length;
+      }
+      return r;
+    });
+    const comMedia = turmas.filter((t) => t.media !== null);
+    return { nome: c.p.nome, turmas, totais: { turmas: turmas.length, alunos: turmas.reduce((z, t) => z + t.alunos, 0), acompanhar: turmas.reduce((z, t) => z + t.acompanhar, 0), media: comMedia.length ? Math.round((comMedia.reduce((z, t) => z + t.media, 0) / comMedia.length) * 10) / 10 : null } };
+  });
   rota("GET", "/api/atalhos", (c) => db.prepare("SELECT id, nome, ano_letivo, ano FROM turmas WHERE prof_id = ? AND arquivada = 0 ORDER BY ano, nome").all(c.p.id)
     .map((t) => ({ ...t, periodos: db.prepare("SELECT id, nome, fechado FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id).map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })) })));
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));

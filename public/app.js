@@ -30,16 +30,7 @@ const vista = $("#vista");
 function mostrar(html) { vista.innerHTML = html; }
 const num = (v, casas = 1) => (v === null || v === undefined ? "" : String(Math.round(v * 10 ** casas) / 10 ** casas).replace(".", ","));
 
-// ---------- painel ----------
-const CARTOES = [
-  ["Avaliação", [["👥", "Turmas e alunos", "Gerir turmas e listas", "#/turmas"], ["📋", "Pauta e avaliação", "Testes, períodos e notas", "#/turmas"]]],
-  ["Ferramentas de sala", [
-    ["⏱", "Temporizador", "Contagem decrescente", "#/temporizador"], ["🔀", "Sorteio", "Aluno ou grupos ao acaso", "#/sorteio"],
-    ["✅", "Chamada", "Presenças por aula", "#/chamada"], ["☑️", "Listas", "Listas de verificação", "#/listas"],
-    ["📊", "Sondagem", "Pergunta rápida com código", "#/sondagens"], ["🪑", "Mapa de sala", "Lugares dos alunos", "#/mapa"],
-    ["🖼", "Quadros", "Notas e ideias da aula", "#/quadros"], ["🎮", "Quizzes", "Jogo ao vivo estilo Kahoot", "#/quizzes"],
-  ]],
-];
+// ---------- painel: ver inicio.js ----------
 // Aviso (só para administradores) quando o segredo da aplicação no Entra está perto de expirar: depois disso ninguém consegue entrar.
 function avisoSegredo() {
   const s = EINK.eu && EINK.eu.segredo;
@@ -47,17 +38,7 @@ function avisoSegredo() {
   return `<p class="banner-fechado" role="alert"><strong>${s.dias < 0 ? "O segredo do Microsoft Entra expirou" : `O segredo do Microsoft Entra expira em ${s.dias} dia(s)`}</strong> (${s.expira}). ${s.dias < 0 ? "Ninguém consegue entrar até ser renovado." : "Depois dessa data ninguém consegue entrar."} No Entra: Registos de aplicações → a aplicação Avaliar Eça → Certificados e segredos → novo segredo; depois atualiza <code>CLIENT_SECRET</code> e <code>CLIENT_SECRET_EXPIRA</code> no <code>.env</code> e reinicia.</p>`;
 }
 EINK.avisoSegredo = avisoSegredo;
-async function painel() {
-  mostrar(`<h1>Olá, ${esc((EINK.eu.nome || "").split(" ")[0])}</h1><p class="pequeno">O que queres fazer hoje?</p>${avisoSegredo()}<div id="alertas"></div><section id="atalhos"></section>` + CARTOES.map(([t, l]) => `
-    <h2>${t}</h2><div class="cartoes">${l.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`).join(""));
-  if (EINK.atalhosPainel) EINK.atalhosPainel($("#atalhos"));
-  // Alunos a acompanhar (nota baixa ou muitas faltas), sem atrasar o painel.
-  try {
-    const r = await api("GET", "/api/alertas");
-    if (r.alertas.length && $("#alertas")) $("#alertas").innerHTML = `<section class="painel aviso-alerta" aria-label="Alunos a acompanhar"><strong>Alunos a acompanhar (${r.alertas.length})</strong> <span class="pequeno">nota abaixo de ${r.limiteNota} % ou ${r.limiteFaltas} ou mais faltas</span>
-      <ul class="lista">${r.alertas.slice(0, 8).map((a) => `<li><span>${esc(a.aluno)} <span class="pequeno">${esc(a.turma)}</span></span><span>${a.periodo_id ? `<a href="#/pauta/${a.periodo_id}">${esc(a.motivos.join(" · "))}</a>` : esc(a.motivos.join(" · "))}</span></li>`).join("")}${r.alertas.length > 8 ? `<li class="pequeno">e mais ${r.alertas.length - 8}…</li>` : ""}</ul></section>`;
-  } catch { /* o aviso de erro já foi mostrado ou não é essencial */ }
-}
+async function painel() { return EINK.inicio(); }
 
 // ---------- turmas ----------
 async function turmas(arq) {

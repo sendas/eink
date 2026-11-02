@@ -2,7 +2,7 @@
 // Quizzes estilo Kahoot: editor de perguntas (portado do tic.techpro.pt) e ecrã do docente no jogo ao vivo.
 (() => {
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
-  const voltar = '<p><a href="#/">← Painel</a></p>';
+  const voltar = '<p><a href="#/">← Início</a></p>';
   const FORMAS = ["▲", "◆", "●", "■", "★"];
   const parar = [];
   const aoSairAnt = EINK.aoSair;

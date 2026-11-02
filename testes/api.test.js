@@ -1022,3 +1022,23 @@ test("Atalhos: turmas ativas com os períodos, só as do docente", async (t) => 
   assert.ok(l[0].periodos.length >= 1 && l[0].periodos[0].id && l[0].periodos[0].nome);
   assert.strictEqual((await outro.chamar("GET", "/api/atalhos")).d.length, 0, "cada docente só vê as suas turmas");
 });
+
+test("Início: resumo por turma com média, níveis e progresso das notas", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const grupos = (await adm.chamar("GET", "/api/grupos")).d;
+  const tu = (await adm.chamar("POST", "/api/turmas", { nome: "8.º B", ano_letivo: "2026/2027", ano: 8, grupo_id: grupos[0].id })).d;
+  await adm.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Ana\n2 Rui" });
+  let r = (await adm.chamar("GET", "/api/inicio")).d;
+  assert.strictEqual(r.totais.turmas, 1); assert.strictEqual(r.totais.alunos, 2);
+  assert.strictEqual(r.turmas[0].media, null); assert.deepStrictEqual(r.turmas[0].niveis, [0, 0, 0, 0, 0]);
+  const per = (await adm.chamar("GET", "/api/atalhos")).d[0].periodos[0].id;
+  const crit = (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d.criterios.find((k) => k.tipo === "testes");
+  const av = (await adm.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Teste 1", criterio: crit.id, tipo: "teste", peso: 1, maximo: 20 })).d;
+  const alunos = (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos;
+  await adm.chamar("PUT", `/api/avaliacoes/${av.id}/notas`, { linhas: [{ aluno: alunos[0].id, nota: "20" }] });
+  r = (await adm.chamar("GET", "/api/inicio")).d;
+  assert.strictEqual(r.turmas[0].esperadas, 2); assert.strictEqual(r.turmas[0].notas, 1);
+  assert.strictEqual(r.turmas[0].media, 100); assert.strictEqual(r.turmas[0].foco.id, per);
+});

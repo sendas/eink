@@ -25,6 +25,8 @@
     let caminho = location.hash.replace(/^#/, "");
     if (EINK.eu.trocar && caminho !== "/senha") { location.hash = "#/senha"; return; }
     contarEcra(caminho);
+    const area = "#/" + (caminho.split("/")[1] || "");
+    document.querySelectorAll(".topo nav a").forEach((a) => { if (a.getAttribute("href") === area || (area === "#/pauta" && a.getAttribute("href") === "#/notas") || ((area === "#/turma") && a.getAttribute("href") === "#/turmas")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
       if (m) { try { await fn(...m.slice(1)); } catch { /* o aviso já foi mostrado */ } document.getElementById("vista").focus(); return; }
