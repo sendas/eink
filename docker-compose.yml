@@ -4,11 +4,11 @@ services:
     container_name: eink
     restart: unless-stopped
     ports:
-      - "8000:8000"   # o proxy inverso do NAS aponta para aqui
+      - "8000:8000"   # o proxy inverso / túnel aponta para aqui
     environment:
-      UI_USER: admin
-      UI_PASSWORD: muda-isto          # palavra-passe da interface web
-      DEVICE_TOKEN: muda-este-token   # segredo usado pelo Raspberry Pi
+      UI_USER: ${UI_USER:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:?defina UI_PASSWORD no ficheiro .env}
+      DEVICE_TOKEN: ${DEVICE_TOKEN:?defina DEVICE_TOKEN no ficheiro .env}
       TZ: Europe/Lisbon
     volumes:
       - ./data:/data

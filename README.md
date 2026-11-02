@@ -3,7 +3,7 @@
 Painel de informações e avisos num Waveshare 4" e-Paper (E6 / Spectra 6, 600×400), editado numa página web alojada no NAS.
 
 ```
-Browser ──HTTPS──> NAS (Docker, eink.techpro.pt) <──pede a imagem── Raspberry Pi + HAT ──fita── painel
+Browser ──HTTPS──> NAS (Docker, avaliar.techpro.pt) <──pede a imagem── Raspberry Pi + HAT ──fita── painel
                                                                      (dentro de casa)      (exterior)
 ```
 
@@ -28,9 +28,9 @@ Duas peças (`slim_bezel.stl` e `slim_back.stl`, geradas por `case/eink_case_sli
 
 ## 3. NAS
 1. Copiar este repositório para o NAS.
-2. Editar `UI_PASSWORD` e `DEVICE_TOKEN` em `docker-compose.yml` (valores longos e aleatórios).
+2. `cp .env.example .env` e preencher `UI_PASSWORD` e `DEVICE_TOKEN` com valores longos e aleatórios (`openssl rand -hex 24`).
 3. `docker compose up -d --build`
-4. No proxy inverso do NAS, apontar `eink.techpro.pt` → porta 8000, com certificado HTTPS.
+4. Cloudflare: apontar `avaliar.techpro.pt` → porta 8000 do NAS, por túnel (`cloudflared`) ou por registo DNS com proxy e SSL "Full (strict)".
    **Não exponha sem HTTPS**: a palavra-passe viaja em Basic Auth.
 
 ## 4. Raspberry Pi
@@ -58,7 +58,7 @@ Duas peças (`slim_bezel.stl` e `slim_back.stl`, geradas por `case/eink_case_sli
    sudo cp -r ~/e-Paper/RaspberryPi_JetsonNano/python/lib/waveshare_epd /opt/eink/
    sudo cp ~/eink/pi/client.py /opt/eink/
    sudo cp ~/eink/pi/eink.service ~/eink/pi/eink.timer /etc/systemd/system/
-   printf 'EINK_URL=https://eink.techpro.pt\nEINK_TOKEN=o-teu-DEVICE_TOKEN\nPYTHONPATH=/opt/eink\n' | sudo tee /etc/eink.env
+   printf 'EINK_URL=https://avaliar.techpro.pt\nEINK_TOKEN=o-teu-DEVICE_TOKEN\nPYTHONPATH=/opt/eink\n' | sudo tee /etc/eink.env
    sudo chmod 600 /etc/eink.env
    sudo systemctl enable --now eink.timer
    ```
