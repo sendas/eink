@@ -186,3 +186,10 @@ table.folha .fim { border-right: 4px solid var(--gc, var(--grelha)); }
 table.folha .res-ini { border-left: 4px solid var(--texto); }
 table.folha tbody tr td.fim[data-c^="crit-"] { font-weight: 700; background: color-mix(in srgb, var(--gc) 14%, transparent); }
 table.folha tbody tr:last-child td { border-bottom: 3px solid var(--grelha); }
+/* Cada critério tem o seu tom de fundo; a cor do nível da linha só aparece em Final, Nível e Menção */
+table.folha tbody td.g0, table.folha tbody td.g1, table.folha tbody td.g2 { background: color-mix(in srgb, var(--gc) 9%, var(--cartao)); }
+table.folha tbody td.g0.fim, table.folha tbody td.g1.fim, table.folha tbody td.g2.fim { background: color-mix(in srgb, var(--gc) 22%, var(--cartao)); }
+table.folha tbody tr td.res-ini, table.folha tbody tr td.res-ini ~ td { border-bottom-color: var(--grelha); }
+table.folha tbody tr:hover td.g0, table.folha tbody tr:hover td.g1, table.folha tbody tr:hover td.g2 { background: color-mix(in srgb, var(--gc) 16%, var(--cartao)); }
+table.folha td.fo-sel { background: color-mix(in srgb, var(--marca) 28%, var(--cartao)) !important; }
+table.folha td.fo-ativa { background: var(--cartao) !important; }
