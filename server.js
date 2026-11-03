@@ -198,9 +198,9 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, comp_escala: c.p.comp_escala === "pct" ? "pct" : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("PUT", "/api/eu/comportamento", (c) => {
-    if (c.b.escala !== "nivel" && c.b.escala !== "pct") throw erro(400, "Escolhe «1 a 5» ou «0 a 100 %».");
+    if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };
   });
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
@@ -431,7 +431,7 @@ function criarServidor(env = process.env) {
     const k = esquemaDaTurma(t).criterios.find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
     if (!k) throw erro(400, "Critério inválido para esta turma.");
     const lido = lerComportamento(c.b.valor !== undefined ? c.b.valor : c.b.nivel, c.p.comp_escala);
-    if (lido === undefined) throw erro(400, c.p.comp_escala === "pct" ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)." : "Escreve um nível de 1 a 5. Para lançar em percentagem, muda a escala do comportamento para «0 a 100 %».");
+    if (lido === undefined) throw erro(400, c.p.comp_escala === "pct" ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)." : c.p.comp_escala === "auto" ? "Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %)." : "Escreve um nível de 1 a 5. Para lançar em percentagem, muda a escala do comportamento para «0 a 100 %».");
     abertoOuErro(per.id);
     const ant = db.prepare("SELECT nivel, pct FROM niveis WHERE criterio_id = ? AND periodo_id = ? AND aluno_id = ?").get(k.id, per.id, a.id) || {};
     const txt = (r) => (!r || r.nivel == null ? "" : r.pct != null ? String(r.pct).replace(".", ",") + " %" : String(r.nivel)), antes = txt(ant), depois = txt(lido);

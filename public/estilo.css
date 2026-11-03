@@ -608,3 +608,6 @@ table.folha td.num, table.folha td[data-c], table.folha th.num { text-align: cen
 table.folha td { text-align: center; }
 table.folha th[scope="row"], table.folha td.aluno-nome-cel { text-align: left; }
 table.folha thead th:not(.crit):not(.folha-fixa) { text-align: center; }
+
+/* Comportamento lançado em percentagem (útil na escala automática, para ver onde se misturam as escalas) */
+table.folha td input.nota.comp-pct { font-weight: 700; color: var(--g1); }
