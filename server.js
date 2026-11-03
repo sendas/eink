@@ -610,7 +610,8 @@ function criarServidor(env = process.env) {
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
-  registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
+  const criteriosBase = registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
+  try { criteriosBase(); } catch (e) { console.error("Critérios do manual:", e.message); }
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
   ferramentas.registar(XF);
