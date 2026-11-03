@@ -92,6 +92,11 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.waitForSelector("input.nota");
   await p.fill("input.nota >> nth=0", "15"); await p.press("input.nota >> nth=0", "Tab");
   await p.waitForFunction(() => document.querySelector('[data-c="final"]').textContent.startsWith("75"));
+  // Comportamento: lançar, recarregar a pauta (já com o valor guardado) e continuar a abrir
+  await p.fill("input[data-nivel] >> nth=0", "4"); await p.press("input[data-nivel] >> nth=0", "Tab");
+  await p.waitForFunction(() => document.querySelector('[data-c="nivel"]').textContent.trim() !== "");
+  await p.reload(); await p.waitForSelector("input[data-nivel]");
+  assert.strictEqual(await p.inputValue("input[data-nivel] >> nth=0"), "4", "o comportamento lançado volta a aparecer ao reabrir a pauta");
 
   // Grelha do teste: 5 questões de 10 pontos, e pontuações
   const hrefGrelha = await p.getAttribute("a:has-text('Grelha')", "href");

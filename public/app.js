@@ -20,9 +20,9 @@ async function api(metodo, url, corpo) {
     headers: { "X-Requested-With": "eink", ...(corpo !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: corpo !== undefined ? JSON.stringify(corpo) : undefined,
   });
-  if (r.status === 401) { location.href = "/entrar.html"; throw new Error("Sessão terminada."); }
+  if (r.status === 401) { location.href = "/entrar.html"; const e = new Error("Sessão terminada."); e.mostrado = true; throw e; }
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(d.erro || "Erro."); aviso(e.message, true); throw e; }
+  if (!r.ok) { const e = new Error(d.erro || "Erro."); e.mostrado = true; aviso(e.message, true); throw e; }
   return d;
 }
 

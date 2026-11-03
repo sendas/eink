@@ -28,7 +28,7 @@
     const fp = (v) => String(v).replace(".", ",");
     const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); const nivel = !m[2] && Number.isInteger(n) && n >= 1 && n <= 5 && modo !== "pct"; return nivel ? String(n) : fp(Math.round(n * 100) / 100) + " %"; };
     const marcarComp = (el) => { el.classList.toggle("comp-pct", /%$/.test(el.value)); };
-    const compTxt = (al, k) => (al.compPct && al.compPct[k.id] !== undefined ? fp(al.compPct[k.id]) + " %" : al.niveis[k.id] ?? "");
+    const compTxt = (al, k) => (al.compPct && al.compPct[k.id] !== undefined ? fp(al.compPct[k.id]) + " %" : String(al.niveis[k.id] ?? ""));
     const lerLS = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch { return def; } };
     const fotosOn = lerLS("eink.fotos", "1") === "1", vistaCart = lerLS("eink.pautaVista", "tabela") === "cartoes";
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row"><span class="aluno-nome">${esc(al.nome)}</span>${fotosOn ? `<div class="foto-linha">${EINK.fotoAluno(al)}</div>` : ""}</th>
