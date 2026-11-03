@@ -39,24 +39,48 @@
     <td><button class="perigo c-del" type="button" aria-label="Retirar critério">✕</button></td></tr>`;
 
   const anoTxt = (e) => (e.ano ? `${e.ano}.º ano` : "Todos os anos");
+  // Documentos PDF de um grupo (critérios aprovados): lista, carregar e apagar.
+  async function docsGrupo(gid, alvo) {
+    const l = await api("GET", `/api/documentos?grupo=${gid}`);
+    alvo.innerHTML = `${l.length ? `<ul class="lista">${l.map((d) => `<li><span><a href="/api/documentos/${d.id}/ficheiro" target="_blank" rel="noopener"><strong>${esc(d.titulo)}</strong></a> <span class="pequeno">${Math.max(1, Math.round(d.tamanho / 1024))} KB · ${esc(d.criado.slice(0, 10))}</span></span><button class="perigo" type="button" data-doc="${d.id}">Apagar</button></li>`).join("")}</ul>` : '<p class="pequeno">Ainda não há documentos neste grupo.</p>'}
+      <form class="linha" data-novo-doc><label>Título<input name="titulo" maxlength="120" placeholder="Critérios de avaliação 2025/2026"></label><label>Ficheiro PDF (até 12 MB)<input type="file" name="f" accept="application/pdf,.pdf" required></label><button>Carregar PDF</button></form>`;
+    $$("[data-doc]", alvo).forEach((b) => { b.onclick = async () => { if (confirm("Apagar este documento?")) { await api("DELETE", "/api/admin/documentos/" + b.dataset.doc); docsGrupo(gid, alvo); } }; });
+    $("[data-novo-doc]", alvo).onsubmit = async (e) => {
+      e.preventDefault(); const f = e.target.f.files[0]; if (!f) return;
+      if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") { aviso("Escolhe um ficheiro PDF.", true); return; }
+      if (f.size > 12 * 1048576) { aviso("O ficheiro é demasiado grande (máximo 12 MB).", true); return; }
+      const botao = e.target.querySelector("button"); botao.disabled = true;
+      try {
+        const r = await fetch(`/api/admin/documentos?grupo=${gid}&titulo=${encodeURIComponent(e.target.titulo.value)}&nome=${encodeURIComponent(f.name)}`, { method: "POST", headers: { "X-Requested-With": "eink", "Content-Type": "application/pdf" }, body: f });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { aviso(d.erro || "Não foi possível carregar o PDF.", true); botao.disabled = false; return; }
+        aviso("Documento carregado."); docsGrupo(gid, alvo);
+      } catch { aviso("Sem ligação ao servidor. Tenta outra vez.", true); botao.disabled = false; }
+    };
+  }
+
+  let grupoSel = null; // disciplina aberta na página dos critérios
   async function criterios() {
     const grupos = await api("GET", "/api/grupos");
+    const atual = grupos.find((g) => g.id === grupoSel) || grupos[0];
     mostrar(`<h1>Critérios de avaliação</h1>
       <p class="pequeno">Os critérios variam por disciplina (grupo disciplinar) e por ano de escolaridade. Cada disciplina tem um esquema para «todos os anos» e pode ter esquemas próprios para anos concretos: uma turma usa o do seu ano e, se não houver, o de «todos os anos». Os docentes lançam testes e trabalhos dentro dos critérios de «testes»; a nota final é a média ponderada dos critérios, que têm de somar 100 %.</p>
       <form class="painel linha" id="f-grupo"><label>Nova disciplina / grupo disciplinar<input name="nome" required maxlength="60" placeholder="550 Informática"></label><button>Criar</button></form>
+      <div class="painel linha"><label>Disciplina a ver e editar<select id="sel-grupo">${grupos.map((g) => `<option value="${g.id}" ${atual && g.id === atual.id ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label><span class="pequeno">${grupos.length} disciplina${grupos.length === 1 ? "" : "s"}</span></div>
       <details class="painel" id="imp-crit"><summary><strong>Importar os critérios de todos os grupos</strong> <span class="pequeno">de um ficheiro Excel ou colando do Excel</span></summary>
         <p class="pequeno">Uma linha por critério, com as colunas <strong>Grupo, Ano, Critério, Tipo, Peso, Casas decimais</strong>. «Ano» é «Todos» ou de 1 a 12; «Tipo» é «testes» ou «nível»; os pesos de cada grupo e ano somam 100. Antes de gravar vês o que vai acontecer. Os grupos que não aparecerem ficam como estão.</p>
         <p class="linha"><button class="sec" type="button" id="imp-modelo">Descarregar os critérios atuais (para editar)</button><label>Ficheiro (.xlsx ou .csv)<input type="file" id="imp-ficheiro" accept=".xlsx,.csv,.txt"></label></p>
         <label>Ou cola aqui as linhas<textarea id="imp-texto" rows="6" placeholder="550 Informática&#9;Todos&#9;Testes e trabalhos&#9;testes&#9;70&#9;1&#10;550 Informática&#9;Todos&#9;Comportamento&#9;nível&#9;30&#9;1"></textarea></label>
         <p class="linha"><button type="button" id="imp-ver">Ver o que vai acontecer</button></p><div id="imp-res"></div></details>
-      ${grupos.map((g) => `<section class="painel" data-grupo="${g.id}"><div class="linha"><label>Disciplina<input class="g-nome" value="${esc(g.nome)}" maxlength="60"></label><button class="sec g-ren" type="button">Mudar nome</button><button class="perigo g-del" type="button">Apagar</button></div>
+      ${[atual].filter(Boolean).map((g) => `<section class="painel" data-grupo="${g.id}"><div class="linha"><label>Disciplina<input class="g-nome" value="${esc(g.nome)}" maxlength="60"></label><button class="sec g-ren" type="button">Mudar nome</button><button class="perigo g-del" type="button">Apagar</button></div>
         ${g.esquemas.map((e) => `<div class="painel" data-esquema="${e.id}" data-ano="${e.ano}"><div class="linha"><strong>${anoTxt(e)}</strong>
             <label>Nota final com<select class="g-casas"><option value="1" ${e.casas === 1 ? "selected" : ""}>1 casa decimal</option><option value="2" ${e.casas === 2 ? "selected" : ""}>2 casas decimais</option></select></label>
             ${e.ano ? `<button class="perigo e-del" type="button">Apagar este esquema</button>` : ""}</div>
           <table><thead><tr><th>Critério</th><th>Peso</th><th>Tipo</th><th></th></tr></thead><tbody>${e.criterios.map(linhaCrit).join("")}</tbody></table>
           <p class="linha"><button class="sec c-add-t" type="button">+ Critério de testes</button><button class="sec c-add-n" type="button">+ Critério de nível 1 a 5</button></p>
           <p class="g-soma"></p><p><button class="g-gravar" type="button">Guardar</button></p></div>`).join("")}
-        <p class="linha"><label>Esquema próprio para o ano<select class="e-ano">${[5, 6, 7, 8, 9, 10, 11, 12].filter((a) => !g.esquemas.some((e) => e.ano === a)).map((a) => `<option value="${a}">${a}.º ano</option>`).join("")}</select></label><button class="sec e-add" type="button">Criar (copia «todos os anos»)</button></p></section>`).join("")}`);
+        <details class="docs-grupo" data-docs="${g.id}"><summary><strong>Documentos (PDF)</strong> <span class="pequeno">critérios aprovados, para os docentes consultarem</span></summary><div class="docs-corpo pequeno">A carregar…</div></details>
+        <p class="linha"><label>Esquema próprio para o ano<select class="e-ano">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((a) => !g.esquemas.some((e) => e.ano === a)).map((a) => `<option value="${a}">${a}.º ano</option>`).join("")}</select></label><button class="sec e-add" type="button">Criar (copia «todos os anos»)</button></p></section>`).join("")}`);
 
     // Importar critérios: pré-visualização e confirmação.
     let ficheiroCrit = null;
@@ -88,7 +112,9 @@
         ok.onclick = async () => { try { const g = await api("POST", "/api/admin/criterios/importar", { ...corpo, aplicar: true }); aviso(`Critérios gravados: ${g.criados} novo(s), ${g.substituidos} substituído(s).`); criterios(); } catch { /* aviso mostrado */ } };
       } catch { /* aviso mostrado */ }
     };
-    $("#f-grupo").onsubmit = async (e) => { e.preventDefault(); await api("POST", "/api/admin/grupos", { nome: new FormData(e.target).get("nome") }); criterios(); };
+    $("#sel-grupo").onchange = (e) => { grupoSel = Number(e.target.value); criterios(); };
+    $$("details[data-docs]").forEach((det) => { det.addEventListener("toggle", () => { if (det.open) docsGrupo(Number(det.dataset.docs), $(".docs-corpo", det)); }); });
+    $("#f-grupo").onsubmit = async (e) => { e.preventDefault(); const g = await api("POST", "/api/admin/grupos", { nome: new FormData(e.target).get("nome") }); grupoSel = g.id; criterios(); };
     $$("section[data-grupo]").forEach((sec) => {
       const gid = Number(sec.dataset.grupo);
       $(".g-ren", sec).onclick = async () => { try { await api("PUT", "/api/admin/grupos/" + gid, { nome: $(".g-nome", sec).value }); aviso("Nome guardado."); } catch { /* aviso mostrado */ } };

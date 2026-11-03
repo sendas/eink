@@ -1114,22 +1114,16 @@ test("Grupo do Entra: lido do nome, departamento ou cargo, ligado ao grupo disci
   const adm = await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
   const eu = (await adm.chamar("GET", "/api/eu")).d;
   assert.strictEqual(eu.grupo_ad, "550 Informática");
-  const g = db.prepare("SELECT id, nome FROM grupos WHERE nome LIKE '550%'").all();
-  assert.strictEqual(g.length, 1, "cria o grupo 550 Informática se não existir");
-  assert.strictEqual(g[0].nome, "550 Informática");
+  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM grupos WHERE nome LIKE '550%'").get().n, 0, "o Entra já não cria grupos: as disciplinas escolhe-as o docente");
   let r = (await adm.chamar("GET", "/api/inicio")).d;
-  assert.strictEqual(r.grupo.nome, "550 Informática");
-  assert.ok(r.grupo.esquemas[0].criterios.length >= 1 && r.grupo.esquemas[0].criterios[0].peso > 0);
-  // Entrar outra vez não cria outro grupo nem muda o que o administrador já escolheu.
-  await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
-  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM grupos WHERE nome LIKE '550%'").get().n, 1);
-  const geral = (await adm.chamar("GET", "/api/grupos")).d.find((x) => x.nome === "Geral");
-  const meu = (await adm.chamar("GET", "/api/admin/professores")).d.find((p) => p.upn === "admin@escola.pt");
-  await adm.chamar("PUT", `/api/admin/professores/${meu.id}/grupo`, { grupo_id: geral.id });
+  assert.strictEqual(r.grupo, null); assert.deepStrictEqual(r.grupos, []);
+  // Se já existir um grupo com esse código, o docente é ligado a ele ao entrar.
+  const g = Number(db.prepare("INSERT INTO grupos (nome) VALUES ('550 Informática')").run().lastInsertRowid); require("../lib/db").criarEsquema(db, g, 0);
+  const prof = db.prepare("SELECT id FROM professores WHERE upn = 'admin@escola.pt'").get(); db.prepare("UPDATE professores SET grupo_id = NULL WHERE id = ?").run(prof.id);
   await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
   r = (await adm.chamar("GET", "/api/inicio")).d;
-  assert.strictEqual(r.grupo.nome, "Geral", "a escolha do administrador não é desfeita pelo Entra");
-  assert.strictEqual(r.grupo.ad, "550 Informática");
+  assert.strictEqual(r.grupo.nome, "550 Informática"); assert.strictEqual(r.grupo.ad, "550 Informática");
+  assert.ok(r.grupo.esquemas[0].criterios.length >= 1 && r.grupo.esquemas[0].criterios[0].peso > 0);
 });
 
 test("Partilha do endereço: título sem «Entrar», imagem absoluta, tipos corretos e ícone", async (t) => {
@@ -1193,4 +1187,40 @@ test("Critérios: importar de todos os grupos de uma vez (pré-visualização, r
   const ex = (await adm.chamar("GET", "/api/admin/criterios/exportar")).d.csv;
   assert.ok(ex.startsWith("﻿Grupo;Ano;Critério;Tipo;Peso;Casas decimais")); assert.match(ex, /550 Informática;Todos;Testes e trabalhos;testes;60;2/);
   assert.match(ex, /520 Biologia e Geologia;Todos;Atitudes;nível;30;1/);
+});
+
+test("Disciplinas: cada docente escolhe as suas; PDFs dos critérios por grupo (só o administrador carrega)", async (t) => {
+  const { base, servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana = await entrar("ana@escola.pt");
+  const csv = ["Grupo;Ano;Critério;Tipo;Peso;Casas decimais;Nível", "Informática;7;Testes;testes;70;;3.º ciclo", "Informática;7;Atitudes;nível;30;;3.º ciclo", "Multimédia;10;Testes;testes;80;;Profissional", "Multimédia;10;Atitudes;nível;20;;Profissional"].join("\n");
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/criterios/importar", { texto: csv, aplicar: true })).estado, 200);
+  let d = (await ana.chamar("GET", "/api/disciplinas")).d;
+  const inf = d.find((x) => x.nome === "Informática"), mul = d.find((x) => x.nome === "Multimédia");
+  assert.deepStrictEqual(inf.anos, [7]); assert.strictEqual(inf.profissional, false); assert.strictEqual(mul.profissional, true); assert.ok(d.every((x) => !x.escolhida));
+  assert.strictEqual((await ana.chamar("PUT", "/api/eu/disciplinas", { ids: [99999] })).estado, 400, "disciplina inexistente");
+  assert.strictEqual((await ana.chamar("PUT", "/api/eu/disciplinas", { ids: [inf.id, mul.id] })).estado, 200);
+  d = (await ana.chamar("GET", "/api/disciplinas")).d; assert.deepStrictEqual(d.filter((x) => x.escolhida).map((x) => x.nome).sort(), ["Informática", "Multimédia"]);
+  let r = (await ana.chamar("GET", "/api/inicio")).d;
+  assert.deepStrictEqual(r.grupos.map((g) => g.nome).sort(), ["Informática", "Multimédia"]); assert.strictEqual(r.grupo.id, inf.id, "a primeira escolha é a disciplina por defeito");
+
+  // PDFs: corpo cru, só administradores
+  const pdf = Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.from("conteúdo de teste"), Buffer.from("\n%%EOF")]);
+  const enviar = (ck, corpo, q = "") => fetch(`${base}/api/admin/documentos?grupo=${inf.id}&titulo=${encodeURIComponent("Critérios 7.º ano")}&nome=criterios.pdf${q}`, { method: "POST", headers: { cookie: ck, "x-requested-with": "eink" }, body: corpo });
+  assert.strictEqual((await enviar(ana.ck, pdf)).status, 403, "só administradores");
+  assert.strictEqual((await enviar(adm.ck, Buffer.from("isto não é um pdf"))).status, 400, "tem de ser PDF");
+  assert.strictEqual((await enviar(adm.ck, Buffer.concat([Buffer.from("%PDF-1.4\n"), Buffer.alloc(13 * 1048576)]))).status, 413, "máximo 12 MB");
+  const ok = await enviar(adm.ck, pdf); assert.strictEqual(ok.status, 200); const { id } = await ok.json();
+  const lista = (await ana.chamar("GET", `/api/documentos?grupo=${inf.id}`)).d;
+  assert.strictEqual(lista.length, 1); assert.strictEqual(lista[0].titulo, "Critérios 7.º ano"); assert.strictEqual(lista[0].tamanho, pdf.length);
+  const f = await fetch(`${base}/api/documentos/${id}/ficheiro`, { headers: { cookie: ana.ck } });
+  assert.strictEqual(f.status, 200); assert.strictEqual(f.headers.get("content-type"), "application/pdf"); assert.match(f.headers.get("content-security-policy"), /sandbox/);
+  assert.ok(Buffer.from(await f.arrayBuffer()).equals(pdf), "o ficheiro volta igual");
+  assert.strictEqual((await fetch(`${base}/api/documentos/${id}/ficheiro`)).status, 401, "só com sessão");
+  r = (await ana.chamar("GET", "/api/inicio")).d; assert.strictEqual(r.grupos.find((g) => g.id === inf.id).documentos.length, 1);
+  assert.strictEqual((await ana.chamar("DELETE", `/api/admin/documentos/${id}`)).estado, 403);
+  assert.strictEqual((await adm.chamar("DELETE", `/api/admin/documentos/${id}`)).estado, 200);
+  assert.strictEqual((await ana.chamar("GET", `/api/documentos?grupo=${inf.id}`)).d.length, 0);
 });

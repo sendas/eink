@@ -14,6 +14,7 @@ const { criarCopias } = require("./lib/copias");
 const registarAdmin = require("./lib/m-admin");
 const registarContas = require("./lib/m-contas");
 const registarCriterios = require("./lib/m-criterios");
+const registarDisciplinas = require("./lib/m-disciplinas");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -110,10 +111,9 @@ function criarServidor(env = process.env) {
       const g = grupoDeTexto(textos); if (!g) return;
       const ad = `${g.codigo} ${g.nome}`;
       if (prof.grupo_ad !== ad) { db.prepare("UPDATE professores SET grupo_ad = ? WHERE id = ?").run(ad, prof.id); prof.grupo_ad = ad; }
-      if (!prof.grupo_id) {
-        let gr = db.prepare("SELECT id FROM grupos WHERE nome LIKE ? ORDER BY id LIMIT 1").get(g.codigo + "%");
-        if (!gr) { const id = Number(db.prepare("INSERT INTO grupos (nome) VALUES (?)").run(ad).lastInsertRowid); criarEsquema(db, id, 0); gr = { id }; }
-        db.prepare("UPDATE professores SET grupo_id = ? WHERE id = ?").run(gr.id, prof.id); prof.grupo_id = gr.id;
+      if (!prof.grupo_id) { // só se já existir um grupo com esse código; as disciplinas escolhe-as o docente
+        const gr = db.prepare("SELECT id FROM grupos WHERE nome LIKE ? ORDER BY id LIMIT 1").get(g.codigo + " %");
+        if (gr) { db.prepare("UPDATE professores SET grupo_id = ? WHERE id = ?").run(gr.id, prof.id); prof.grupo_id = gr.id; }
       }
     } catch (e) { console.error("Grupo do Entra:", e.message); }
   }
@@ -585,8 +585,11 @@ function criarServidor(env = process.env) {
       return r;
     });
     const comMedia = turmas.filter((t) => t.media !== null);
-    const grupo = c.p.grupo_id ? grupoCompleto(c.p.grupo_id) : null;
-    return { nome: c.p.nome, grupo: grupo && { id: grupo.id, nome: grupo.nome, ad: c.p.grupo_ad || null, esquemas: grupo.esquemas.map((e) => ({ ano: e.ano, casas: e.casas, criterios: e.criterios.map((k) => ({ nome: k.nome, peso: k.peso, tipo: k.tipo })) })), anosTurmas: [...new Set(turmas.map((t) => t.ano))].sort() }, turmas, totais: { turmas: turmas.length, alunos: turmas.reduce((z, t) => z + t.alunos, 0), acompanhar: turmas.reduce((z, t) => z + t.acompanhar, 0), media: comMedia.length ? Math.round((comMedia.reduce((z, t) => z + t.media, 0) / comMedia.length) * 10) / 10 : null } };
+    const ids = db.prepare("SELECT grupo_id FROM prof_disciplinas WHERE prof_id = ? ORDER BY grupo_id").all(c.p.id).map((r) => r.grupo_id);
+    if (!ids.length && c.p.grupo_id) ids.push(c.p.grupo_id);
+    const anosTurmas = [...new Set(turmas.map((t) => t.ano))].sort();
+    const grupos = ids.map((gid) => { const g = grupoCompleto(gid); return g && { id: g.id, nome: g.nome, ad: c.p.grupo_ad || null, esquemas: g.esquemas.map((e) => ({ ano: e.ano, casas: e.casas, criterios: e.criterios.map((k) => ({ nome: k.nome, peso: k.peso, tipo: k.tipo })) })), anosTurmas, documentos: db.prepare("SELECT id, titulo, nome, tamanho FROM documentos WHERE grupo_id = ? ORDER BY criado DESC, id DESC").all(gid) }; }).filter(Boolean);
+    return { nome: c.p.nome, grupo: grupos[0] || null, grupos, turmas, totais: { turmas: turmas.length, alunos: turmas.reduce((z, t) => z + t.alunos, 0), acompanhar: turmas.reduce((z, t) => z + t.acompanhar, 0), media: comMedia.length ? Math.round((comMedia.reduce((z, t) => z + t.media, 0) / comMedia.length) * 10) / 10 : null } };
   });
   rota("GET", "/api/atalhos", (c) => db.prepare("SELECT id, nome, ano_letivo, ano FROM turmas WHERE prof_id = ? AND arquivada = 0 ORDER BY ano, nome").all(c.p.id)
     .map((t) => ({ ...t, periodos: db.prepare("SELECT id, nome, fechado FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id).map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })) })));
@@ -606,6 +609,7 @@ function criarServidor(env = process.env) {
   rota("DELETE", "/api/alunos/:id/foto", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM fotos WHERE aluno_id = ?").run(c.id[0]); return { ok: true }; });
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
+  registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };
   estatisticas.registar({ rota, db, erro, inteiro, soAdmin }, est);
@@ -845,6 +849,27 @@ function criarServidor(env = process.env) {
           if (!f) return json(res, 404, { erro: "Sem fotografia." });
           res.writeHead(200, { "Content-Type": f.mime, "Cache-Control": "private, max-age=86400" });
           return res.end(Buffer.from(f.dados));
+        }
+        if (metodo === "POST" && p === "/api/admin/documentos") {
+          if (!prof.admin) return json(res, 403, { erro: "Só para administradores." });
+          const gid = inteiro(u.searchParams.get("grupo"));
+          if (gid === null || !db.prepare("SELECT 1 FROM grupos WHERE id = ?").get(gid)) return json(res, 400, { erro: "Escolhe o grupo (disciplina) do documento." });
+          const partes = []; let n = 0;
+          for await (const ch of req) { n += ch.length; if (n <= 12 * 1048576) partes.push(ch); else if (n > 64 * 1048576) { req.destroy(); return; } } // lê e descarta o excesso para o cliente poder receber a resposta
+          if (n > 12 * 1048576) return json(res, 413, { erro: "O ficheiro é demasiado grande (máximo 12 MB)." });
+          const buf = Buffer.concat(partes);
+          if (buf.length < 8 || buf.subarray(0, 5).toString() !== "%PDF-") return json(res, 400, { erro: "O ficheiro não é um PDF válido." });
+          if (db.prepare("SELECT COUNT(*) AS n FROM documentos WHERE grupo_id = ?").get(gid).n >= 30) return json(res, 409, { erro: "Este grupo já tem 30 documentos. Apaga algum antes de acrescentar outro." });
+          const nome = texto(u.searchParams.get("nome"), 120).replace(/[\\/:*?"<>|]/g, "_") || "documento.pdf";
+          const id = Number(db.prepare("INSERT INTO documentos (grupo_id, titulo, nome, mime, tamanho, dados, por) VALUES (?, ?, ?, 'application/pdf', ?, ?, ?)").run(gid, texto(u.searchParams.get("titulo"), 120) || nome.replace(/\.pdf$/i, ""), nome, buf.length, buf, prof.upn).lastInsertRowid);
+          return json(res, 200, { id });
+        }
+        const docDown = /^\/api\/documentos\/(\d+)\/ficheiro$/.exec(p);
+        if (metodo === "GET" && docDown) {
+          const d = db.prepare("SELECT nome, mime, dados FROM documentos WHERE id = ?").get(Number(docDown[1]));
+          if (!d) return json(res, 404, { erro: "Documento inexistente." });
+          res.writeHead(200, { "Content-Type": d.mime, "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(d.nome)}`, "Content-Security-Policy": "default-src 'none'; sandbox", "Cache-Control": "private, max-age=3600" });
+          return res.end(Buffer.from(d.dados));
         }
         const cpDown = /^\/api\/admin\/copias\/descarregar$/.exec(p);
         if (metodo === "GET" && cpDown) {

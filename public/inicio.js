@@ -37,9 +37,10 @@
     const porAno = (ano) => g.esquemas.find((e) => e.ano === ano) || g.esquemas.find((e) => e.ano === 0);
     const anos = g.anosTurmas.length ? g.anosTurmas : [0], usados = [];
     for (const a of anos) { const e = porAno(a); if (e && !usados.some((u) => u.e === e)) usados.push({ e, anos: anos.filter((x) => porAno(x) === e) }); }
-    return `<div class="painel cg"><div class="cg-topo"><div><p class="rotulo">Critérios de avaliação</p><h2 style="margin:0">${esc(g.nome)}</h2></div><div class="linha"><button type="button" class="sec" id="cg-ver">Ver na totalidade</button>${admin ? '<a class="botao fantasma" href="#/criterios">Editar</a>' : ""}</div></div>
+    return `<div class="painel cg"><div class="cg-topo"><div><p class="rotulo">Critérios de avaliação</p><h2 style="margin:0">${esc(g.nome)}</h2></div><div class="linha"><button type="button" class="sec" id="cg-ver">Ver na totalidade</button><button type="button" class="sec" id="cg-mudar">Mudar de disciplina</button>${admin ? '<a class="botao fantasma" href="#/criterios">Editar</a>' : ""}</div></div>
       ${usados.map(({ e, anos: an }) => `<div class="cg-esq"><p class="pequeno"><strong>${an.map((a) => anoTxt(a)).join(", ")}</strong> · nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</p>${barraPesos(e.criterios)}</div>`).join("")}
-      <p class="pequeno">Definidos pelo administrador para o teu grupo disciplinar${g.ad ? ` (no Entra: ${esc(g.ad)})` : ""}.</p></div>`;
+      ${g.documentos && g.documentos.length ? `<div class="cg-docs"><p class="rotulo">Documentos</p>${g.documentos.map((d) => `<a class="cg-doc" href="/api/documentos/${d.id}/ficheiro" target="_blank" rel="noopener"><span class="cg-pdf" aria-hidden="true">PDF</span><span>${esc(d.titulo)} <small class="pequeno">${Math.max(1, Math.round(d.tamanho / 1024))} KB</small></span></a>`).join("")}</div>` : ""}
+      <p class="pequeno">Definidos pelo administrador para esta disciplina${g.ad ? ` (no Entra: ${esc(g.ad)})` : ""}.</p></div>`;
   };
   const janelaCriterios = (g) => {
     const dlg = document.createElement("dialog"); dlg.className = "cg-dlg";
@@ -63,10 +64,22 @@
     try {
       const r = await api("GET", "/api/inicio"), T = r.totais;
       let ultima = null; try { ultima = JSON.parse(localStorage.getItem("eink.ultimaPauta") || "null"); } catch { /* sem armazenamento */ }
-      if (r.grupo) {
-        $("#heroi-grupo").innerHTML = `<span class="chip-grupo">Grupo ${esc(r.grupo.nome)}</span>`;
-        $("#criterios-grupo").innerHTML = cartaoCriterios(r.grupo, EINK.eu.admin); $("#cg-ver").onclick = () => janelaCriterios(r.grupo);
-      } else if (EINK.eu.grupo_ad) $("#heroi-grupo").innerHTML = `<span class="chip-grupo">Grupo ${esc(EINK.eu.grupo_ad)}</span>`;
+      const chips = (r.grupos || []).map((g) => `<span class="chip-grupo suave">${esc(g.nome)}</span>`).join(" ");
+      $("#heroi-grupo").innerHTML = (EINK.eu.grupo_ad ? `<span class="chip-grupo">Grupo ${esc(EINK.eu.grupo_ad)}</span> ` : "") + chips;
+      const depoisDeEscolher = () => EINK.inicio();
+      if (r.grupos && r.grupos.length) {
+        let ativo = 0; try { ativo = Math.min(Number(sessionStorage.getItem("eink.discAtiva")) || 0, r.grupos.length - 1); } catch { /* sem armazenamento */ }
+        const desenhar = () => {
+          const g = r.grupos[ativo];
+          $("#criterios-grupo").innerHTML = (r.grupos.length > 1 ? `<div class="cg-tabs" role="tablist">${r.grupos.map((x, i) => `<button type="button" role="tab" class="sec ${i === ativo ? "ativo" : ""}" data-i="${i}">${esc(x.nome)}</button>`).join("")}</div>` : "") + cartaoCriterios(g, EINK.eu.admin);
+          $("#cg-ver").onclick = () => janelaCriterios(g); $("#cg-mudar").onclick = () => EINK.escolherDisciplinas(depoisDeEscolher);
+          document.querySelectorAll(".cg-tabs [data-i]").forEach((b) => { b.onclick = () => { ativo = Number(b.dataset.i); try { sessionStorage.setItem("eink.discAtiva", String(ativo)); } catch { /* sem armazenamento */ } desenhar(); }; });
+        };
+        desenhar();
+      } else {
+        $("#criterios-grupo").innerHTML = `<div class="painel cg convite-disc"><div><p class="rotulo">Para começar</p><h2 style="margin:0">Que disciplina lecionas?</h2><p class="pequeno">Escolhe o ciclo e a disciplina para veres os critérios de avaliação e usá-los nas tuas turmas. Podes escolher várias e mudar quando quiseres.</p></div><button type="button" class="grande" id="cg-escolher">Escolher disciplinas</button></div>`;
+        $("#cg-escolher").onclick = () => EINK.escolherDisciplinas(depoisDeEscolher);
+      }
       $("#heroi-sub").textContent = T.turmas ? `${T.turmas} turma${T.turmas === 1 ? "" : "s"} e ${T.alunos} aluno${T.alunos === 1 ? "" : "s"}${T.acompanhar ? `. ${T.acompanhar} a precisar de atenção.` : "."}` : "Começa por criar a tua primeira turma.";
       $("#heroi-acoes").innerHTML = (ultima ? `<a class="botao grande" href="#/pauta/${ultima.id}">Continuar: ${esc(ultima.nome)}</a>` : r.turmas.length && r.turmas[0].foco ? `<a class="botao grande" href="#/pauta/${r.turmas[0].foco.id}">Abrir a pauta de ${esc(r.turmas[0].nome)}</a>` : "") + (T.turmas ? `<a class="botao sec grande" href="#/notas">Todas as notas</a>` : `<a class="botao grande" href="#/turmas">Criar turma</a>`);
       $("#kpis").innerHTML = [[T.turmas, T.turmas === 1 ? "turma" : "turmas"], [T.alunos, T.alunos === 1 ? "aluno" : "alunos"], [T.media === null ? "–" : n1(T.media), "média geral (%)"], [T.acompanhar, "a acompanhar"]].map(([v, l], i) => `<div class="kpi k${i}"><strong>${v}</strong><span>${l}</span></div>`).join("");

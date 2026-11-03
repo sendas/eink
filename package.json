@@ -1,6 +1,6 @@
 {
   "name": "eink",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Ferramentas de sala de aula e avaliação para docentes, com entrada pela conta da escola (Microsoft Entra ID)",
   "private": true,
   "main": "server.js",
