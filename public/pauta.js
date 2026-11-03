@@ -9,13 +9,14 @@
     const testes = d.criterios.filter((k) => k.tipo === "testes");
     const doCrit = (k) => d.avaliacoes.filter((a) => a.criterio_id === k.id);
     const casas = d.grupo.casas, fechado = !!d.periodo.fechado, dis = fechado ? "disabled" : "";
+    const pct = EINK.eu.comp_escala === "pct"; // escala do comportamento escolhida pelo docente
     const somaPesos = (k) => doCrit(k).reduce((z, a) => z + a.peso, 0);
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
     const g = (gi) => "g" + (gi % 3);
     const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span></th>`).join("");
     const l2 = d.criterios.map((k, gi) => {
-      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %)">Nível 1 a 5 ou %</th>`;
+      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="${pct ? "Escreve uma percentagem de 0 a 100" : "Escreve um nível de 1 a 5"}">${pct ? "0 a 100 %" : "Nível 1 a 5"}</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a, ai) => `<th class="col-av ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col" title="${esc(a.titulo)} · ${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""} · peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}">
         <div class="av-tit"><a href="#/grelha/${a.id}" title="Abrir a grelha de ${esc(a.titulo)}">${esc(a.titulo)}</a></div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
@@ -24,13 +25,13 @@
     }).join("");
 
     const fp = (v) => String(v).replace(".", ",");
-    const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); return !m[2] && Number.isInteger(n) && n >= 1 && n <= 5 ? String(n) : fp(Math.round(n * 100) / 100) + " %"; };
+    const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); return pct ? fp(Math.round(n * 100) / 100) + " %" : String(n); };
     const compTxt = (al, k) => (al.compPct && al.compPct[k.id] !== undefined ? fp(al.compPct[k.id]) + " %" : al.niveis[k.id] ?? "");
     const lerLS = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch { return def; } };
     const fotosOn = lerLS("eink.fotos", "1") === "1", vistaCart = lerLS("eink.pautaVista", "tabela") === "cartoes";
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row"><span class="aluno-nome">${esc(al.nome)}</span>${fotosOn ? `<div class="foto-linha">${EINK.fotoAluno(al)}</div>` : ""}</th>
       ${d.criterios.map((k, gi) => {
-        if (k.tipo === "nivel") return `<td class="ini fim ${g(gi)}"><input class="nota" ${dis} data-nivel="${k.id}" data-aluno="${al.id}" inputmode="decimal" autocomplete="off" title="Nível de 1 a 5 ou percentagem de 0 a 100 (por exemplo 85 %)" value="${esc(compTxt(al, k))}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"></td>`;
+        if (k.tipo === "nivel") return `<td class="ini fim ${g(gi)}"><input class="nota" ${dis} data-nivel="${k.id}" data-aluno="${al.id}" inputmode="decimal" autocomplete="off" title="${pct ? "Percentagem de 0 a 100 (por exemplo 85)" : "Nível de 1 a 5"}" value="${esc(compTxt(al, k))}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"></td>`;
         const av = doCrit(k);
         return av.map((a, ai) => { const v = d.notas[a.id + ":" + al.id]; return `<td class="${g(gi)}${ai === 0 ? " ini" : ""}"><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : dis} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num fim ${g(gi)}${av.length ? "" : " ini"}" data-c="crit-${k.id}"></td>`;
       }).join("")}
@@ -50,6 +51,7 @@
       <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p></details>
       <div class="resumo-pauta" id="resumo-pauta"></div>
       <div class="barra-pauta"><div class="troca-vista" role="group" aria-label="Vista da pauta"><button type="button" class="sec ${vistaCart ? "" : "ativo"}" data-vista="tabela">Tabela</button><button type="button" class="sec ${vistaCart ? "ativo" : ""}" data-vista="cartoes">Pauta final em cartões</button></div>
+        <div class="troca-vista" role="group" aria-label="Escala do comportamento"><span class="pequeno" style="align-self:center;padding:0 .4rem">Comportamento</span><button type="button" class="sec ${pct ? "" : "ativo"}" data-escala="nivel">1 a 5</button><button type="button" class="sec ${pct ? "ativo" : ""}" data-escala="pct">0 a 100 %</button></div>
         <label class="linha"><input type="checkbox" id="ver-fotos" ${fotosOn ? "checked" : ""}> Mostrar fotografias</label></div>
       <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
@@ -77,6 +79,7 @@
     const aplicarVista = (v) => { try { localStorage.setItem("eink.pautaVista", v); } catch { /* sem armazenamento */ }
       $(".tabela-rolagem").hidden = v === "cartoes"; $("#cartoes-final").hidden = v !== "cartoes"; $$("[data-vista]").forEach((b) => b.classList.toggle("ativo", b.dataset.vista === v)); };
     $$("[data-vista]").forEach((b) => { b.onclick = () => aplicarVista(b.dataset.vista); });
+    $$("[data-escala]").forEach((b) => { b.onclick = async () => { if (b.dataset.escala === (pct ? "pct" : "nivel")) return; await api("PUT", "/api/eu/comportamento", { escala: b.dataset.escala }); EINK.eu.comp_escala = b.dataset.escala; pautaVista(id); }; });
     $("#ver-fotos").onchange = (e) => { try { localStorage.setItem("eink.fotos", e.target.checked ? "1" : "0"); } catch { /* sem armazenamento */ } pautaVista(id); };
     // Resumo em números grandes: média da turma, alunos por nível e notas lançadas.
     const resumo = (dd) => {
