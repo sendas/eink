@@ -576,3 +576,9 @@ html { scroll-behavior: smooth; }
 .cg-doc { display: inline-flex; align-items: center; gap: .6rem; padding: .4rem .8rem .4rem .45rem; border: 1px solid var(--linha); border-radius: 12px; text-decoration: none; color: var(--texto); background: var(--cartao); }
 .cg-doc:hover { border-color: var(--marca); background: var(--marca-fundo); }
 .cg-pdf { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: 8px; background: color-mix(in srgb, var(--erro) 14%, var(--cartao)); color: var(--erro); font-weight: 800; font-size: .72rem; }
+
+/* Fotografias a partir de um PDF */
+.retrato-mini { display: block; border-radius: 8px; border: 1px solid var(--grelha); background: #fff; }
+.etq { display: inline-block; font-size: .75rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; margin-left: .3rem; }
+.etq-alta { background: color-mix(in srgb, var(--ok) 18%, var(--cartao)); color: var(--ok); }
+.etq-media { background: color-mix(in srgb, var(--lv2) 24%, var(--cartao)); color: var(--aviso); }

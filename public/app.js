@@ -121,6 +121,9 @@ async function turma(id) {
       <form class="linha" id="f-periodo"><label>Novo período<input name="nome" required maxlength="60" placeholder="Intercalar"></label><button class="sec">Adicionar</button></form></div>
     <h2>Alunos (${t.alunos.length})</h2>
     <div class="painel"><ul class="lista">${t.alunos.map((a) => `<li><span>${a.numero ?? ""} ${esc(a.nome)}</span><button class="perigo" data-apagar="${a.id}" aria-label="Remover ${esc(a.nome)}">Remover</button></li>`).join("") || '<li class="pequeno">Sem alunos.</li>'}</ul></div>
+    <details class="painel" id="fotos-pdf"><summary><strong>Fotografias da turma a partir de um PDF ou imagem</strong> <span class="pequeno">reconhece cada fotografia e o nome por baixo</span></summary>
+      <p class="pequeno">Escolhe o PDF (ou uma imagem) com as fotografias da turma. Encontro as fotografias, leio os nomes e ligo cada uma ao aluno. Vês tudo antes de guardar. O ficheiro nunca sai do teu computador: só ficam guardados os recortes das fotografias.</p>
+      <p class="linha"><label>PDF ou imagem da turma<input type="file" id="f-fotos-pdf" accept="application/pdf,image/*"></label></p><p id="fotos-pdf-estado" class="pequeno" role="status"></p><div id="fotos-pdf-res"></div></details>
     <details class="painel" id="fotos-lote"><summary><strong>Fotografias dos alunos (várias de uma vez)</strong> <span class="pequeno">o nome de cada ficheiro diz de quem é</span></summary>
       <p class="pequeno">Escolhe várias fotografias. Cada ficheiro deve chamar-se com o <strong>número do aluno</strong> (por exemplo <code>12.jpg</code>) ou com o <strong>nome</strong> (<code>Ana Silva.jpg</code>). Antes de guardar, vês a quem cada uma foi ligada e podes corrigir. As imagens são cortadas e reduzidas no navegador.</p>
       <p class="linha"><label>Fotografias<input type="file" id="f-fotos-lote" accept="image/*" multiple></label></p><div id="fotos-lote-res"></div></details>
@@ -139,6 +142,7 @@ async function turma(id) {
   $("#f-alunos").onsubmit = async (e) => { e.preventDefault(); const r = await api("POST", `/api/turmas/${id}/alunos`, { texto: new FormData(e.target).get("texto") }); aviso(`${r.adicionados} alunos adicionados.`); turma(id); };
   $$("[data-apagar]").forEach((b) => { b.onclick = async () => { if (confirm("Remover este aluno e as suas notas?")) { await api("DELETE", "/api/alunos/" + b.dataset.apagar); turma(id); } }; });
   ligarFotosLote(t.alunos, id);
+  if (EINK.ligarFotosPdf) EINK.ligarFotosPdf(t.alunos, () => turma(id));
   $("#apagar-turma").onclick = async () => { if (confirm(`Apagar a turma ${t.nome}, os alunos e todas as notas? Não se pode desfazer.`)) { await api("DELETE", "/api/turmas/" + id); location.hash = "#/turmas"; } };
 }
 

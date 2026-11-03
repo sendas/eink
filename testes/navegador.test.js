@@ -73,6 +73,20 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.click("#f-turma button"); await p.waitForSelector("#f-alunos");
   await p.fill("#f-alunos textarea", "1\tAna Silva\tana@x.pt\n2\tBruno Costa\t\n3\tCarla Mendes");
   await p.click("#f-alunos button"); await p.waitForSelector("text=Carla Mendes");
+  // Fotografias da turma num só PDF: o nome por baixo de cada fotografia liga-a ao aluno (a lista está noutra ordem)
+  {
+    const turmaUrl = p.url(), g = await (await browser.newContext()).newPage();
+    const cx = ["#0f766e", "#b4532a", "#6b4e9b"].map((c) => `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='400'><rect width='300' height='400' fill='${c}'/><circle cx='150' cy='150' r='70' fill='#f3e6d8'/></svg>`);
+    const html = `<body style="margin:30px;font-family:Arial"><div style="display:grid;grid-template-columns:repeat(3,180px);gap:36px 40px">${["Carla Mendes", "Ana Silva", "Bruno Costa"].map((n, i) => `<div style="text-align:center"><img src="data:image/svg+xml;base64,${Buffer.from(cx[i]).toString("base64")}" width="150" height="200"><div style="font-size:15px">${n}</div></div>`).join("")}</div></body>`;
+    await g.setContent(html); const pdf = await g.pdf({ format: "A4" }); await g.context().close();
+    await p.waitForSelector("#fotos-pdf"); await p.click("#fotos-pdf summary");
+    await p.setInputFiles("#f-fotos-pdf", { name: "turma.pdf", mimeType: "application/pdf", buffer: pdf });
+    await p.waitForSelector("#fotos-pdf-ok", { timeout: 60000 });
+    const lig = await p.evaluate(() => [...document.querySelectorAll("#fotos-pdf-res tbody tr")].map((tr) => tr.children[2].textContent.trim().split(" certeza")[0] + ">" + tr.querySelector("select").selectedOptions[0].textContent.trim()));
+    assert.deepStrictEqual(lig.sort(), ["Ana Silva>1 Ana Silva", "Bruno Costa>2 Bruno Costa", "Carla Mendes>3 Carla Mendes"]);
+    await p.click("#fotos-pdf-ok"); await p.waitForFunction(() => document.querySelectorAll("img.foto, .foto img, img[src^='data:image/jpeg']").length >= 3 || !document.querySelector("#fotos-pdf-ok"), null, { timeout: 15000 });
+    await p.goto(turmaUrl); await p.waitForSelector("text=Carla Mendes");
+  }
   await p.click("a:has-text('Abrir pauta') >> nth=0"); await p.waitForSelector("#f-aval");
   await p.fill("#f-aval [name=titulo]", "Teste 1"); await p.fill("#f-aval [name=maximo]", "20"); await p.click("#f-aval button");
   await p.waitForSelector("input.nota");
