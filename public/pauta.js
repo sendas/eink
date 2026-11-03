@@ -66,15 +66,7 @@
     };
 
     // Nível pela percentagem (limites da escola) e nome por baixo do valor, em cada teste e na média de cada critério.
-    const NOMES_NIV = ["Muito insuficiente", "Insuficiente", "Suficiente", "Bom", "Muito bom"];
-    const nivDe = (v, lim) => (v === null || v === undefined || Number.isNaN(v) ? 0 : 1 + lim.filter((x) => v >= x).length);
-    const marcarQual = (td, v, lim) => {
-      if (!td) return; for (let n = 1; n <= 5; n++) td.classList.remove("av-n" + n);
-      let q = td.querySelector(".av-qual"), n = nivDe(v, lim);
-      if (!n) { if (q) q.remove(); td.removeAttribute("title"); return; }
-      td.classList.add("av-n" + n); if (!q) { q = document.createElement("span"); q.className = "av-qual"; td.append(q); }
-      q.textContent = NOMES_NIV[n - 1]; td.title = `Nível ${n}: ${NOMES_NIV[n - 1]}`;
-    };
+    const marcarQual = (td, v, lim) => EINK.nivelCel.marcar(td, v, lim);
     const pintar = (dd) => dd.alunos.forEach((al) => {
       const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) return;
       for (const a of dd.avaliacoes) { const inp = $(`input[data-aval="${a.id}"][data-aluno="${al.id}"]`, tr); if (inp) marcarQual(inp.closest("td"), al.pcts[a.id], dd.limites); }

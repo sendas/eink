@@ -77,11 +77,19 @@
           atualizar();
         } catch { lista.forEach((x, i) => { x.el.value = antes[i]; }); }
       } });
-      ligar(); total();
+      ligar(); total(); atualizar();
     }
-    // Atualiza só os totais, para não perder o foco ao tabular entre células.
+    // Atualiza só os totais, para não perder o foco ao tabular entre células. O total e a percentagem levam a cor do nível e o seu nome;
+    // cada pontuação leva a cor do nível pela fração da cotação da questão.
     function atualizar() {
-      for (const al of d.alunos) { const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) continue; $('[data-t="total"]', tr).textContent = num(al.total); $('[data-t="pct"]', tr).textContent = al.total === null ? "" : num((al.total / d.avaliacao.maximo) * 100); }
+      const N = EINK.nivelCel;
+      for (const al of d.alunos) {
+        const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) continue;
+        const pct = al.total === null || !d.avaliacao.maximo ? null : (al.total / d.avaliacao.maximo) * 100;
+        $('[data-t="total"]', tr).textContent = num(al.total); $('[data-t="pct"]', tr).textContent = pct === null ? "" : num(pct);
+        N.marcar($('[data-t="total"]', tr), pct, N.LIMITES, false); N.marcar($('[data-t="pct"]', tr), pct, N.LIMITES, true);
+        for (const i of d.itens) { const inp = $(`input[data-item="${i.id}"]`, tr); const m = al.marcas[i.id]; if (inp) N.marcar(inp.closest("td"), m === undefined || m === null || !i.cotacao ? null : (m / i.cotacao) * 100, N.LIMITES, false); }
+      }
     }
     desenhar();
   }
