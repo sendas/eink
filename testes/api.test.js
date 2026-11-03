@@ -264,6 +264,13 @@ test("Entrada automática de docentes reconhecidos pelo Entra (sem grupo configu
   assert.strictEqual(ana.status, 302, "docente reconhecido entra sozinho");
   assert.strictEqual((await ana.chamar("GET", "/api/eu")).d.admin, false);
   assert.strictEqual((await entrar("rui@escola.pt", "&ad=Docente")).status, 302, "basta «Docente» no cargo");
+  assert.strictEqual((await entrar("rosa@escola.pt", "&ad=" + encodeURIComponent("Professora de Matemática"))).status, 302, "«Professora» também conta");
+  // O administrador vê quem foi recusado e o que o Entra diz, e dá acesso com um clique.
+  const adm0 = await entrar("admin@escola.pt");
+  const rec = (await adm0.chamar("GET", "/api/admin/recusados")).d;
+  assert.ok(rec.some((r) => r.upn === "aluno@escola.pt" && r.textos.includes("Aluno 7.º A")), "o pedido recusado aparece com o texto do Entra");
+  await adm0.chamar("POST", "/api/admin/professores", { upn: "aluno@escola.pt", nome: "Aluno" });
+  assert.ok(!(await adm0.chamar("GET", "/api/admin/recusados")).d.some((r) => r.upn === "aluno@escola.pt"), "dado o acesso, sai da lista");
   assert.strictEqual((await entrar("fora@outro.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"))).status, 403, "domínio não permitido");
   // Um administrador retira o acesso: a entrada automática não o repõe.
   const adm = await entrar("admin@escola.pt");

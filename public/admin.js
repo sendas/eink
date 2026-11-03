@@ -4,8 +4,9 @@
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
 
   async function docentes() {
-    const [l, grupos] = await Promise.all([api("GET", "/api/admin/professores"), api("GET", "/api/grupos")]);
+    const [l, grupos, recusados] = await Promise.all([api("GET", "/api/admin/professores"), api("GET", "/api/grupos"), EINK.eu.grupoDocentes ? [] : api("GET", "/api/admin/recusados")]);
     mostrar(`<h1>Docentes com acesso</h1>
+      ${recusados.length ? `<div class="painel" id="recusados"><h2 style="margin-top:0">Quiseram entrar e não foram reconhecidos</h2><p class="pequeno">O Microsoft 365 não os identifica como docentes. Vê o que o Entra diz de cada um e dá acesso só a quem for docente.</p><ul class="lista">${recusados.map((r) => `<li><span><strong>${esc(r.nome || r.upn)}</strong> <span class="pequeno">${esc(r.upn)}</span><br><span class="pequeno">Entra: ${r.textos.length ? esc(r.textos.join(" · ")) : "sem informação"}</span></span><button type="button" data-aceitar="${esc(r.upn)}" data-nome="${esc(r.nome)}">Dar acesso</button></li>`).join("")}</ul></div>` : ""}
       ${EINK.eu.grupoDocentes ? `<p class="painel">O acesso é dado pelo grupo «docentes» do Entra ID: quem pertence ao grupo entra e aparece aqui ao fazer o primeiro acesso; quem sai do grupo deixa de poder entrar. Aqui só se escolhe o grupo disciplinar de cada docente.</p>`
         : `<form class="painel linha" id="f-prof"><label>Email da escola<input name="upn" type="email" required placeholder="nome@escola.pt"></label><label>Nome<input name="nome" maxlength="120"></label><button>Dar acesso</button></form>`}
       <form class="painel linha" id="f-local"><strong>Conta local</strong> <label>Utilizador<input name="utilizador" required maxlength="40" placeholder="ana.silva" autocapitalize="none" spellcheck="false"></label><label>Nome<input name="nome" maxlength="120"></label><label class="linha"><input type="checkbox" name="admin"> Administrador</label><button>Criar conta local</button>
@@ -23,6 +24,7 @@
       $("#credenciais").scrollIntoView({ block: "nearest" });
     };
     $("#f-local").onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const d = await api("POST", "/api/admin/professores/locais", { utilizador: f.get("utilizador"), nome: f.get("nome"), admin: f.get("admin") === "on" }); await docentes(); mostrarCred(d, "Conta local criada"); };
+    $$("[data-aceitar]").forEach((b) => { b.onclick = async () => { await api("POST", "/api/admin/professores", { upn: b.dataset.aceitar, nome: b.dataset.nome }); aviso("Acesso dado."); docentes(); }; });
     $$("[data-nova]").forEach((b) => { b.onclick = async () => { if (confirm("Gerar uma palavra-passe nova? A anterior deixa de funcionar.")) { const d = await api("POST", `/api/admin/professores/${b.dataset.nova}/senha`, {}); mostrarCred(d, "Nova palavra-passe"); } }; });
     $$("[data-on]").forEach((b) => { b.onclick = async () => { await api("POST", `/api/admin/professores/${b.dataset.on}/reativar`, {}); docentes(); }; });
     $$("[data-adm]").forEach((k) => { k.onchange = async () => { try { await api("PUT", `/api/admin/professores/${k.dataset.adm}/admin`, { admin: k.checked }); aviso("Papel guardado."); } catch { k.checked = !k.checked; } }; });

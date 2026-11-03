@@ -90,7 +90,14 @@ function criarServidor(env = process.env) {
   // Entrada automática de docentes (sem GRUPO_DOCENTES_ID): se o Entra identifica a conta como docente (grupo de recrutamento no nome, cargo ou
   // departamento, por exemplo «Docente-550 - Informática») e o domínio é o da escola, a conta cria-se sozinha no primeiro acesso.
   // Só cria contas novas: quem um administrador retirou (ativo = 0) continua retirado.
-  const reconhecidoComoDocente = (textos) => { const l = textos.filter((x) => typeof x === "string" && x.trim()); return !!grupoDeTexto(l) || l.some((x) => /\bdocente\b/i.test(x)); };
+  // Contas que tentaram entrar e não foram reconhecidas (só em memória, as últimas 40): o administrador vê o que o Entra diz de cada uma e dá acesso com um clique.
+  const RECUSADOS = new Map();
+  const recusar = (upn, nome, textos) => {
+    RECUSADOS.delete(upn); RECUSADOS.set(upn, { upn, nome: semGrupo(nome), textos: textos.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim().slice(0, 120)), em: new Date().toISOString() });
+    while (RECUSADOS.size > 40) RECUSADOS.delete(RECUSADOS.keys().next().value);
+    console.log(`Entrada recusada: ${upn} (Entra: ${JSON.stringify(textos.filter(Boolean))})`);
+  };
+  const reconhecidoComoDocente = (textos) => { const l = textos.filter((x) => typeof x === "string" && x.trim()); return !!grupoDeTexto(l) || l.some((x) => /\b(docente|professor|professora|educador|educadora)\b/i.test(x)); };
   function admitirDocenteEntra(upn, nome, textos) {
     if (GRUPO_DOCENTES || !DOMINIOS.length || !DOMINIOS.includes(String(upn).split("@")[1]) || !reconhecidoComoDocente(textos)) return;
     if (db.prepare("SELECT 1 FROM professores WHERE upn = ?").get(upn)) return;
@@ -738,8 +745,10 @@ function criarServidor(env = process.env) {
     if (!/^[a-z0-9._'+-]+@[a-z0-9.-]+$/.test(upn)) throw erro(400, "Email inválido.");
     if (DOMINIOS.length && !DOMINIOS.includes(upn.split("@")[1])) throw erro(400, "Domínio não permitido.");
     db.prepare("INSERT INTO professores (upn, nome) VALUES (?, ?) ON CONFLICT (upn) DO UPDATE SET ativo = 1").run(upn, texto(c.b.nome, 120));
+    RECUSADOS.delete(upn);
     return { ok: true };
   });
+  rota("GET", "/api/admin/recusados", (c) => { soAdmin(c); return [...RECUSADOS.values()].reverse().filter((r) => !db.prepare("SELECT 1 FROM professores WHERE upn = ? AND ativo = 1").get(r.upn)); });
   rota("DELETE", "/api/admin/professores/:id", (c) => {
     soAdmin(c);
     if (c.id[0] === c.p.id) throw erro(400, "Não podes desativar a tua conta.");
@@ -795,6 +804,7 @@ function criarServidor(env = process.env) {
           // Em modo grupo, a entrada de teste simula pertencer ao grupo (a menos que se junte &fora=1) e ao de administradores (&admin=1).
           admitirDocenteEntra(upn, upn.split("@")[0], [u.searchParams.get("ad")]);
           const prof = professorDe(upn, upn.split("@")[0], GRUPO_DOCENTES ? u.searchParams.get("fora") !== "1" : undefined, GRUPO_ADMIN ? u.searchParams.get("admin") === "1" : undefined);
+          if (!prof && !GRUPO_DOCENTES) recusar(upn, upn.split("@")[0], [u.searchParams.get("ad")]);
           if (!prof) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Conta sem acesso."); }
           est.contar(prof.id, "login");
           aplicarGrupoAd(prof, [u.searchParams.get("ad")]);
@@ -825,6 +835,7 @@ function criarServidor(env = process.env) {
         const perf = await perfil(c.accessToken, { graphUrl: GRAPH_URL });
         admitirDocenteEntra(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
         const prof = professorDe(c.upn, c.nome, doGrupo, adminGrupo);
+        if (!prof && !GRUPO_DOCENTES) recusar(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
         if (!prof) throw Object.assign(erro(403, GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta não foi reconhecida como docente (o Microsoft 365 não a identifica com «Docente» e um grupo de recrutamento). Pede a um administrador que a adicione."), { publico: true });
         aplicarGrupoAd(prof, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
         const nomeLimpo = semGrupo(c.nome);
