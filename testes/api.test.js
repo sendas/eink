@@ -300,6 +300,38 @@ test("Sugestões dos docentes: enviar, ler e gerir", async (t) => {
   assert.strictEqual((await adm.chamar("DELETE", "/api/admin/sugestoes/" + l[0].id)).estado, 200);
 });
 
+test("Acessos dos docentes e email das sugestões", async (t) => {
+  const { base, servidor, entrar, db } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+  const r = await fetch(base + "/auth/entrar?dev=ana@escola.pt", { redirect: "manual", headers: { "user-agent": UA } });
+  assert.strictEqual(r.status, 302);
+  const ck = (r.headers.getSetCookie()[0] || "").split(";")[0];
+  const post = (u, b) => fetch(base + u, { method: "POST", headers: { cookie: ck, "x-requested-with": "eink", "content-type": "application/json", "user-agent": UA }, body: JSON.stringify(b) });
+  assert.strictEqual((await post("/api/acesso", { largura: 390, altura: 844, janela: 390, dpr: 3, toque: true, idioma: "pt-PT" })).status, 200);
+  const l = (await adm.chamar("GET", "/api/admin/acessos?dias=30")).d.linhas.filter((x) => x.upn === "ana@escola.pt");
+  assert.strictEqual(l.length, 1, "o mesmo aparelho no mesmo período conta como um registo");
+  assert.strictEqual(l[0].dispositivo, "móvel"); assert.strictEqual(l[0].so, "iOS"); assert.match(l[0].navegador, /^Safari 17/);
+  assert.match(l[0].ecra, /390×844/); assert.match(l[0].ecra, /toque/); assert.ok(l[0].ip, "guarda o endereço IP"); assert.ok(l[0].n >= 2);
+  const ana = await entrar("ana@escola.pt");
+  assert.strictEqual((await ana.chamar("GET", "/api/admin/acessos")).estado, 403, "só os administradores");
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/acessos/config", { dias: 3 })).estado, 400);
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/acessos/config", { dias: 90 })).d.retencao, 90);
+  db.prepare("UPDATE acessos SET ultimo = datetime('now', '-200 days')").run();
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/acessos/config", { dias: 90 })).estado, 200);
+  assert.strictEqual((await adm.chamar("GET", "/api/admin/acessos?dias=730")).d.linhas.length, 0, "o que passou o prazo apaga-se");
+  // Email das sugestões: o destino pode mudar-se em administração
+  assert.strictEqual((await adm.chamar("GET", "/api/admin/sugestoes/config")).d.email, "pedropereira@queiroz.pt");
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/sugestoes/config", { email: "xx" })).estado, 400);
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/sugestoes/config", { email: "Outro@Queiroz.pt" })).d.email, "outro@queiroz.pt");
+  assert.strictEqual((await ana.chamar("GET", "/api/admin/sugestoes/config")).estado, 403);
+  assert.strictEqual((await ana.chamar("POST", "/api/sugestoes", { texto: "Uma sugestão para testar o aviso." })).estado, 200);
+  await new Promise((r) => setTimeout(r, 200));
+  assert.match((await adm.chamar("GET", "/api/admin/sugestoes")).d[0].email, /não|falhou/, "sem o envio de email ligado, o estado diz porquê");
+});
+
 test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async (t) => {
   const http = require("node:http");
   const { ehMembro } = require("../lib/grupo");
@@ -864,7 +896,7 @@ test("API: bancos partilhados por disciplina, importar notas do Excel e aviso do
 });
 
 test("API: vista do diretor de turma (pauta consolidada, só leitura)", async (t) => {
-  const { servidor, entrar, db } = await arrancar();
+  const { base, servidor, entrar, db } = await arrancar();
   t.after(() => servidor.close());
   const adm = await entrar("admin@escola.pt");
   const g1 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).d.id, g2 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "300 Português" })).d.id;
@@ -1194,7 +1226,7 @@ test("Grupo do Entra: lido do nome, departamento ou cargo, ligado ao grupo disci
   assert.strictEqual(semGrupo("Pedro Sendas de Moura Pereira Docente-550 - Informática"), "Pedro Sendas de Moura Pereira");
   assert.strictEqual(semGrupo("Ana Silva"), "Ana Silva");
 
-  const { servidor, entrar, db } = await arrancar();
+  const { base, servidor, entrar, db } = await arrancar();
   t.after(() => servidor.close());
   const adm = await entrar("admin@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
   const eu = (await adm.chamar("GET", "/api/eu")).d;

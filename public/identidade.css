@@ -200,3 +200,14 @@ table.folha tbody tr td.fim[data-c^="crit-"].av-n3 { background: var(--n3-fundo)
 table.folha tbody tr td.fim[data-c^="crit-"].av-n4 { background: var(--n4-fundo); color: var(--n4-texto); }
 table.folha thead th { background: var(--afundado); }
 table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead th.g1:not(.crit), table.folha thead th.g2:not(.crit) { background: var(--cartao); }
+
+/* Etiqueta «Versão beta · em testes» sempre visível: cabeçalho fixo na aplicação e na página de entrada, com o texto a encurtar em ecrãs estreitos */
+.beta-pill .bp-m, .beta-pill .bp-c { display: none; }
+.beta-pill { white-space: nowrap; }
+@media (max-width: 1180px) { .beta-pill .bp-l { display: none; } .beta-pill .bp-m { display: inline; } }
+@media (max-width: 520px) { .beta-pill .bp-m { display: none; } .beta-pill .bp-c { display: inline; } }
+.ln-topo { position: sticky; top: 0; z-index: 20; }
+.ln-topo > div { gap: 10px 16px; }
+.ln-topo .beta-pill { margin-right: auto; }
+.topo nav a { white-space: nowrap; }
+@media (min-width: 1100px) { .topo { flex-wrap: wrap; row-gap: .4rem; } }

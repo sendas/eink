@@ -6,6 +6,13 @@
   if (EINK.eu.admin) document.getElementById("nav-gestao").hidden = false;
   if (EINK.eu.versao) { const v = document.getElementById("versao"); v.textContent = "v" + EINK.eu.versao; v.hidden = false; }
   if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
+  // Diz ao servidor o tamanho do ecrã e se é táctil, uma vez por sessão do navegador (junto com o endereço IP e o navegador, vistos pelo servidor).
+  try {
+    if (!EINK.eu.trocar && !sessionStorage.getItem("eink.acesso")) {
+      sessionStorage.setItem("eink.acesso", "1");
+      EINK.api("POST", "/api/acesso", { largura: screen.width, altura: screen.height, janela: innerWidth, dpr: devicePixelRatio, toque: navigator.maxTouchPoints > 0, idioma: navigator.language }).catch(() => {});
+    }
+  } catch { /* sem sessionStorage */ }
   if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
   // Estatísticas de utilização: diz-se ao servidor em que ecrã se está (só o nome do ecrã, no máximo uma vez a cada 10 segundos por ecrã).
   const vistos = new Map();

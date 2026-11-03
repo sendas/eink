@@ -146,19 +146,45 @@
     ["👥", "Docentes", "Contas Office e locais, e a disciplina de cada um", "#/admin"], ["✉️", "Email e avisos", "Aviso antes de o segredo do Entra expirar", "#/correio"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
-    ["💡", "Sugestões dos docentes" + (EINK.eu.sugestoes_novas ? ` (${EINK.eu.sugestoes_novas} novas)` : ""), "O que os colegas pedem ou sugerem", "#/sugestoes"], ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
+    ["🖥", "Acessos dos docentes", "Endereço IP, navegador e ecrã de cada acesso", "#/acessos"], ["💡", "Sugestões dos docentes" + (EINK.eu.sugestoes_novas ? ` (${EINK.eu.sugestoes_novas} novas)` : ""), "O que os colegas pedem ou sugerem", "#/sugestoes"], ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
 
   async function sugestoes(so = "novas") {
-    const l = await api("GET", "/api/admin/sugestoes"), vis = so === "todas" ? l : l.filter((x) => x.estado === "nova");
+    const [l, cfg] = await Promise.all([api("GET", "/api/admin/sugestoes"), api("GET", "/api/admin/sugestoes/config")]), vis = so === "todas" ? l : l.filter((x) => x.estado === "nova");
     EINK.eu.sugestoes_novas = l.filter((x) => x.estado === "nova").length;
     mostrar(`<p class="linha"><a href="#/gestao">← Gestão</a></p><h1>Sugestões dos docentes</h1>
+      <form class="painel linha" id="f-sug-email"><label>Email que recebe um aviso a cada sugestão<input name="email" type="email" maxlength="120" value="${esc(cfg.email)}" placeholder="nome@queiroz.pt"></label><button>Guardar</button>
+        <span class="pequeno">${cfg.correioLigado ? "O aviso sai pela conta ligada em Email e avisos." : 'O envio de email ainda não está ligado: <a href="#/correio">liga-o aqui</a> para os avisos seguirem.'} Deixa vazio para não enviar avisos.</span></form>
       <p class="linha"><button type="button" class="sec ${so === "novas" ? "ativo" : ""}" data-f="novas">Novas (${EINK.eu.sugestoes_novas})</button><button type="button" class="sec ${so === "todas" ? "ativo" : ""}" data-f="todas">Todas (${l.length})</button></p>
-      ${vis.length ? `<div class="painel"><ul class="lista">${vis.map((x) => `<li><span><strong>${esc(x.nome || x.upn)}</strong> <span class="pequeno">${esc(x.upn)} · ${esc(x.criada.slice(0, 16).replace("T", " ").split(" ").map((p, i) => (i ? p : p.split("-").reverse().join("/"))).join(" "))}${x.pagina ? " · " + esc(x.pagina) : ""} · ${x.estado}</span><br>${esc(x.texto).replace(/\n/g, "<br>")}</span>
+      ${vis.length ? `<div class="painel"><ul class="lista">${vis.map((x) => `<li><span><strong>${esc(x.nome || x.upn)}</strong> <span class="pequeno">${esc(x.upn)} · ${esc(x.criada.slice(0, 16).replace("T", " ").split(" ").map((p, i) => (i ? p : p.split("-").reverse().join("/"))).join(" "))}${x.pagina ? " · " + esc(x.pagina) : ""} · ${x.estado}${x.email ? " · email: " + esc(x.email) : ""}</span><br>${esc(x.texto).replace(/\n/g, "<br>")}</span>
         <span class="linha">${x.estado !== "lida" ? `<button class="sec" data-e="lida" data-id="${x.id}">Marcar como lida</button>` : ""}${x.estado !== "feita" ? `<button class="sec" data-e="feita" data-id="${x.id}">Feita</button>` : ""}<button class="perigo" data-del="${x.id}">Apagar</button></span></li>`).join("")}</ul></div>` : '<p class="painel">Não há sugestões neste filtro.</p>'}`);
+    document.getElementById("f-sug-email").onsubmit = async (e) => { e.preventDefault(); const r = await api("PUT", "/api/admin/sugestoes/config", { email: new FormData(e.target).get("email") }); aviso(r.email ? `Os avisos vão para ${r.email}.` : "Os avisos por email ficam desligados."); };
     document.querySelectorAll("[data-f]").forEach((b) => { b.onclick = () => sugestoes(b.dataset.f); });
     document.querySelectorAll("[data-e]").forEach((b) => { b.onclick = async () => { await api("PUT", "/api/admin/sugestoes/" + b.dataset.id, { estado: b.dataset.e }); sugestoes(so); }; });
     document.querySelectorAll("[data-del]").forEach((b) => { b.onclick = async () => { if (confirm("Apagar esta sugestão?")) { await api("DELETE", "/api/admin/sugestoes/" + b.dataset.del); sugestoes(so); } }; });
+  }
+
+  async function acessos(dias = 30, prof = "") {
+    const d = await api("GET", `/api/admin/acessos?dias=${dias}${prof ? "&prof=" + prof : ""}`);
+    const data = (t) => esc(t.slice(0, 16).split(" ").map((p, i) => (i ? p : p.split("-").reverse().join("/"))).join(" "));
+    const resumo = (t, l) => `<span class="pequeno"><strong>${t}:</strong> ${l.slice(0, 6).map(([k, n]) => `${esc(k)} ${n}`).join(", ") || "-"}</span>`;
+    mostrar(`<p class="linha"><a href="#/gestao">← Gestão</a></p><h1>Acessos dos docentes</h1>
+      <p class="painel pequeno">Guarda-se o endereço IP, o navegador, o sistema, o tipo de aparelho (móvel, tablet ou computador) e o tamanho do ecrã de cada acesso, para segurança e apoio técnico. Apagam-se ao fim de <strong>${d.retencao} dias</strong>. O aviso de privacidade já o refere.</p>
+      <form class="painel linha" id="f-ac"><label>Período<select name="dias">${[7, 30, 90, 180, 365].map((n) => `<option value="${n}" ${n === d.dias ? "selected" : ""}>Últimos ${n} dias</option>`).join("")}</select></label>
+        <label>Docente<select name="prof"><option value="">Todos</option>${d.docentes.map((p) => `<option value="${p.id}" ${String(p.id) === String(prof) ? "selected" : ""}>${esc(p.nome || p.upn)}</option>`).join("")}</select></label><button>Ver</button>
+        <button type="button" class="sec" id="ac-csv">Descarregar CSV</button></form>
+      <div class="painel"><p>${d.total} acessos. ${resumo("Aparelho", d.resumo.dispositivo)} ${resumo("Navegador", d.resumo.navegador)} ${resumo("Sistema", d.resumo.so)}</p>
+      <div class="tabela-rolagem"><table><thead><tr><th>Último acesso</th><th>Docente</th><th>Endereço IP</th><th>Navegador</th><th>Sistema</th><th>Aparelho</th><th>Ecrã</th><th class="num">Vezes</th></tr></thead>
+      <tbody>${d.linhas.map((x) => `<tr><td>${data(x.ultimo)}</td><td>${esc(x.nome || x.upn)}</td><td>${esc(x.ip)}</td><td>${esc(x.navegador)}</td><td>${esc(x.so)}</td><td>${esc(x.dispositivo)}</td><td>${esc(x.ecra)}</td><td class="num">${x.n}</td></tr>`).join("") || '<tr><td colspan="8">Ainda não há acessos neste período.</td></tr>'}</tbody></table></div></div>
+      <form class="painel linha" id="f-ret"><label>Guardar os acessos durante (dias)<input name="dias" type="number" min="7" max="730" value="${d.retencao}" style="width:7rem"></label><button>Guardar prazo</button><button type="button" class="perigo" id="ac-apagar">Apagar todo o registo</button></form>`);
+    document.getElementById("f-ac").onsubmit = (e) => { e.preventDefault(); const f = new FormData(e.target); acessos(Number(f.get("dias")), f.get("prof")); };
+    document.getElementById("f-ret").onsubmit = async (e) => { e.preventDefault(); await api("PUT", "/api/admin/acessos/config", { dias: new FormData(e.target).get("dias") }); aviso("Prazo guardado."); acessos(dias, prof); };
+    document.getElementById("ac-apagar").onclick = async () => { if (confirm("Apagar todo o registo de acessos? Não se pode desfazer.")) { await api("POST", "/api/admin/acessos/apagar", { confirmar: true }); aviso("Registo apagado."); acessos(dias, prof); } };
+    document.getElementById("ac-csv").onclick = () => {
+      const cel = (v) => { const t = String(v ?? ""); return /[;"\n]/.test(t) || /^[=+\-@]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const csv = "\uFEFF" + [["Último acesso", "Docente", "Email", "IP", "Navegador", "Sistema", "Aparelho", "Ecrã", "Vezes"], ...d.linhas.map((x) => [x.ultimo, x.nome, x.upn, x.ip, x.navegador, x.so, x.dispositivo, x.ecra, x.n])].map((l) => l.map(cel).join(";")).join("\r\n");
+      const a = document.createElement("a"); a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv); a.download = "acessos.csv"; a.click();
+    };
   }
 
   async function fecho() {
@@ -222,7 +248,7 @@
     const fmt = (iso) => (iso ? iso.slice(0, 10) : "nunca");
     mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Estatísticas de acesso</h1>
       <p class="linha">${[7, 30, 90, 365].map((n) => `<a class="botao ${n === dias ? "" : "sec"}" href="#/estatisticas/${n}">${n} dias</a>`).join("")}<button class="sec" id="e-csv" type="button">Descarregar (CSV)</button></p>
-      <p class="pequeno">De ${esc(d.de)} a ${esc(d.ate)}. Só se guardam contagens por dia, docente e ecrã (nunca endereços IP nem conteúdos), durante 400 dias.</p>
+      <p class="pequeno">De ${esc(d.de)} a ${esc(d.ate)}. Só se guardam contagens por dia, docente e ecrã, durante 400 dias. Os endereços IP e os navegadores têm a sua própria página, «Acessos dos docentes».</p>
       <div class="cartoes">${[["Docentes ativos (7 dias)", `${r.docentesAtivos7} de ${r.docentesTotal}`], ["Docentes ativos (30 dias)", `${r.docentesAtivos30} de ${r.docentesTotal}`], [`Entradas (${dias} dias)`, r.logins], [`Ecrãs vistos (${dias} dias)`, r.vistas], ["Ficheiros exportados", d.exportacoes], ["Jogos de quiz criados", d.jogosCriados]].map(([t, v]) => `<div class="cartao"><span><strong style="font-size:1.5rem">${v}</strong><small>${t}</small></span></div>`).join("")}</div>
       ${r.nuncaEntraram ? `<p class="pequeno">${r.nuncaEntraram} docente(s) com acesso ainda nunca entraram.</p>` : ""}
       <h2>Utilização por dia</h2>
@@ -238,5 +264,5 @@
     };
   }
 
-  EINK.rotas.push([/^\/estatisticas$/, () => estatisticas(30)], [/^\/estatisticas\/(7|30|90|365)$/, (n) => estatisticas(+n)], [/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/sugestoes$/, () => sugestoes("novas")], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
+  EINK.rotas.push([/^\/estatisticas$/, () => estatisticas(30)], [/^\/estatisticas\/(7|30|90|365)$/, (n) => estatisticas(+n)], [/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/sugestoes$/, () => sugestoes("novas")], [/^\/acessos$/, () => acessos(30)], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
 })();
