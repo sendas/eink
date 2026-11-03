@@ -54,6 +54,15 @@ test("API: docentes, turmas, notas e pauta", async (t) => {
   const comp = gerais.find((k) => k.tipo === "nivel").id;
   await ana.chamar("PUT", `/api/periodos/${per}/niveis`, { criterio: comp, aluno: a1.id, nivel: 5 });
   assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].final, Math.round(75 * 0.7 + 95 * 0.3));
+  // Comportamento em percentagem (0 a 100) em vez de nível
+  const pc = (valor) => ana.chamar("PUT", `/api/periodos/${per}/niveis`, { criterio: comp, aluno: a1.id, valor });
+  assert.strictEqual((await pc("60 %")).estado, 200);
+  let al0 = (await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0];
+  assert.strictEqual(al0.final, 70.5); assert.strictEqual(al0.compPct[comp], 60); assert.strictEqual(al0.niveis[comp], 3);
+  assert.strictEqual((await pc("72,5%")).estado, 200); assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].compPct[comp], 72.5);
+  assert.strictEqual((await pc("101")).estado, 400); assert.strictEqual((await pc("muito bom")).estado, 400);
+  assert.strictEqual((await pc("5")).estado, 200); al0 = (await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0];
+  assert.strictEqual(al0.compPct[comp], undefined); assert.strictEqual(al0.final, Math.round(75 * 0.7 + 95 * 0.3));
 
   const csv = await fetch(`${base}/api/periodos/${per}/pauta.csv`, { headers: { cookie: ana.ck } });
   assert.match(await csv.text(), /Ana Silva;.*Bruno Costa;/s);

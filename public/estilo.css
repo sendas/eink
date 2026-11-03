@@ -601,3 +601,10 @@ html { scroll-behavior: smooth; }
   .cg-tab td::before { content: attr(data-r) ": "; font-size: .85rem; color: var(--suave); }
   .cg-tab td:first-child { font-weight: 700; } .cg-tab td:first-child::before { content: none; }
 }
+
+/* Valores centrados nas tabelas estilo Excel (pauta e grelha) */
+table.folha td input.nota, table.folha td select { text-align: center; text-align-last: center; }
+table.folha td.num, table.folha td[data-c], table.folha th.num { text-align: center; }
+table.folha td { text-align: center; }
+table.folha th[scope="row"], table.folha td.aluno-nome-cel { text-align: left; }
+table.folha thead th:not(.crit):not(.folha-fixa) { text-align: center; }

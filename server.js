@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const criarAuth = require("./lib/auth");
 const { abrir, criarEsquema } = require("./lib/db");
-const { pauta, lerNota, NIVEIS, INTERCALAR, propostaInter } = require("./lib/avaliacao");
+const { pauta, lerComportamento, lerNota, NIVEIS, INTERCALAR, propostaInter } = require("./lib/avaliacao");
 const { criarXlsx } = require("./lib/xlsx");
 const { lerAlunos } = require("./lib/xlsx-ler");
 const APR = require("./public/apreciacao.js");
@@ -158,7 +158,8 @@ function criarServidor(env = process.env) {
     const notas = new Map();
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
     const niveis = new Map(db.prepare("SELECT criterio_id c, aluno_id l, nivel n FROM niveis WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.n]));
-    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, casas: grupo.casas });
+    const percentagens = new Map(db.prepare("SELECT criterio_id c, aluno_id l, pct p FROM niveis WHERE periodo_id = ? AND pct IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.p]));
+    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, percentagens, casas: grupo.casas });
     const fotos = new Map(db.prepare("SELECT f.aluno_id id, f.atualizada t FROM fotos f JOIN alunos a ON a.id = f.aluno_id WHERE a.turma_id = ?").all(per.turma_id).map((r) => [r.id, r.t]));
     for (const a of alunos) a.foto = fotos.get(a.id) || null;
     return { periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
@@ -425,12 +426,13 @@ function criarServidor(env = process.env) {
     const t = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
     const k = esquemaDaTurma(t).criterios.find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
     if (!k) throw erro(400, "Critério inválido para esta turma.");
-    const n = c.b.nivel === null || c.b.nivel === "" ? null : inteiro(c.b.nivel);
-    if (n !== null && (n < 1 || n > 5)) throw erro(400, "O nível vai de 1 a 5.");
+    const lido = lerComportamento(c.b.valor !== undefined ? c.b.valor : c.b.nivel);
+    if (lido === undefined) throw erro(400, "Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %).");
     abertoOuErro(per.id);
-    const nAntes = (db.prepare("SELECT nivel FROM niveis WHERE criterio_id = ? AND periodo_id = ? AND aluno_id = ?").get(k.id, per.id, a.id) || {}).nivel ?? "";
-    if (String(nAntes) !== String(n ?? "")) auditar(c, per.id, a.nome, "Nível", k.nome, nAntes, n ?? "");
-    db.prepare("INSERT INTO niveis (criterio_id, periodo_id, aluno_id, nivel) VALUES (?, ?, ?, ?) ON CONFLICT (criterio_id, periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel").run(k.id, per.id, a.id, n);
+    const ant = db.prepare("SELECT nivel, pct FROM niveis WHERE criterio_id = ? AND periodo_id = ? AND aluno_id = ?").get(k.id, per.id, a.id) || {};
+    const txt = (r) => (!r || r.nivel == null ? "" : r.pct != null ? String(r.pct).replace(".", ",") + " %" : String(r.nivel)), antes = txt(ant), depois = txt(lido);
+    if (antes !== depois) auditar(c, per.id, a.nome, "Comportamento", k.nome, antes, depois);
+    db.prepare("INSERT INTO niveis (criterio_id, periodo_id, aluno_id, nivel, pct) VALUES (?, ?, ?, ?, ?) ON CONFLICT (criterio_id, periodo_id, aluno_id) DO UPDATE SET nivel = excluded.nivel, pct = excluded.pct").run(k.id, per.id, a.id, lido ? lido.nivel : null, lido ? lido.pct : null);
     return { ok: true };
   });
 

@@ -15,7 +15,7 @@
     const g = (gi) => "g" + (gi % 3);
     const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span></th>`).join("");
     const l2 = d.criterios.map((k, gi) => {
-      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}">Nível 1 a 5</th>`;
+      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %)">Nível 1 a 5 ou %</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a, ai) => `<th class="col-av ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col" title="${esc(a.titulo)} · ${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""} · peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}">
         <div class="av-tit"><a href="#/grelha/${a.id}" title="Abrir a grelha de ${esc(a.titulo)}">${esc(a.titulo)}</a></div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
@@ -23,11 +23,14 @@
           <a class="botao sec" href="#/grelha/${a.id}">${a.n_itens ? `Grelha (${a.n_itens})` : "Grelha"}</a>${fechado || a.n_itens ? "" : `<button class="sec" data-imp="${a.id}">Importar notas</button>`}${fechado ? "" : `<button class="sec" data-peso="${a.id}" data-p="${a.peso}">Peso (${num(a.peso)})</button><button class="perigo" data-del="${a.id}">Apagar</button>`}</div></details></th>`).join("") + `<th class="num fim ${g(gi)}${doCrit(k).length ? "" : " ini"}" scope="col">Média %</th>`;
     }).join("");
 
+    const fp = (v) => String(v).replace(".", ",");
+    const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); return !m[2] && Number.isInteger(n) && n >= 1 && n <= 5 ? String(n) : fp(Math.round(n * 100) / 100) + " %"; };
+    const compTxt = (al, k) => (al.compPct && al.compPct[k.id] !== undefined ? fp(al.compPct[k.id]) + " %" : al.niveis[k.id] ?? "");
     const lerLS = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch { return def; } };
     const fotosOn = lerLS("eink.fotos", "1") === "1", vistaCart = lerLS("eink.pautaVista", "tabela") === "cartoes";
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row"><span class="aluno-nome">${esc(al.nome)}</span>${fotosOn ? `<div class="foto-linha">${EINK.fotoAluno(al)}</div>` : ""}</th>
       ${d.criterios.map((k, gi) => {
-        if (k.tipo === "nivel") return `<td class="ini fim ${g(gi)}"><select ${dis} data-nivel="${k.id}" data-aluno="${al.id}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"><option value="">–</option>${[1, 2, 3, 4, 5].map((n) => `<option ${al.niveis[k.id] === n ? "selected" : ""}>${n}</option>`).join("")}</select></td>`;
+        if (k.tipo === "nivel") return `<td class="ini fim ${g(gi)}"><input class="nota" ${dis} data-nivel="${k.id}" data-aluno="${al.id}" inputmode="decimal" autocomplete="off" title="Nível de 1 a 5 ou percentagem de 0 a 100 (por exemplo 85 %)" value="${esc(compTxt(al, k))}" aria-label="${esc(k.nome)} de ${esc(al.nome)}"></td>`;
         const av = doCrit(k);
         return av.map((a, ai) => { const v = d.notas[a.id + ":" + al.id]; return `<td class="${g(gi)}${ai === 0 ? " ini" : ""}"><input class="nota" inputmode="decimal" ${a.n_itens ? 'disabled title="Nota calculada pela grelha"' : dis} data-aval="${a.id}" data-aluno="${al.id}" value="${v === undefined ? "" : num(v, 2)}" aria-label="Nota de ${esc(al.nome)} em ${esc(a.titulo)}"></td>`; }).join("") + `<td class="num fim ${g(gi)}${av.length ? "" : " ini"}" data-c="crit-${k.id}"></td>`;
       }).join("")}
@@ -95,7 +98,7 @@
       try { await api("PUT", `/api/avaliacoes/${i.dataset.aval}/notas`, { linhas: [{ aluno: Number(i.dataset.aluno), nota: i.value }] }); await recalcular(); }
       catch { i.focus(); }
     }; });
-    $$("[data-nivel]").forEach((s) => { s.onchange = async () => { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(s.dataset.nivel), aluno: Number(s.dataset.aluno), nivel: s.value || null }); await recalcular(); }; });
+    $$("[data-nivel]").forEach((s) => { s.dataset.ant = s.value; s.onchange = async () => { try { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(s.dataset.nivel), aluno: Number(s.dataset.aluno), valor: s.value }); } catch { s.value = s.dataset.ant; return; } s.value = s.value.trim() ? normComp(s.value) : ""; s.dataset.ant = s.value; await recalcular(); }; });
     // Menus «⋯» dos cabeçalhos: abrem por cima da tabela (posição fixa), um de cada vez, e fecham ao clicar fora.
     $$("details.menu-col").forEach((m) => { m.addEventListener("toggle", () => {
       if (!m.open) return;
@@ -109,7 +112,7 @@
       const por = new Map();
       for (const x of lista) {
         const el = x.el, antes = el.value; el.value = x.valor;
-        if (el.dataset.nivel) { try { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(el.dataset.nivel), aluno: Number(el.dataset.aluno), nivel: x.valor || null }); } catch { el.value = antes; } }
+        if (el.dataset.nivel) { try { await api("PUT", `/api/periodos/${id}/niveis`, { criterio: Number(el.dataset.nivel), aluno: Number(el.dataset.aluno), valor: x.valor }); el.value = x.valor.trim() ? normComp(x.valor) : ""; el.dataset.ant = el.value; } catch { el.value = antes; } }
         else { if (!por.has(el.dataset.aval)) por.set(el.dataset.aval, []); por.get(el.dataset.aval).push({ el, antes, aluno: Number(el.dataset.aluno), nota: x.valor }); }
       }
       for (const [aval, l] of por) {
