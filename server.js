@@ -15,6 +15,7 @@ const registarAdmin = require("./lib/m-admin");
 const registarContas = require("./lib/m-contas");
 const registarCriterios = require("./lib/m-criterios");
 const registarDisciplinas = require("./lib/m-disciplinas");
+const registarSugestoes = require("./lib/m-sugestoes");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -214,7 +215,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("PUT", "/api/eu/comportamento", (c) => {
     if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };
@@ -632,6 +633,7 @@ function criarServidor(env = process.env) {
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
+  const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin });
   const criteriosBase = registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
   try { criteriosBase(); } catch (e) { console.error("Critérios do manual:", e.message); }
   const XF = { rota, db, erro, texto, inteiro, existe, turmaDe, DIR_MODELOS: path.join(__dirname, "modelos-quiz"), est };

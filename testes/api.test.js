@@ -279,6 +279,27 @@ test("Entrada automática de docentes reconhecidos pelo Entra (sem grupo configu
   assert.strictEqual((await entrar("ana@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"))).status, 403, "retirado continua retirado");
 });
 
+test("Sugestões dos docentes: enviar, ler e gerir", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt"), ana = await entrar("ana@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana2 = await entrar("ana@escola.pt");
+  assert.strictEqual((await ana2.chamar("POST", "/api/sugestoes", { texto: "ola" })).estado, 400, "demasiado curta");
+  assert.strictEqual((await ana2.chamar("POST", "/api/sugestoes", { texto: "Gostava de exportar a pauta para PDF.", pagina: "#/pauta/1" })).estado, 200);
+  assert.strictEqual((await ana2.chamar("GET", "/api/admin/sugestoes")).estado, 403, "só os administradores leem tudo");
+  assert.strictEqual((await ana2.chamar("GET", "/api/sugestoes")).d.length, 1);
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.sugestoes_novas, 1);
+  const l = (await adm.chamar("GET", "/api/admin/sugestoes")).d;
+  assert.strictEqual(l.length, 1); assert.strictEqual(l[0].upn, "ana@escola.pt"); assert.strictEqual(l[0].estado, "nova");
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/sugestoes/" + l[0].id, { estado: "feita" })).estado, 200);
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/sugestoes/" + l[0].id, { estado: "xx" })).estado, 400);
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.sugestoes_novas, 0);
+  for (let i = 0; i < 25; i++) await ana2.chamar("POST", "/api/sugestoes", { texto: "Sugestão número " + i });
+  assert.strictEqual((await ana2.chamar("POST", "/api/sugestoes", { texto: "Mais uma sugestão" })).estado, 429, "limite diário");
+  assert.strictEqual((await adm.chamar("DELETE", "/api/admin/sugestoes/" + l[0].id)).estado, 200);
+});
+
 test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async (t) => {
   const http = require("node:http");
   const { ehMembro } = require("../lib/grupo");

@@ -67,6 +67,13 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await pl.context().close();
   await ir("/correio", "text=Email e avisos");
 
+  // Versão beta e sugestões: a faixa e o botão estão sempre visíveis e o envio funciona
+  assert.ok(await p.isVisible(".beta-faixa"), "faixa «Versão beta» visível");
+  assert.match(await p.textContent(".beta-faixa"), /Versão beta/);
+  assert.ok(await p.isVisible(".sug-botao"), "botão das sugestões visível");
+  await p.click(".sug-botao"); await p.waitForSelector(".sug-dlg[open]");
+  await p.fill("#sug-texto", "Gostava de poder exportar a pauta para PDF."); await p.click("#sug-enviar");
+  await p.waitForFunction(() => !document.querySelector(".sug-dlg"));
   // Turma, alunos colados do Excel, teste e nota
   await ir("/turmas", "#f-turma");
   await p.fill("#f-turma [name=nome]", "7.º A"); await p.fill("#f-turma [name=ano_letivo]", "2026/2027"); await p.selectOption("#f-turma [name=ano]", "7");

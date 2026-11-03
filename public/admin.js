@@ -146,8 +146,20 @@
     ["👥", "Docentes", "Contas Office e locais, e a disciplina de cada um", "#/admin"], ["✉️", "Email e avisos", "Aviso antes de o segredo do Entra expirar", "#/correio"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
-    ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
+    ["💡", "Sugestões dos docentes" + (EINK.eu.sugestoes_novas ? ` (${EINK.eu.sugestoes_novas} novas)` : ""), "O que os colegas pedem ou sugerem", "#/sugestoes"], ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
+
+  async function sugestoes(so = "novas") {
+    const l = await api("GET", "/api/admin/sugestoes"), vis = so === "todas" ? l : l.filter((x) => x.estado === "nova");
+    EINK.eu.sugestoes_novas = l.filter((x) => x.estado === "nova").length;
+    mostrar(`<p class="linha"><a href="#/gestao">← Gestão</a></p><h1>Sugestões dos docentes</h1>
+      <p class="linha"><button type="button" class="sec ${so === "novas" ? "ativo" : ""}" data-f="novas">Novas (${EINK.eu.sugestoes_novas})</button><button type="button" class="sec ${so === "todas" ? "ativo" : ""}" data-f="todas">Todas (${l.length})</button></p>
+      ${vis.length ? `<div class="painel"><ul class="lista">${vis.map((x) => `<li><span><strong>${esc(x.nome || x.upn)}</strong> <span class="pequeno">${esc(x.upn)} · ${esc(x.criada.slice(0, 16).replace("T", " ").split(" ").map((p, i) => (i ? p : p.split("-").reverse().join("/"))).join(" "))}${x.pagina ? " · " + esc(x.pagina) : ""} · ${x.estado}</span><br>${esc(x.texto).replace(/\n/g, "<br>")}</span>
+        <span class="linha">${x.estado !== "lida" ? `<button class="sec" data-e="lida" data-id="${x.id}">Marcar como lida</button>` : ""}${x.estado !== "feita" ? `<button class="sec" data-e="feita" data-id="${x.id}">Feita</button>` : ""}<button class="perigo" data-del="${x.id}">Apagar</button></span></li>`).join("")}</ul></div>` : '<p class="painel">Não há sugestões neste filtro.</p>'}`);
+    document.querySelectorAll("[data-f]").forEach((b) => { b.onclick = () => sugestoes(b.dataset.f); });
+    document.querySelectorAll("[data-e]").forEach((b) => { b.onclick = async () => { await api("PUT", "/api/admin/sugestoes/" + b.dataset.id, { estado: b.dataset.e }); sugestoes(so); }; });
+    document.querySelectorAll("[data-del]").forEach((b) => { b.onclick = async () => { if (confirm("Apagar esta sugestão?")) { await api("DELETE", "/api/admin/sugestoes/" + b.dataset.del); sugestoes(so); } }; });
+  }
 
   async function fecho() {
     const l = await api("GET", "/api/admin/periodos");
@@ -226,5 +238,5 @@
     };
   }
 
-  EINK.rotas.push([/^\/estatisticas$/, () => estatisticas(30)], [/^\/estatisticas\/(7|30|90|365)$/, (n) => estatisticas(+n)], [/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
+  EINK.rotas.push([/^\/estatisticas$/, () => estatisticas(30)], [/^\/estatisticas\/(7|30|90|365)$/, (n) => estatisticas(+n)], [/^\/admin$/, docentes], [/^\/criterios$/, criterios], [/^\/gestao$/, hub], [/^\/sugestoes$/, () => sugestoes("novas")], [/^\/fecho$/, fecho], [/^\/auditoria$/, auditoria], [/^\/copias$/, copiasPag], [/^\/privacidade-admin$/, privacidadeAdmin]);
 })();
