@@ -255,6 +255,23 @@ test("Entrada pelo grupo «docentes» do Entra ID (como no helpdesk)", async (t)
   assert.strictEqual((await entrar("ana@escola.pt")).status, 302);
 });
 
+test("Entrada automática de docentes reconhecidos pelo Entra (sem grupo configurado)", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  assert.strictEqual((await entrar("aluno@escola.pt")).status, 403, "sem informação de docente não entra");
+  assert.strictEqual((await entrar("aluno@escola.pt", "&ad=" + encodeURIComponent("Aluno 7.º A"))).status, 403);
+  const ana = await entrar("ana@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"));
+  assert.strictEqual(ana.status, 302, "docente reconhecido entra sozinho");
+  assert.strictEqual((await ana.chamar("GET", "/api/eu")).d.admin, false);
+  assert.strictEqual((await entrar("rui@escola.pt", "&ad=Docente")).status, 302, "basta «Docente» no cargo");
+  assert.strictEqual((await entrar("fora@outro.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"))).status, 403, "domínio não permitido");
+  // Um administrador retira o acesso: a entrada automática não o repõe.
+  const adm = await entrar("admin@escola.pt");
+  const lista = (await adm.chamar("GET", "/api/admin/professores")).d, ana2 = lista.find((x) => x.upn === "ana@escola.pt");
+  await adm.chamar("DELETE", "/api/admin/professores/" + ana2.id);
+  assert.strictEqual((await entrar("ana@escola.pt", "&ad=" + encodeURIComponent("Docente-550 - Informática"))).status, 403, "retirado continua retirado");
+});
+
 test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async (t) => {
   const http = require("node:http");
   const { ehMembro } = require("../lib/grupo");
