@@ -98,8 +98,8 @@ function criarServidor(env = process.env) {
     console.log(`Entrada recusada: ${upn} (Entra: ${JSON.stringify(textos.filter(Boolean))})`);
   };
   const reconhecidoComoDocente = (textos) => { const l = textos.filter((x) => typeof x === "string" && x.trim()); return !!grupoDeTexto(l) || l.some((x) => /\b(docente|professor|professora|educador|educadora)\b/i.test(x)); };
-  function admitirDocenteEntra(upn, nome, textos) {
-    if (GRUPO_DOCENTES || !DOMINIOS.length || !DOMINIOS.includes(String(upn).split("@")[1]) || !reconhecidoComoDocente(textos)) return;
+  function admitirDocenteEntra(upn, nome, textos, semGrupoAgora = false) {
+    if ((GRUPO_DOCENTES && !semGrupoAgora) || !DOMINIOS.length || !DOMINIOS.includes(String(upn).split("@")[1]) || !reconhecidoComoDocente(textos)) return;
     if (db.prepare("SELECT 1 FROM professores WHERE upn = ?").get(upn)) return;
     db.prepare("INSERT INTO professores (upn, nome) VALUES (?, ?)").run(upn, semGrupo(nome));
   }
@@ -812,7 +812,7 @@ function criarServidor(env = process.env) {
           auth.criarSessao(res, upn, prof.nome);
           res.writeHead(302, { Location: "/" }); return res.end();
         }
-        res.writeHead(302, { Location: await auth.iniciar(res, { ip: ip(req) }) }); return res.end();
+        res.writeHead(302, { Location: await auth.iniciar(res, { ip: ip(req), ...(env.GRUPO_SCOPE ? { scope: "openid profile email User.Read " + String(env.GRUPO_SCOPE).trim() } : {}) }) }); return res.end();
       }
       if (p === "/auth/correio/ligar") {
         const adm = sessaoDe(req);
@@ -830,13 +830,14 @@ function criarServidor(env = process.env) {
         }
         if (DOMINIOS.length && !DOMINIOS.includes(c.dominio)) throw Object.assign(erro(403, "Este domínio não tem acesso."), { publico: true });
         let doGrupo, adminGrupo;
-        if (GRUPO_DOCENTES) doGrupo = await ehMembro(c.accessToken, GRUPO_DOCENTES, { graphUrl: GRAPH_URL });
-        if (GRUPO_ADMIN) adminGrupo = await ehMembro(c.accessToken, GRUPO_ADMIN, { graphUrl: GRAPH_URL });
+        let grupoIndisponivel = false;
+        if (GRUPO_DOCENTES) { try { doGrupo = await ehMembro(c.accessToken, GRUPO_DOCENTES, { graphUrl: GRAPH_URL, grupos: c.grupos }); } catch (e) { console.error("Grupo de docentes:", e.message); doGrupo = undefined; grupoIndisponivel = true; } }
+        if (GRUPO_ADMIN) { try { adminGrupo = await ehMembro(c.accessToken, GRUPO_ADMIN, { graphUrl: GRAPH_URL, grupos: c.grupos }); } catch (e) { console.error("Grupo de administradores:", e.message); } }
         const perf = await perfil(c.accessToken, { graphUrl: GRAPH_URL });
-        admitirDocenteEntra(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
+        admitirDocenteEntra(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome], grupoIndisponivel);
         const prof = professorDe(c.upn, c.nome, doGrupo, adminGrupo);
-        if (!prof && !GRUPO_DOCENTES) recusar(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
-        if (!prof) throw Object.assign(erro(403, GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta não foi reconhecida como docente (o Microsoft 365 não a identifica com «Docente» e um grupo de recrutamento). Pede a um administrador que a adicione."), { publico: true });
+        if (!prof && (!GRUPO_DOCENTES || grupoIndisponivel)) recusar(c.upn, c.nome, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
+        if (!prof) throw Object.assign(erro(403, grupoIndisponivel ? "Não foi possível verificar o grupo de docentes no Microsoft 365. Tenta mais tarde ou pede a um administrador que te adicione." : GRUPO_DOCENTES ? "A tua conta não pertence ao grupo de docentes." : "A tua conta não foi reconhecida como docente (o Microsoft 365 não a identifica com «Docente» e um grupo de recrutamento). Pede a um administrador que a adicione."), { publico: true });
         aplicarGrupoAd(prof, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
         const nomeLimpo = semGrupo(c.nome);
         db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(nomeLimpo, prof.id);

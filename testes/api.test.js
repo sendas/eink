@@ -291,6 +291,24 @@ test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async 
   await assert.rejects(ehMembro("erro", GID, { graphUrl }), /Graph/);
   await assert.rejects(ehMembro("bom", "nao-e-guid", { graphUrl }), /GUID/);
   assert.strictEqual(await ehMembro("", GID, { graphUrl }), false);
+  // O id_token já traz o grupo: não é preciso chamar o Graph.
+  assert.strictEqual(await ehMembro("mau", GID, { graphUrl, grupos: [GID.toUpperCase()] }), true);
+});
+
+test("Graph: com 403 em memberOf usa checkMemberGroups", async (t) => {
+  const http = require("node:http");
+  const { ehMembro } = require("../lib/grupo");
+  const GID = "11111111-2222-3333-4444-555555555555";
+  const g = http.createServer(async (req, res) => {
+    if (req.url.startsWith("/me/memberOf/")) { res.statusCode = 403; return res.end("{}"); }
+    if (req.url === "/me/checkMemberGroups") { res.setHeader("content-type", "application/json"); if (req.headers.authorization === "Bearer sem") { res.statusCode = 403; return res.end("{}"); } return res.end(JSON.stringify({ value: req.headers.authorization === "Bearer bom" ? [GID] : [] })); }
+    res.statusCode = 404; res.end("{}");
+  });
+  await new Promise((r) => g.listen(0, r)); t.after(() => g.close());
+  const graphUrl = "http://127.0.0.1:" + g.address().port;
+  assert.strictEqual(await ehMembro("bom", GID, { graphUrl }), true);
+  assert.strictEqual(await ehMembro("mau", GID, { graphUrl }), false);
+  await assert.rejects(ehMembro("sem", GID, { graphUrl }), /403/);
 });
 
 test("API: critérios por disciplina e por ano de escolaridade", async (t) => {
