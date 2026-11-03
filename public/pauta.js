@@ -65,9 +65,20 @@
       $("#hist").innerHTML = `<h2>Histórico de alterações</h2>` + (h.length ? `<div class="tabela-rolagem"><table class="hist-lista"><thead><tr><th>Quando</th><th>Quem</th><th>Aluno</th><th>O quê</th><th>Antes</th><th>Depois</th></tr></thead><tbody>${h.map((x) => `<tr><td>${esc(x.quando)}</td><td>${esc(x.quem)}</td><td>${esc(x.aluno)}</td><td>${esc(x.acao)}${x.detalhe ? " · " + esc(x.detalhe) : ""}</td><td>${esc(x.antes)}</td><td>${esc(x.depois)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="pequeno">Ainda não há alterações.</p>');
     };
 
+    // Nível pela percentagem (limites da escola) e nome por baixo do valor, em cada teste e na média de cada critério.
+    const NOMES_NIV = ["Muito insuficiente", "Insuficiente", "Suficiente", "Bom", "Muito bom"];
+    const nivDe = (v, lim) => (v === null || v === undefined || Number.isNaN(v) ? 0 : 1 + lim.filter((x) => v >= x).length);
+    const marcarQual = (td, v, lim) => {
+      if (!td) return; for (let n = 1; n <= 5; n++) td.classList.remove("av-n" + n);
+      let q = td.querySelector(".av-qual"), n = nivDe(v, lim);
+      if (!n) { if (q) q.remove(); td.removeAttribute("title"); return; }
+      td.classList.add("av-n" + n); if (!q) { q = document.createElement("span"); q.className = "av-qual"; td.append(q); }
+      q.textContent = NOMES_NIV[n - 1]; td.title = `Nível ${n}: ${NOMES_NIV[n - 1]}`;
+    };
     const pintar = (dd) => dd.alunos.forEach((al) => {
       const tr = $(`tr[data-aluno="${al.id}"]`); if (!tr) return;
-      for (const k of testes) $(`[data-c="crit-${k.id}"]`, tr).textContent = num(al.criterios[k.id], casas);
+      for (const a of dd.avaliacoes) { const inp = $(`input[data-aval="${a.id}"][data-aluno="${al.id}"]`, tr); if (inp) marcarQual(inp.closest("td"), al.pcts[a.id], dd.limites); }
+      for (const k of testes) { const c = $(`[data-c="crit-${k.id}"]`, tr); c.textContent = num(al.criterios[k.id], casas); marcarQual(c, al.criterios[k.id], dd.limites); }
       $('[data-c="final"]', tr).innerHTML = al.final === null ? "" : `<span class="fin-n">${num(al.final, casas)}${al.parcial ? "*" : ""}</span>${EINK.escala(al.final, dd.limites)}`;
       $('[data-c="nivel"]', tr).textContent = al.nivel ?? ""; $('[data-c="mencao"]', tr).textContent = al.mencao;
       tr.className = al.nivel ? "n" + al.nivel : "";

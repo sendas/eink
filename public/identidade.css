@@ -146,3 +146,57 @@ table input, table select, .folha input, .folha select { min-height: 0; }
 @media (max-width: 640px) { .ln-heroi { padding-top: 40px; } .ln-sec { padding: 48px 20px; } .ln-caixa { padding: 24px; } .marca-nome { font-size: 1.3rem; } }
 @media print { .regua { display: none; } }
 .ln-caixa, .ln-caixa p { text-align: left; }
+
+/* Pauta mais calma: fundos neutros, linhas finas e só a cor do nível (em cada teste, na média, no nível e na menção) */
+.n1, .n2, .n3, .n4, .n5 { background: transparent; }
+:root { --grelha: #e6e2d6; }
+:root[data-tema="escuro"] { --grelha: #26332f; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { --grelha: #26332f; } }
+table.folha tbody td.g0, table.folha tbody td.g1, table.folha tbody td.g2,
+table.folha tbody td.g0.fim, table.folha tbody td.g1.fim, table.folha tbody td.g2.fim { background: var(--cartao); }
+table.folha tbody tr td.fim[data-c^="crit-"] { background: var(--afundado); font-weight: 700; }
+table.folha tbody tr:hover td.g0, table.folha tbody tr:hover td.g1, table.folha tbody tr:hover td.g2 { background: var(--afundado); }
+table.folha .ini { border-left: 1px solid var(--grelha); }
+table.folha .fim { border-right: 1px solid var(--grelha); }
+table.folha .res-ini { border-left: 1px solid var(--linha-forte); }
+table.folha tbody tr:last-child td { border-bottom: 1px solid var(--grelha); }
+table.folha th.crit { background: var(--cartao); border-top: 3px solid var(--gc); }
+table.folha thead th.g0:not(.crit), table.folha thead th.g1:not(.crit), table.folha thead th.g2:not(.crit) { background: var(--cartao); border-bottom: 1px solid var(--grelha); }
+table.folha thead th { font-weight: 600; }
+table.folha .folha-letras th { background: transparent; border: 0; font-size: .7rem; opacity: .7; }
+table.folha tbody th[scope="row"] { background: var(--cartao); }
+.foto-linha { display: inline-block; margin: 0 0 0 .5rem; vertical-align: middle; }
+.foto { width: 2.3rem; height: 2.3rem; font-size: .8rem; }
+table.folha tbody th .aluno-nome { display: inline-block; vertical-align: middle; font-weight: 600; }
+table.folha td { padding-top: .15rem; padding-bottom: .15rem; }
+.troca-vista { background: transparent; padding: 0; gap: .4rem; }
+.troca-vista button.sec { min-height: 36px; padding: .25rem .95rem; font-size: .9rem; border: 1.5px solid var(--linha); background: var(--cartao); color: var(--texto); font-weight: 600; }
+.troca-vista button.sec.ativo { background: var(--marca-fundo); color: var(--marca); border-color: var(--marca); box-shadow: none; }
+.troca-vista span.pequeno { color: var(--suave); }
+.barra-pauta { gap: .8rem 1.4rem; }
+
+/* Cor e avaliação qualitativa de cada teste (e da média do critério): o nível pela percentagem, com o nome por baixo do valor */
+table.folha tbody td.av-n1 { background: var(--n1-fundo); } table.folha tbody td.av-n2 { background: var(--n2-fundo); } table.folha tbody td.av-n3 { background: var(--n3-fundo); }
+table.folha tbody td.av-n4 { background: var(--n4-fundo); } table.folha tbody td.av-n5 { background: var(--n5-fundo); }
+table.folha tbody td.av-n1 input.nota, table.folha tbody td.av-n1 { color: var(--n1-texto); } table.folha tbody td.av-n2 input.nota, table.folha tbody td.av-n2 { color: var(--n2-texto); }
+table.folha tbody td.av-n3 input.nota, table.folha tbody td.av-n3 { color: var(--n3-texto); } table.folha tbody td.av-n4 input.nota, table.folha tbody td.av-n4 { color: var(--n4-texto); }
+table.folha tbody td.av-n5 input.nota, table.folha tbody td.av-n5 { color: var(--n5-texto); }
+.av-qual { display: block; font-size: .68rem; font-weight: 700; line-height: 1.1; letter-spacing: .02em; padding-bottom: .2rem; text-align: center; white-space: normal; }
+table.folha tbody tr.n1 td[data-c="nivel"], table.folha tbody tr.n1 td[data-c="mencao"] { background: var(--n1-fundo); color: var(--n1-texto); font-weight: 700; }
+table.folha tbody tr.n2 td[data-c="nivel"], table.folha tbody tr.n2 td[data-c="mencao"] { background: var(--n2-fundo); color: var(--n2-texto); font-weight: 700; }
+table.folha tbody tr.n3 td[data-c="nivel"], table.folha tbody tr.n3 td[data-c="mencao"] { background: var(--n3-fundo); color: var(--n3-texto); font-weight: 700; }
+table.folha tbody tr.n4 td[data-c="nivel"], table.folha tbody tr.n4 td[data-c="mencao"] { background: var(--n4-fundo); color: var(--n4-texto); font-weight: 700; }
+table.folha tbody tr.n5 td[data-c="nivel"], table.folha tbody tr.n5 td[data-c="mencao"] { background: var(--n5-fundo); color: var(--n5-texto); font-weight: 700; }
+@media print { .av-qual { font-size: .6rem; } }
+/* Ajustes: a média do critério também leva a cor do nível; o nível 5 em tom suave nas células; cabeçalhos neutros */
+:root { --n5-cel: color-mix(in srgb, #2f6b53 26%, #ffffff); --n5-cel-texto: #1b4535; }
+:root[data-tema="escuro"] { --n5-cel: color-mix(in srgb, #7ccba3 26%, #16211e); --n5-cel-texto: #c8f0dc; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { --n5-cel: color-mix(in srgb, #7ccba3 26%, #16211e); --n5-cel-texto: #c8f0dc; } }
+table.folha tbody td.av-n5, table.folha tbody tr td.fim[data-c^="crit-"].av-n5, table.folha tbody tr.n5 td[data-c="nivel"], table.folha tbody tr.n5 td[data-c="mencao"] { background: var(--n5-cel); color: var(--n5-cel-texto); }
+table.folha tbody td.av-n5 input.nota { color: var(--n5-cel-texto); }
+table.folha tbody tr td.fim[data-c^="crit-"].av-n1 { background: var(--n1-fundo); color: var(--n1-texto); }
+table.folha tbody tr td.fim[data-c^="crit-"].av-n2 { background: var(--n2-fundo); color: var(--n2-texto); }
+table.folha tbody tr td.fim[data-c^="crit-"].av-n3 { background: var(--n3-fundo); color: var(--n3-texto); }
+table.folha tbody tr td.fim[data-c^="crit-"].av-n4 { background: var(--n4-fundo); color: var(--n4-texto); }
+table.folha thead th { background: var(--afundado); }
+table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead th.g1:not(.crit), table.folha thead th.g2:not(.crit) { background: var(--cartao); }
