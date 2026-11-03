@@ -759,7 +759,7 @@ function criarServidor(env = process.env) {
   });
 
   // ---------- estáticos ----------
-  const TIPOS = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json", ".ico": "image/x-icon", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mjs": "text/javascript; charset=utf-8", ".gz": "application/gzip" };
+  const TIPOS = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".webmanifest": "application/manifest+json", ".ico": "image/x-icon", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mjs": "text/javascript; charset=utf-8", ".gz": "application/gzip", ".woff2": "font/woff2" };
   const CABECALHOS = {
     "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin",
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
@@ -770,7 +770,7 @@ function criarServidor(env = process.env) {
     if (!f.startsWith(PUBLIC + path.sep)) return false;
     let st; try { st = fs.statSync(f); } catch { return false; }
     if (!st.isFile()) return false;
-    const cab = { "Content-Type": TIPOS[path.extname(f)] || "application/octet-stream", "Cache-Control": rel.startsWith("/vendor/") ? "public, max-age=31536000, immutable" : "no-cache" };
+    const cab = { "Content-Type": TIPOS[path.extname(f)] || "application/octet-stream", "Cache-Control": (rel.startsWith("/vendor/") || rel.startsWith("/fonts/")) ? "public, max-age=31536000, immutable" : "no-cache" };
     // Nas páginas HTML, __V__ vira a versão: cada versão nova usa endereços novos para o CSS e o JS, e nem o navegador nem o Cloudflare servem cópias antigas.
     if (path.extname(f) === ".html") { res.writeHead(200, cab); res.end(fs.readFileSync(f, "utf8").replaceAll("__V__", VERSAO).replaceAll("__BASE__", BASE_URL)); return true; }
     res.writeHead(200, cab);

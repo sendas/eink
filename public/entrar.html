@@ -23,77 +23,61 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#2f6b53">
+<link rel="stylesheet" href="/fontes.css?v=__V__">
 <link rel="stylesheet" href="/estilo.css?v=__V__">
+<link rel="stylesheet" href="/identidade.css?v=__V__">
 <script src="/tema.js?v=__V__"></script>
 </head>
 <body class="entrar pagina-entrada">
-<header class="pe-topo"><span class="pe-marca">Eça Avalia</span><nav><a href="#como">Como funciona</a><a href="#nota">A nota</a><a href="#ver">Ver</a><a href="#ferramentas">Ferramentas</a></nav><span data-tema-switch></span></header>
+<header class="ln-topo"><div>
+<a class="marca" href="#topo" aria-label="Eça Avalia"><svg class="" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><rect class="logo-fundo" width="48" height="48" rx="12"/><rect class="logo-barra" x="8.5" y="30" width="5" height="8" rx="2.5" fill-opacity="0.45"/><rect class="logo-barra" x="15" y="25" width="5" height="13" rx="2.5" fill-opacity="0.6"/><rect class="logo-barra" x="21.5" y="20" width="5" height="18" rx="2.5" fill-opacity="0.8"/><rect class="logo-barra" x="28" y="15" width="5" height="23" rx="2.5"/><rect class="logo-ultima" x="34.5" y="10" width="5" height="28" rx="2.5"/></svg><span class="marca-nome"><span class="a">Eça</span> <span class="v">Avalia</span></span></a>
+<nav aria-label="Principal"><a href="#como">Como funciona</a><a href="#nota">A nota</a><a href="#ver">Ver</a><a href="#ferramentas">Ferramentas</a><span data-tema-switch></span><a class="ln-entrar" href="#entrar">Entrar</a></nav>
+</div></header>
 
-<section class="pe-heroi">
-  <div class="pe-texto">
+<section class="ln-sec ln-heroi" id="topo">
+  <div class="ln-texto">
     <p class="beta-etq-entrada"><strong>Versão beta · em testes</strong></p>
-    <p class="pe-etiqueta">Para docentes do Agrupamento de Escolas Eça de Queirós</p>
-    <h1>Eça Avalia</h1>
-    <p class="pe-lead">A plataforma onde os docentes lançam e calculam as notas, acompanham os alunos e preparam as avaliações intercalares, com as ferramentas de sala de aula sempre à mão.</p>
-    <ul class="pe-pontos">
-      <li><strong>Pauta clara.</strong> Os critérios da tua disciplina e ano, vários testes por critério e a nota final calculada pela média ponderada.</li>
-      <li><strong>Como no Excel.</strong> Escreves, colas e copias notas em grelha, e importas listas e notas de ficheiros do Excel.</li>
-      <li><strong>Menos trabalho.</strong> Níveis de 1 a 5, menções e textos sugeridos para as avaliações intercalares.</li>
-      <li><strong>Para a aula.</strong> Temporizador, sorteio, chamada, sondagens, mapa de sala e quizzes ao vivo, sem contas para os alunos.</li>
-    </ul>
+    <p class="ln-rotulo">Agrupamento de Escolas Eça de Queirós</p>
+    <h1>Notas claras, do primeiro teste à reunião de conselho de turma</h1>
+    <p class="ln-lead">O lugar onde os docentes registam e calculam notas, acompanham os alunos e preparam as avaliações intercalares. Com ferramentas de sala de aula que não pedem contas aos alunos.</p>
+    <div class="ln-acoes"><a class="sec" href="#como">Ver como funciona</a><a class="link" href="#nota">Como se calcula a nota</a></div>
   </div>
-  <main class="caixa-entrar">
-    <h2 class="pe-entrar">Entrar</h2>
-    <a class="botao grande" href="/auth/entrar">Entrar com a conta da escola</a>
-    <p class="pequeno">Só entram docentes da escola com acesso autorizado.</p>
-    <details class="painel" id="local"><summary>Entrar com utilizador e palavra-passe</summary>
-      <form id="f-local" class="linha" style="flex-direction:column;align-items:stretch">
-        <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
-        <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
-        <button>Entrar</button><p id="erro-local" class="pequeno" role="alert"></p>
-      </form>
-      <p class="pequeno">Para docentes que não têm conta Office da escola. Pede os dados a um administrador.</p>
-    </details>
+  <main class="ln-caixa caixa-entrar" id="entrar">
+    <h2>Entrar</h2>
+    <a class="ln-grande" href="/auth/entrar">Entrar com a conta da escola</a>
+    <p>Só entram docentes da escola com acesso autorizado.</p>
+    <div class="ln-ou">ou</div>
+    <form id="f-local">
+      <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
+      <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
+      <button>Entrar com utilizador</button><p id="erro-local" role="alert"></p>
+    </form>
+    <p>Sem conta Office da escola? Pede as credenciais a um administrador.</p>
   </main>
 </section>
 
-<section class="pe-sec" id="como">
-  <h2>Como funciona</h2>
-  <p class="pe-intro">Do primeiro dia de aulas ao conselho de turma, em cinco passos.</p>
-  <ol class="pe-passos">
-    <li><span class="pe-ico ic1"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.2c2.4.3 4 2.2 4 4.8"/></svg></span><span class="pe-passo-n">Passo 1</span><h3>Turmas e alunos</h3><p>Crias a turma e coles a lista de alunos do Excel. Cada docente vê só as suas turmas.</p></li>
-    <li><span class="pe-ico ic2"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9z"/><path d="m8.8 13.8 2.2 2.2 4.2-4.4"/></svg></span><span class="pe-passo-n">Passo 2</span><h3>Testes e grelhas</h3><p>Defines cada teste e, se quiseres, as questões e as cotações. Lanças as pontuações como numa folha de Excel.</p></li>
-    <li><span class="pe-ico ic3"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></span><span class="pe-passo-n">Passo 3</span><h3>Pauta automática</h3><p>Os critérios e os pesos da tua disciplina dão a nota final de cada aluno, sempre atualizada.</p></li>
-    <li><span class="pe-ico ic4"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5" opacity=".55"/></svg></span><span class="pe-passo-n">Passo 4</span><h3>Níveis e intercalares</h3><p>Nível de 1 a 5, menção e uma proposta de texto para as avaliações intercalares.</p></li>
-    <li><span class="pe-ico ic5"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 11 4.5 4.5 4.5-4.5"/><path d="M5 20h14"/></svg></span><span class="pe-passo-n">Passo 5</span><h3>Exportar e guardar</h3><p>Pauta em Excel, histórico de alterações, fecho de períodos e cópias de segurança.</p></li>
-  </ol>
-</section>
+<div class="ln-regua" aria-hidden="true"><div class="regua" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
 
-<section class="pe-sec pe-alt" id="nota">
-  <h2>Como se chega à nota</h2>
-  <p class="pe-intro">Os critérios e os pesos são definidos pelo administrador para cada disciplina e ano. Eis um exemplo.</p>
-  <div class="pe-formula">
-    <div class="pe-pesos" role="img" aria-label="Exemplo: testes e trabalhos valem 70 por cento e comportamento 30 por cento">
-      <div class="pe-peso g0" style="flex:70"><strong>70 %</strong><span>Testes e trabalhos</span><small>média ponderada dos testes</small></div>
-      <div class="pe-peso g1" style="flex:30"><strong>30 %</strong><span>Comportamento</span><small>nível de 1 a 5 dado por ti</small></div>
-    </div>
-    <p class="pe-seta" aria-hidden="true">↓</p>
-    <p class="pe-final"><strong>Nota final</strong> em percentagem, arredondada a 1 ou 2 casas decimais</p>
-    <p class="pe-seta" aria-hidden="true">↓</p>
-    <div class="pe-escala" aria-label="Escala de níveis">
-      <div class="pe-nivel lv1"><strong>1</strong><span>Muito insuficiente</span><small>0 a 19 %</small></div>
-      <div class="pe-nivel lv2"><strong>2</strong><span>Insuficiente</span><small>20 a 49 %</small></div>
-      <div class="pe-nivel lv3"><strong>3</strong><span>Suficiente</span><small>50 a 69 %</small></div>
-      <div class="pe-nivel lv4"><strong>4</strong><span>Bom</span><small>70 a 89 %</small></div>
-      <div class="pe-nivel lv5"><strong>5</strong><span>Muito bom</span><small>90 a 100 %</small></div>
-    </div>
-    <p class="pequeno">Os limites dos níveis são os da escola e podem ser ajustados. Quando falta um critério, a nota final é calculada com os que existem e fica marcada como parcial.</p>
+<section class="ln-sec ln-cartoes"><div class="ln-cartao"><span class="ln-ico v"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg></span><h3>Pauta clara</h3><p>Os critérios da tua disciplina e ano, e a nota final calculada pela média ponderada à medida que lanças.</p></div><div class="ln-cartao"><span class="ln-ico a"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg></span><h3>Como no Excel</h3><p>Escreves, colas e copias notas em grelha, e importas listas e notas de ficheiros do Excel.</p></div><div class="ln-cartao"><span class="ln-ico v"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V14M9 20V11M14 20V8M19 20V4"/></svg></span><h3>Níveis de 1 a 5</h3><p>Com menções e textos sugeridos para as avaliações intercalares.</p></div><div class="ln-cartao"><span class="ln-ico l"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><h3>Ferramentas de sala</h3><p>Os alunos entram com uma alcunha, sem contas.</p></div></section>
+
+<section class="ln-faixa" id="como"><div class="ln-sec">
+  <div class="ln-cab"><p class="ln-rotulo">Como funciona</p><h2 class="ln-titulo">Cinco passos, do início ao fim do período</h2></div>
+  <ol class="ln-passos"><li><span class="n">1</span><strong>Turmas e alunos</strong></li><li><span class="n">2</span><strong>Testes e grelhas</strong></li><li><span class="n">3</span><strong>Pauta automática</strong></li><li><span class="n">4</span><strong>Níveis e intercalares</strong></li><li><span class="n">5</span><strong>Exportação e cópias de segurança</strong></li></ol>
+</div></section>
+
+<section class="ln-sec" id="nota"><div class="ln-nota">
+  <div style="flex: 1 1 380px">
+    <p class="ln-rotulo">A nota</p><h2 class="ln-titulo">Como se calcula</h2>
+    <p style="margin:0;color:var(--suave)">A nota final é uma percentagem, convertida num nível de 1 a 5. Se faltar um critério, fica marcada como parcial. Os pesos e os limites são definidos pelo administrador para cada disciplina e ano.</p>
+    <p class="ln-rotulo" style="color:var(--suave)">Pesos de exemplo</p>
+    <div class="ln-pesos" role="img" aria-label="Exemplo: testes e trabalhos valem 70 por cento e comportamento 30 por cento"><div class="p1" style="flex:70">Testes e trabalhos, 70%</div><div class="p2" style="flex:30">Comportamento, 30%</div></div>
   </div>
-</section>
+  <div class="ln-niveis" style="flex: 1 1 420px" aria-label="Escala de níveis"><div class="ln-niv n1"><b>1</b><span>Muito insuficiente, 0 a 19 %</span></div><div class="ln-niv n2"><b>2</b><span>Insuficiente, 20 a 49 %</span></div><div class="ln-niv n3"><b>3</b><span>Suficiente, 50 a 69 %</span></div><div class="ln-niv n4"><b>4</b><span>Bom, 70 a 89 %</span></div><div class="ln-niv n5"><b>5</b><span>Muito bom, 90 a 100 %</span></div></div>
+</div></section>
 
-<section class="pe-sec" id="ver">
-  <h2>Ver como é</h2>
+<section class="ln-faixa afundada" id="ver"><div class="ln-sec">
+  <div class="ln-cab"><p class="ln-rotulo">Ver</p><h2 class="ln-titulo">Por dentro da plataforma</h2></div>
   <section class="slides" aria-roledescription="carrossel" aria-label="Capturas de ecrã da plataforma">
     <div class="slides-quadro">
       <figure class="slide ativo"><img src="/img/slide-1.jpg" data-grande="/img/slide-1-g.jpg" alt="Página inicial com a saudação, os números das turmas e um cartão por turma com a média, os níveis e o progresso das notas" width="1200" height="737"><figcaption>As tuas turmas num relance: média, níveis e progresso das notas.</figcaption></figure>
@@ -104,35 +88,27 @@
     <div class="slides-controlo"><button type="button" class="sec" id="sl-ant" aria-label="Captura anterior">‹</button><span class="slides-pontos" id="sl-pontos"></span><button type="button" class="sec" id="sl-seg" aria-label="Captura seguinte">›</button><button type="button" class="sec" id="sl-ampliar">Ampliar</button></div>
   </section>
   <p class="pequeno pe-nota-img">Capturas com turmas e alunos inventados.</p>
+</div></section>
+
+<section class="ln-sec" id="ferramentas">
+  <div class="ln-cab"><p class="ln-rotulo">Ferramentas</p><h2 class="ln-titulo">Para a sala de aula</h2><p>Os alunos entram nos quizzes e nas sondagens com uma alcunha e um código.</p></div>
+  <div class="ln-ferr"><div><span class="ln-ico v"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg></span><strong>Temporizador</strong></div><div><span class="ln-ico a"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></span><strong>Sorteio</strong></div><div><span class="ln-ico v"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg></span><strong>Chamada</strong></div><div><span class="ln-ico a"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><strong>Listas de verificação</strong></div><div><span class="ln-ico a"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><strong>Sondagens ao vivo</strong></div><div><span class="ln-ico v"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><strong>Mapa de sala</strong></div><div><span class="ln-ico v"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H8l-4 4z"/></svg></span><strong>Quadros</strong></div><div><span class="ln-ico l"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><strong>Quizzes ao vivo com PIN</strong></div></div>
 </section>
 
-<section class="pe-sec pe-alt" id="ferramentas">
-  <h2>E ferramentas para a sala de aula</h2>
-  <p class="pe-intro">Para usar no quadro ou no telemóvel. Os alunos não precisam de conta.</p>
-  <div class="pe-ferr">
-    <div><strong>Temporizador</strong><span>Contagem decrescente para o ecrã da sala.</span></div>
-    <div><strong>Sorteio</strong><span>Um aluno ou grupos ao acaso.</span></div>
-    <div><strong>Chamada</strong><span>Presenças por aula.</span></div>
-    <div><strong>Listas</strong><span>Listas de verificação.</span></div>
-    <div><strong>Sondagem</strong><span>Pergunta rápida com um código, com resultados em direto.</span></div>
-    <div><strong>Mapa de sala</strong><span>Os lugares dos alunos.</span></div>
-    <div><strong>Quadros</strong><span>Notas e ideias da aula.</span></div>
-    <div><strong>Quizzes ao vivo</strong><span>Jogo com PIN, ao estilo Kahoot.</span></div>
-  </div>
-</section>
-
-<section class="pe-sec" id="confianca">
-  <h2>Os dados dos alunos</h2>
-  <ul class="pe-conf">
-    <li><strong>Só docentes autorizados</strong> entram, com a conta Microsoft da escola ou uma conta local criada por um administrador.</li>
-    <li><strong>Cada docente</strong> só vê as suas turmas.</li>
-    <li><strong>Registo de alterações</strong>: fica guardado quem mudou cada nota e quando, e os períodos fecham-se depois do conselho de turma.</li>
-    <li><strong>Nos jogos e sondagens</strong> os alunos entram com uma alcunha, sem conta.</li>
-    <li><strong>Prazos de retenção</strong> e cópias de segurança definidos pela escola. Lê o <a href="/privacidade.html">aviso de privacidade</a>.</li>
+<section class="ln-sec" style="padding-top:0" id="confianca"><div class="ln-dados">
+  <h2>Proteção de dados</h2>
+  <ul>
+    <li>Só professores autorizados entram, e cada um vê só as suas turmas</li>
+    <li>Todas as alterações ficam registadas</li>
+    <li>Os períodos fecham depois dos conselhos de turma</li>
+    <li>Conservação e cópias de segurança definidas pela escola. Lê o <a href="/privacidade.html">aviso de privacidade</a></li>
   </ul>
-</section>
+</div></section>
 
-<footer class="pe-rodape"><span>Eça Avalia</span><a href="/privacidade.html">Privacidade</a></footer>
+<footer class="ln-rodape"><div>
+<div style="display:flex;align-items:center;gap:12px"><svg class="" width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><rect class="logo-fundo" width="48" height="48" rx="12"/><rect class="logo-barra" x="8.5" y="30" width="5" height="8" rx="2.5" fill-opacity="0.45"/><rect class="logo-barra" x="15" y="25" width="5" height="13" rx="2.5" fill-opacity="0.6"/><rect class="logo-barra" x="21.5" y="20" width="5" height="18" rx="2.5" fill-opacity="0.8"/><rect class="logo-barra" x="28" y="15" width="5" height="23" rx="2.5"/><rect class="logo-ultima" x="34.5" y="10" width="5" height="28" rx="2.5"/></svg><span class="marca-nome" style="display:flex;flex-direction:column;gap:2px"><span><span class="a">Eça</span> <span class="v">Avalia</span></span><small>Agrupamento de Escolas Eça de Queirós</small></span></div>
+<a href="/privacidade.html">Aviso de privacidade</a>
+</div></footer>
 <dialog class="lightbox" id="lb" aria-label="Captura ampliada">
   <button type="button" class="lb-fechar" id="lb-fechar" aria-label="Fechar">×</button>
   <button type="button" class="lb-nav lb-ant" id="lb-ant" aria-label="Captura anterior">‹</button>
