@@ -29,24 +29,29 @@
     </article>`;
   };
 
+  const anosCompactos = (an) => { const l = [...an].sort((a, b) => a - b); if (l.length === 1 || !l[0]) return anoTxt(l[0]); return l.every((a, i) => !i || a === l[i - 1] + 1) && l.length > 2 ? `${l[0]}.º a ${l[l.length - 1]}.º ano` : l.map((a) => a + ".º").join(", ") + " ano"; };
   const anoTxt = (a) => (a ? `${a}.º ano` : "Todos os anos");
-  const barraPesos = (cr) => `<div class="cg-barra" role="img" aria-label="${cr.map((k) => `${k.nome} ${k.peso} %`).join(", ")}">${cr.map((k, i) => `<span class="g${i % 3}" style="flex:${Math.max(1, k.peso)}">${k.peso} %</span>`).join("")}</div>
-    <div class="cg-leg">${cr.map((k, i) => `<span><i class="g${i % 3}"></i>${esc(k.nome)} <small>${k.tipo === "nivel" ? "nível 1 a 5 dado por ti" : "média dos testes e trabalhos"}</small></span>`).join("")}</div>`;
+  const barraPesos = (cr) => `<div class="cg-barra" role="img" aria-label="${cr.map((k) => `${k.nome} ${k.peso} %`).join(", ")}">${cr.map((k, i) => `<span class="g${i % 3}" style="flex:${Math.max(1, k.peso)}" title="${esc(k.nome)}, ${k.peso} %">${k.peso >= 8 ? k.peso + " %" : ""}</span>`).join("")}</div>
+    <div class="cg-leg">${cr.map((k, i) => `<span><i class="g${i % 3}"></i>${esc(k.nome)}, ${k.peso} % <small>${k.tipo === "nivel" ? "nível 1 a 5 dado por ti" : "média dos testes e trabalhos"}</small></span>`).join("")}</div>`;
   // Resumo dos critérios do grupo do docente: o esquema do ano de cada turma (ou o de «todos os anos»), com vista completa numa janela.
   const cartaoCriterios = (g, admin) => {
     const porAno = (ano) => g.esquemas.find((e) => e.ano === ano) || g.esquemas.find((e) => e.ano === 0);
-    const anos = g.anosTurmas.length ? g.anosTurmas : [0], usados = [];
-    for (const a of anos) { const e = porAno(a); if (e && !usados.some((u) => u.e === e)) usados.push({ e, anos: anos.filter((x) => porAno(x) === e) }); }
+    // Sem turmas, mostram-se os critérios de todos os anos da disciplina (os anos com critérios iguais juntos).
+    const anos = g.anosTurmas.length ? g.anosTurmas : (g.esquemas.some((e) => e.ano) ? g.esquemas.filter((e) => e.ano).map((e) => e.ano) : [0]), usados = [];
+    const igual = (a, b) => a === b || (a.casas === b.casas && JSON.stringify(a.criterios.map((k) => [k.nome, k.peso, k.tipo])) === JSON.stringify(b.criterios.map((k) => [k.nome, k.peso, k.tipo])));
+    for (const a of anos) { const e = porAno(a); const u = e && usados.find((x) => igual(x.e, e)); if (u) u.anos.push(a); else if (e) usados.push({ e, anos: [a] }); }
     return `<div class="painel cg"><div class="cg-topo"><div><p class="rotulo">Critérios de avaliação</p><h2 style="margin:0">${esc(g.nome)}</h2></div><div class="linha"><button type="button" class="sec" id="cg-ver">Ver na totalidade</button><button type="button" class="sec" id="cg-mudar">Mudar de disciplina</button>${admin ? '<a class="botao fantasma" href="#/criterios">Editar</a>' : ""}</div></div>
-      ${usados.map(({ e, anos: an }) => `<div class="cg-esq"><p class="pequeno"><strong>${an.map((a) => anoTxt(a)).join(", ")}</strong> · nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</p>${barraPesos(e.criterios)}</div>`).join("")}
+      ${usados.map(({ e, anos: an }) => `<div class="cg-esq"><p class="pequeno"><strong>${anosCompactos(an)}</strong> · nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</p>${barraPesos(e.criterios)}</div>`).join("")}
       ${g.documentos && g.documentos.length ? `<div class="cg-docs"><p class="rotulo">Documentos</p>${g.documentos.map((d) => `<a class="cg-doc" href="/api/documentos/${d.id}/ficheiro" target="_blank" rel="noopener"><span class="cg-pdf" aria-hidden="true">PDF</span><span>${esc(d.titulo)} <small class="pequeno">${Math.max(1, Math.round(d.tamanho / 1024))} KB</small></span></a>`).join("")}</div>` : ""}
       <p class="pequeno">Definidos pelo administrador para esta disciplina${g.ad ? ` (no Entra: ${esc(g.ad)})` : ""}.</p></div>`;
   };
   const janelaCriterios = (g) => {
+    const grupos = []; // anos com critérios iguais aparecem juntos
+    for (const e of g.esquemas) { const chave = e.casas + JSON.stringify(e.criterios.map((k) => [k.nome, k.peso, k.tipo])), x = grupos.find((u) => u.chave === chave); if (x) x.anos.push(e.ano); else grupos.push({ chave, e, anos: [e.ano] }); }
     const dlg = document.createElement("dialog"); dlg.className = "cg-dlg";
     dlg.innerHTML = `<h2 style="margin-top:0">Critérios de avaliação · ${esc(g.nome)}</h2>
-      ${g.esquemas.map((e) => `<section class="cg-esq"><h3>${anoTxt(e.ano)} <small class="pequeno">nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</small></h3>${barraPesos(e.criterios)}
-        <table><thead><tr><th>Critério</th><th>Como se calcula</th><th class="num">Peso</th></tr></thead><tbody>${e.criterios.map((k) => `<tr><td>${esc(k.nome)}</td><td>${k.tipo === "nivel" ? "Nível de 1 a 5 dado pelo docente" : "Média ponderada dos testes e trabalhos lançados"}</td><td class="num">${k.peso} %</td></tr>`).join("")}</tbody></table></section>`).join("")}
+      ${grupos.map(({ e, anos: an }) => `<section class="cg-esq"><h3>${anosCompactos(an)} <small class="pequeno">nota final com ${e.casas} casa${e.casas === 1 ? "" : "s"} decimal${e.casas === 1 ? "" : "is"}</small></h3>${barraPesos(e.criterios)}
+        <table class="cg-tab"><thead><tr><th>Critério</th><th>Como se calcula</th><th class="num">Peso</th></tr></thead><tbody>${e.criterios.map((k) => `<tr><td data-r="Critério">${esc(k.nome)}</td><td data-r="Como se calcula">${k.tipo === "nivel" ? "Nível de 1 a 5 dado pelo docente" : "Média ponderada dos testes e trabalhos lançados"}</td><td class="num" data-r="Peso">${k.peso} %</td></tr>`).join("")}</tbody></table></section>`).join("")}
       <p class="pequeno"><strong>Níveis:</strong> 1 (0 a 19 %), 2 (20 a 49 %), 3 (50 a 69 %), 4 (70 a 89 %) e 5 (90 a 100 %). Quando falta um critério, a nota final usa os que existem e fica marcada como parcial.</p>
       <p class="linha"><button type="button" class="sec" id="cg-fechar">Fechar</button></p>`;
     document.body.append(dlg); dlg.showModal();
