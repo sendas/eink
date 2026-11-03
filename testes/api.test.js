@@ -50,7 +50,7 @@ test("API: docentes, turmas, notas e pauta", async (t) => {
   assert.strictEqual(p.alunos[1].final, 42.5);
   assert.strictEqual(p.alunos[1].nivel, 2);
 
-  const gerais = (await ana.chamar("GET", "/api/grupos")).d[0].esquemas[0].criterios; // grupo «Geral»: testes e trabalhos 70 %, comportamento 30 %
+  const gerais = (await ana.chamar("GET", "/api/grupos")).d.find((g) => g.nome === "Geral").esquemas[0].criterios; // grupo «Geral»: testes e trabalhos 70 %, comportamento 30 %
   const comp = gerais.find((k) => k.tipo === "nivel").id;
   await ana.chamar("PUT", `/api/periodos/${per}/niveis`, { criterio: comp, aluno: a1.id, nivel: 5 });
   assert.strictEqual((await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d.alunos[0].final, Math.round(75 * 0.7 + 95 * 0.3));
@@ -199,7 +199,7 @@ test("API: grelha de um teste, casas decimais e entrada pelo grupo do Entra ID",
   assert.strictEqual((await rui.chamar("PUT", `/api/avaliacoes/${av}/grelha/notas`, { linhas: [] })).estado, 404);
 
   // Duas casas decimais, escolhidas pelo administrador no grupo.
-  const geral = (await adm.chamar("GET", "/api/grupos")).d[0].esquemas[0];
+  const geral = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.nome === "Geral").esquemas[0];
   assert.strictEqual((await adm.chamar("PUT", "/api/admin/esquemas/" + geral.id, { casas: 3, criterios: geral.criterios })).estado, 400);
   assert.strictEqual((await adm.chamar("PUT", "/api/admin/esquemas/" + geral.id, { casas: 2, criterios: geral.criterios })).d.esquemas[0].casas, 2);
   const { d: { id: av2 } } = await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Ficha", peso: 1, maximo: 3 });
@@ -1049,7 +1049,7 @@ test("Fotografias dos alunos: guardar, ver só o próprio docente, limites e apa
   const adm = await entrar("admin@escola.pt");
   await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
   const outra = await entrar("ana@escola.pt");
-  const g = (await adm.chamar("GET", "/api/grupos")).d[0].id;
+  const g = (await adm.chamar("GET", "/api/grupos")).d.find((g) => g.nome === "Geral").id;
   const tu = (await adm.chamar("POST", "/api/turmas", { nome: "9.º C", ano_letivo: "2026/2027", ano: 9, grupo_id: g })).d;
   await adm.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Rui" });
   const per = (await adm.chamar("GET", "/api/atalhos")).d[0].periodos[0].id;

@@ -4,8 +4,8 @@
   const { api, aviso, esc, $, $$ } = EINK;
   const CICLOS = [["1", "1.º ciclo"], ["2", "2.º ciclo"], ["3", "3.º ciclo"], ["sec", "Secundário"], ["prof", "Cursos profissionais"], ["todas", "Todas"]];
   const norm = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const noCiclo = (d, c) => c === "todas" || (c === "prof" ? d.profissional : !d.profissional && d.anos.some((a) => (c === "1" ? a <= 4 : c === "2" ? a >= 5 && a <= 6 : c === "3" ? a >= 7 && a <= 9 : a >= 10)));
-  const anosTxt = (a) => (a.length ? a.map((x) => x + ".º").join(", ") + " ano" : "sem anos");
+  const noCiclo = (d, c) => c === "todas" || (c === "prof" ? d.profissional : !d.profissional && ((d.ciclos || []).includes(c) || d.anos.some((a) => (c === "1" ? a <= 4 : c === "2" ? a >= 5 && a <= 6 : c === "3" ? a >= 7 && a <= 9 : a >= 10))));
+  const anosTxt = (a) => (a.length ? a.map((x) => x + ".º").join(", ") + " ano" : "");
 
   EINK.escolherDisciplinas = async (depois) => {
     const todas = await api("GET", "/api/disciplinas"), sel = new Set(todas.filter((d) => d.escolhida).map((d) => d.id));
