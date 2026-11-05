@@ -368,6 +368,13 @@ test("Grelhas: cotações a somar 100 e modelos enviados a colegas", async (t) =
   assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 1);
   const dele = (await rui.chamar("GET", "/api/grelha-modelos")).d;
   assert.strictEqual(dele.length, 1); assert.strictEqual(dele[0].de, "Ana"); assert.strictEqual(dele[0].nova, true); assert.strictEqual(dele[0].soma, 100);
+  // Colega que ainda não entrou: envia-se pelo email e a cópia chega quando entrar
+  assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { emails: ["x@outro.pt"] })).estado, 400, "só emails da escola");
+  assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { emails: ["isto nao"] })).estado, 400);
+  assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { emails: ["novo@escola.pt"] })).d.aEspera, 1);
+  await adm.chamar("POST", "/api/admin/professores", { upn: "novo@escola.pt", nome: "Novo" });
+  const novoP = await entrar("novo@escola.pt");
+  assert.strictEqual((await novoP.chamar("GET", "/api/grelha-modelos")).d.filter((x) => x.de === "Ana").length, 1, "o modelo que esperava chega à primeira entrada");
   assert.strictEqual((await rui.chamar("PUT", `/api/grelha-modelos/${m.d.id}`, { nome: "roubo" })).estado, 404, "não se mexe nos modelos de outros");
   await rui.chamar("POST", "/api/grelha-modelos/vistos", {});
   assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 0);

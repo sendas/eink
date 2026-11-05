@@ -652,7 +652,7 @@ function criarServidor(env = process.env) {
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin, correio: CORREIO, baseUrl: BASE_URL });
-  const MODELOS = registarModelos({ rota, db, erro, texto, inteiro, existe, avalDe, itensDe });
+  const MODELOS = registarModelos({ rota, db, erro, texto, inteiro, existe, avalDe, itensDe, dominios: DOMINIOS });
   const ACESSOS = registarAcessos({ rota, db, erro, soAdmin });
   ACESSOS.limpar(); const relogioAcessos = setInterval(() => { try { ACESSOS.limpar(); } catch (e) { console.error("Acessos:", e.message); } }, 24 * 3600000); relogioAcessos.unref();
   const criteriosBase = registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });
@@ -829,7 +829,7 @@ function criarServidor(env = process.env) {
           const prof = professorDe(upn, upn.split("@")[0], GRUPO_DOCENTES ? u.searchParams.get("fora") !== "1" : undefined, GRUPO_ADMIN ? u.searchParams.get("admin") === "1" : undefined);
           if (!prof && !GRUPO_DOCENTES) recusar(upn, upn.split("@")[0], [u.searchParams.get("ad")]);
           if (!prof) { res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Conta sem acesso."); }
-          est.contar(prof.id, "login"); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
+          est.contar(prof.id, "login"); MODELOS.entregar(prof); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
           aplicarGrupoAd(prof, [u.searchParams.get("ad")]);
           db.prepare("UPDATE professores SET ultimo_acesso = datetime('now') WHERE id = ?").run(prof.id);
           auth.criarSessao(res, upn, prof.nome);
@@ -864,7 +864,7 @@ function criarServidor(env = process.env) {
         aplicarGrupoAd(prof, [perf && perf.department, perf && perf.jobTitle, perf && perf.displayName, c.nome]);
         const nomeLimpo = semGrupo(c.nome);
         db.prepare("UPDATE professores SET nome = ?, ultimo_acesso = datetime('now') WHERE id = ?").run(nomeLimpo, prof.id);
-        est.contar(prof.id, "login"); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
+        est.contar(prof.id, "login"); MODELOS.entregar(prof); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
         auth.criarSessao(res, c.upn, nomeLimpo);
         res.writeHead(302, { Location: "/" }); return res.end();
       }
@@ -876,7 +876,7 @@ function criarServidor(env = process.env) {
         const certa = await CONTAS.conferir(String(b.senha || "").slice(0, 200), prof && prof.senha);
         if (!prof || !certa || !prof.ativo) return json(res, 401, { erro: "Utilizador ou palavra-passe errados." });
         db.prepare("UPDATE professores SET ultimo_acesso = datetime('now') WHERE id = ?").run(prof.id);
-        est.contar(prof.id, "login"); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
+        est.contar(prof.id, "login"); MODELOS.entregar(prof); ACESSOS.registarAcesso({ profId: prof.id, ip: ip(req), ua: req.headers["user-agent"] });
         auth.criarSessao(res, prof.upn, prof.nome);
         return json(res, 200, { ok: true });
       }

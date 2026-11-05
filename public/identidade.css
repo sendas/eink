@@ -270,3 +270,5 @@ table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead
 .nova-versao button:not(.sec) { background: var(--sinal); color: #16232a; border-color: var(--sinal); }
 .nova-versao .sec, .nova-versao a.botao { background: transparent; color: var(--sobre-profundo); border: 1.5px solid var(--sobre-profundo-suave); }
 @media print { .nova-versao { display: none; } }
+.dest-chip.pendente { background: var(--sinal-fundo); color: var(--sinal-texto); border: 1.5px dashed var(--sinal-texto); }
+.dest-lista li.sem { white-space: normal; line-height: 1.4; }

@@ -8,28 +8,33 @@
   // (setas e Enter ou Tab para escolher, clique também serve) e cada escolha vira uma etiqueta que se retira com × ou Backspace.
   const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   EINK.campoDestinatarios = (colegas, aoMudar) => {
-    const escolhidos = [], caixa = document.createElement("div"); caixa.className = "dest";
+    const escolhidos = [], caixa = document.createElement("div"), meu = String((EINK.eu && EINK.eu.upn) || "").toLowerCase(); caixa.className = "dest";
     caixa.innerHTML = `<div class="dest-campo"><span class="dest-rot">Para</span><span class="dest-chips"></span><input class="dest-in" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="dest-lista" placeholder="Escreve o nome ou o email do colega"></div><ul class="dest-lista" id="dest-lista" role="listbox" hidden></ul>`;
     const campo = $(".dest-campo", caixa), chips = $(".dest-chips", caixa), entrada = $(".dest-in", caixa), lista = $(".dest-lista", caixa);
     let sugestoes = [], ativo = 0;
     const fechar = () => { lista.hidden = true; entrada.setAttribute("aria-expanded", "false"); sugestoes = []; };
     const desenharChips = () => {
-      chips.innerHTML = escolhidos.map((c) => `<span class="dest-chip" title="${esc(c.email)}">${esc(c.nome)}<button type="button" class="dest-x" data-id="${c.id}" aria-label="Retirar ${esc(c.nome)}">×</button></span>`).join("");
-      $$(".dest-x", chips).forEach((x) => { x.onclick = () => { const i = escolhidos.findIndex((c) => c.id === Number(x.dataset.id)); if (i >= 0) escolhidos.splice(i, 1); desenharChips(); aoMudar(escolhidos); entrada.focus(); }; });
+      chips.innerHTML = escolhidos.map((c) => `<span class="dest-chip${c.pendente ? " pendente" : ""}" title="${esc(c.email)}${c.pendente ? " (ainda não entrou na plataforma: recebe quando entrar)" : ""}">${esc(c.nome)}<button type="button" class="dest-x" data-id="${esc(c.email)}" aria-label="Retirar ${esc(c.nome)}">×</button></span>`).join("");
+      $$(".dest-x", chips).forEach((x) => { x.onclick = () => { const i = escolhidos.findIndex((c) => c.email === x.dataset.id); if (i >= 0) escolhidos.splice(i, 1); desenharChips(); aoMudar(escolhidos); entrada.focus(); }; });
     };
-    const juntar = (c) => { if (!escolhidos.some((x) => x.id === c.id)) escolhidos.push(c); entrada.value = ""; fechar(); desenharChips(); aoMudar(escolhidos); entrada.focus(); };
+    const juntar = (c) => { if (!escolhidos.some((x) => x.email === c.email)) escolhidos.push(c); entrada.value = ""; fechar(); desenharChips(); aoMudar(escolhidos); entrada.focus(); };
     // Prefixo de uma palavra do nome ou do email primeiro; depois quem contém o texto.
     const procurar = (t) => {
       const q = norm(t); if (!q) return [];
       const pontos = (c) => { const nome = norm(c.nome), email = norm(c.email); const palavras = nome.split(/\s+/);
         if (email.startsWith(q) || nome.startsWith(q)) return 3; if (palavras.some((w) => w.startsWith(q)) || email.split("@")[0].split(/[._-]/).some((w) => w.startsWith(q))) return 2; if (nome.includes(q) || email.includes(q)) return 1; return 0; };
-      return colegas.filter((c) => !escolhidos.some((x) => x.id === c.id)).map((c) => [pontos(c), c]).filter(([p]) => p).sort((x, y) => y[0] - x[0] || x[1].nome.localeCompare(y[1].nome, "pt")).slice(0, 8).map(([, c]) => c);
+      return colegas.filter((c) => !escolhidos.some((x) => x.email === c.email)).map((c) => [pontos(c), c]).filter(([p]) => p).sort((x, y) => y[0] - x[0] || x[1].nome.localeCompare(y[1].nome, "pt")).slice(0, 8).map(([, c]) => c);
     };
     const realce = (texto, t) => { const i = norm(texto).indexOf(norm(t)); if (!t || i < 0) return esc(texto); return esc(texto.slice(0, i)) + "<b>" + esc(texto.slice(i, i + t.length)) + "</b>" + esc(texto.slice(i + t.length)); };
     const mostrar_ = () => {
       sugestoes = procurar(entrada.value); ativo = 0;
-      if (!entrada.value.trim()) return fechar();
-      lista.innerHTML = sugestoes.length ? sugestoes.map((c, i) => `<li role="option" id="dest-o${i}" data-i="${i}" aria-selected="${i === 0}" class="${i === 0 ? "ativo" : ""}"><strong>${realce(c.nome, entrada.value)}</strong><small>${realce(c.email, entrada.value)}</small></li>`).join("") : '<li class="sem">Nenhum colega encontrado</li>';
+      const t = entrada.value.trim().toLowerCase();
+      // Um email completo que ainda não está na plataforma: envia-se na mesma, e chega quando o colega entrar.
+      const emailLivre = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t) && t !== meu && !colegas.some((c) => c.email === t) && !escolhidos.some((c) => c.email === t);
+      if (emailLivre) sugestoes.push({ id: null, nome: t, email: t, pendente: true });
+      if (!t) return fechar();
+      const aviso0 = colegas.length ? "Nenhum colega encontrado. Para quem ainda não entrou na plataforma, escreve o email completo (nome@…)." : "Ainda não há outros docentes registados: só aparecem os colegas que já entraram. Escreve o email completo para enviar na mesma.";
+      lista.innerHTML = sugestoes.length ? sugestoes.map((c, i) => `<li role="option" id="dest-o${i}" data-i="${i}" aria-selected="${i === 0}" class="${i === 0 ? "ativo" : ""}">${c.pendente ? `<strong>Enviar para ${esc(c.email)}</strong><small>Ainda não entrou na plataforma: recebe o modelo quando entrar</small>` : `<strong>${realce(c.nome, entrada.value)}</strong><small>${realce(c.email, entrada.value)}</small>`}</li>`).join("") : `<li class="sem">${aviso0}</li>`;
       lista.hidden = false; entrada.setAttribute("aria-expanded", "true");
       $$("li[data-i]", lista).forEach((li) => { li.onmousedown = (e) => { e.preventDefault(); juntar(sugestoes[Number(li.dataset.i)]); }; });
     };
@@ -49,10 +54,12 @@
       const t = (e.clipboardData || window.clipboardData).getData("text"); if (!/[;,\n\t]/.test(t)) return;
       e.preventDefault(); let ok = 0, falhas = 0;
       for (const parte of t.split(/[;,\n\t]+/).map((x) => x.trim()).filter(Boolean)) {
-        const email = (/<([^>]+)>/.exec(parte) || [])[1] || parte, c = colegas.find((x) => norm(x.email) === norm(email) || norm(x.nome) === norm(parte));
-        if (c) { if (!escolhidos.some((x) => x.id === c.id)) { escolhidos.push(c); ok++; } } else falhas++;
+        const email = ((/<([^>]+)>/.exec(parte) || [])[1] || parte).trim().toLowerCase(), c = colegas.find((x) => norm(x.email) === norm(email) || norm(x.nome) === norm(parte));
+        if (c) { if (!escolhidos.some((x) => x.email === c.email)) { escolhidos.push(c); ok++; } }
+        else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && email !== meu) { if (!escolhidos.some((x) => x.email === email)) { escolhidos.push({ id: null, nome: email, email, pendente: true }); ok++; } }
+        else falhas++;
       }
-      desenharChips(); aoMudar(escolhidos); if (falhas) aviso(`${falhas} endereço${falhas === 1 ? "" : "s"} não ${falhas === 1 ? "pertence" : "pertencem"} a docentes da plataforma.`, true);
+      desenharChips(); aoMudar(escolhidos); if (falhas) aviso(`${falhas} endereço${falhas === 1 ? " não é válido" : "s não são válidos"}.`, true);
     };
     campo.onclick = () => entrada.focus();
     return { caixa, escolhidos, focar: () => entrada.focus() };
@@ -72,10 +79,10 @@
     const fechar = () => { dlg.close(); dlg.remove(); };
     $("#col-fechar", dlg).onclick = fechar; dlg.addEventListener("cancel", () => dlg.remove());
     $("#col-enviar", dlg).onclick = async (e) => {
-      const para = campo.escolhidos.map((c) => c.id);
-      if (!para.length) return aviso("Escolhe pelo menos um colega.", true);
+      const para = campo.escolhidos.filter((c) => c.id).map((c) => c.id), emails = campo.escolhidos.filter((c) => !c.id).map((c) => c.email);
+      if (!para.length && !emails.length) return aviso("Escolhe pelo menos um colega.", true);
       e.target.disabled = true;
-      try { const r = await api("POST", `/api/grelha-modelos/${modeloId}/enviar`, { para }); fechar(); aviso(`Modelo enviado a ${r.enviados} colega${r.enviados === 1 ? "" : "s"}.`); if (depois) depois(); } catch { e.target.disabled = false; }
+      try { const r = await api("POST", `/api/grelha-modelos/${modeloId}/enviar`, { para, emails }); fechar(); aviso([r.enviados ? `Modelo enviado a ${r.enviados} colega${r.enviados === 1 ? "" : "s"}.` : "", r.aEspera ? `${r.aEspera} colega${r.aEspera === 1 ? " ainda não entrou" : "s ainda não entraram"} na plataforma e ${r.aEspera === 1 ? "recebe" : "recebem"} o modelo quando entrar${r.aEspera === 1 ? "" : "em"}.` : ""].filter(Boolean).join(" ")); if (depois) depois(); } catch { e.target.disabled = false; }
     };
   };
 
