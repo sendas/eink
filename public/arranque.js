@@ -5,6 +5,10 @@
   document.getElementById("nome").textContent = EINK.eu.nome || EINK.eu.upn;
   if (EINK.eu.admin) document.getElementById("nav-gestao").hidden = false;
   if (EINK.eu.versao) { const v = document.getElementById("versao"); v.textContent = "v" + EINK.eu.versao; v.hidden = false; }
+  if (EINK.eu.grelhas_novas) {
+    const b = document.getElementById("nav-modelos-n"); b.textContent = EINK.eu.grelhas_novas; b.hidden = false;
+    try { if (!sessionStorage.getItem("eink.modelosAviso")) { sessionStorage.setItem("eink.modelosAviso", "1"); EINK.aviso(`Recebeste ${EINK.eu.grelhas_novas} grelha${EINK.eu.grelhas_novas === 1 ? "" : "s"} de colegas. Vê em «Modelos».`); } } catch { /* sem sessionStorage */ }
+  }
   if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
   // Diz ao servidor o tamanho do ecrã e se é táctil, uma vez por sessão do navegador (junto com o endereço IP e o navegador, vistos pelo servidor).
   try {

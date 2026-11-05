@@ -211,3 +211,35 @@ table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead
 .ln-topo .beta-pill { margin-right: auto; }
 .topo nav a { white-space: nowrap; }
 @media (min-width: 1100px) { .topo { flex-wrap: wrap; row-gap: .4rem; } }
+
+/* Alunos por nível: segmentos mais altos, número grande e texto com contraste; legenda com o número dentro e o nome */
+.niveis { height: 2.9rem; gap: 3px; border-radius: 14px; }
+.niveis .lv { font-size: 1.1rem; font-weight: 800; min-width: 1.8rem; }
+.lv1, .lv3, .lv5 { color: #ffffff; } .lv2, .lv4 { color: #16232a; }
+:root[data-tema="escuro"] .lv1, :root[data-tema="escuro"] .lv2, :root[data-tema="escuro"] .lv3, :root[data-tema="escuro"] .lv4, :root[data-tema="escuro"] .lv5 { color: #0e1614; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) .lv1, :root:not([data-tema="claro"]) .lv2, :root:not([data-tema="claro"]) .lv3, :root:not([data-tema="claro"]) .lv4, :root:not([data-tema="claro"]) .lv5 { color: #0e1614; } }
+.niveis-leg { flex-wrap: wrap; gap: .45rem .9rem; margin-top: .6rem; font-size: .85rem; color: var(--texto); }
+.niveis-leg span { display: inline-flex; align-items: center; gap: .35rem; }
+.niveis-leg i.lv { width: 1.55rem; height: 1.55rem; border-radius: 7px; display: inline-grid; place-items: center; font-style: normal; font-size: .82rem; font-weight: 800; margin: 0; vertical-align: 0; }
+
+/* Cotação por baixo de cada questão na grelha, soma a 100 % e modelos de grelha */
+.th-q { vertical-align: top; min-width: 6rem; }
+.cot-h { display: inline-flex; align-items: center; gap: .25rem; margin-top: .3rem; font-size: .75rem; font-weight: 600; color: var(--suave); }
+.cot-h-in { width: 4.2rem; min-height: 0 !important; padding: .15rem .3rem !important; text-align: center; font-weight: 700; }
+.cot-pct { display: block; font-weight: 600; }
+.cot-soma { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .8rem 1rem; border-radius: 14px; border: 1.5px solid var(--linha); background: var(--cartao); margin: .8rem 0; }
+.cot-soma .est { font-weight: 800; padding: .2rem .7rem; border-radius: 999px; }
+.cot-soma .est.ok { background: var(--n4-fundo); color: var(--n4-texto); }
+.cot-soma .est.falta { background: var(--n2-fundo); color: var(--n2-texto); }
+.cot-soma .est.passa { background: var(--n1-fundo); color: var(--n1-texto); }
+.mod-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 1rem; }
+.mod-cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: 20px; padding: 1.1rem; display: flex; flex-direction: column; gap: .5rem; }
+.mod-cartao h3 { margin: 0; font-size: 1.1rem; }
+.mod-nova { display: inline-block; padding: .1rem .6rem; border-radius: 999px; background: var(--sinal-fundo); color: var(--sinal-texto); font-size: .75rem; font-weight: 800; }
+.nav-badge { display: inline-block; min-width: 1.2rem; margin-left: .3rem; padding: 0 .35rem; border-radius: 999px; background: var(--sinal); color: #16232a; font-size: .75rem; font-weight: 800; text-align: center; }
+.col-lista { max-height: 18rem; overflow: auto; border: 1px solid var(--linha); border-radius: 12px; padding: .3rem .6rem; }
+.col-lista label { display: flex; flex-direction: row; align-items: center; gap: .6rem; padding: .35rem 0; }
+.nav-badge[hidden] { display: none; }
+/* Cabeçalho numa só linha em ecrãs médios: etiqueta beta mais curta e menos espaço entre ligações */
+@media (max-width: 1420px) { .beta-pill .bp-l { display: none; } .beta-pill .bp-m { display: inline; } .topo nav a { padding-left: .55rem; padding-right: .55rem; } }
+@media (max-width: 1300px) { .topo .versao { display: none; } }

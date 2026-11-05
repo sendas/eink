@@ -17,6 +17,7 @@ const registarCriterios = require("./lib/m-criterios");
 const registarDisciplinas = require("./lib/m-disciplinas");
 const registarSugestoes = require("./lib/m-sugestoes");
 const registarAcessos = require("./lib/m-acessos");
+const registarModelos = require("./lib/m-modelos");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -216,7 +217,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   rota("PUT", "/api/eu/comportamento", (c) => {
     if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };
@@ -356,7 +357,7 @@ function criarServidor(env = process.env) {
   rota("GET", "/api/avaliacoes/:id/grelha", (c) => dadosGrelha(existe(avalDe(c.p, c.id[0]))));
   // Substitui os itens da grelha (lista vazia = sem grelha, as notas ficam como estão). O máximo do teste passa a ser a soma das cotações.
   // A ordem da lista é a ordem das questões. `substituir`: aceita apagar notas lançadas diretamente.
-  function gravarGrelha(a, lista, substituir) {
+  function gravarGrelha(a, lista, substituir, reescalar = false) {
     if (!lista || lista.length > 60) throw erro(400, "A grelha tem de 1 a 60 itens.");
     const atuais = new Map(itensDe(a.id).map((i) => [i.id, i]));
     const vistos = new Set();
@@ -371,8 +372,10 @@ function criarServidor(env = process.env) {
     transacao(() => {
       if (!novos.length) { db.prepare("DELETE FROM itens WHERE avaliacao_id = ?").run(a.id); return; }
       if (!atuais.size && db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id) && substituir !== true) throw erro(409, "Este teste já tem notas lançadas diretamente: ao criar a grelha serão apagadas.");
+      // Com `reescalar`, as pontuações já lançadas mudam na mesma proporção da cotação (por exemplo, ao pôr o teste a somar 100).
+      if (reescalar) for (const k of novos) { const antes = k.id !== null ? atuais.get(k.id) : null; if (antes && antes.cotacao > 0 && antes.cotacao !== k.cotacao) db.prepare("UPDATE notas_itens SET valor = ROUND(valor * ? / ?, 4) WHERE item_id = ? AND valor IS NOT NULL").run(k.cotacao, antes.cotacao, k.id); }
       for (const k of novos) {
-        if (k.id !== null && db.prepare("SELECT 1 FROM notas_itens WHERE item_id = ? AND valor > ? LIMIT 1").get(k.id, k.cotacao)) throw erro(409, `Há pontuações acima da nova cotação de «${k.nome}».`);
+        if (!reescalar && k.id !== null && db.prepare("SELECT 1 FROM notas_itens WHERE item_id = ? AND valor > ? LIMIT 1").get(k.id, k.cotacao)) throw erro(409, `Há pontuações acima da nova cotação de «${k.nome}».`);
       }
       for (const [id] of atuais) if (!vistos.has(id)) db.prepare("DELETE FROM itens WHERE id = ?").run(id);
       for (const k of novos) {
@@ -387,7 +390,7 @@ function criarServidor(env = process.env) {
   rota("PUT", "/api/avaliacoes/:id/grelha", (c) => {
     const a = existe(avalDe(c.p, c.id[0]));
     abertoOuErro(a.periodo_id);
-    gravarGrelha(a, Array.isArray(c.b.itens) ? c.b.itens : null, c.b.substituir);
+    gravarGrelha(a, Array.isArray(c.b.itens) ? c.b.itens : null, c.b.substituir, c.b.reescalar === true);
     auditar(c, a.periodo_id, "", "Grelha alterada", a.titulo, "", `${(c.b.itens || []).length} questões`);
     return dadosGrelha(existe(avalDe(c.p, a.id)));
   });
@@ -412,6 +415,18 @@ function criarServidor(env = process.env) {
     if (temPontos && c.b.substituir !== true) throw erro(409, "Este teste já tem pontuações ou notas lançadas: ao copiar a grelha serão apagadas.");
     // As questões atuais saem (ficam as copiadas), por isso passam sem id.
     gravarGrelha(a, itens.map((i) => ({ grupo: i.grupo, nome: i.nome, cotacao: i.cotacao })), true);
+    return dadosGrelha(existe(avalDe(c.p, a.id)));
+  });
+  // Aplica um modelo de grelha do docente a este teste (como copiar a estrutura de outro teste).
+  rota("POST", "/api/avaliacoes/:id/grelha/modelo", (c) => {
+    const a = existe(avalDe(c.p, c.id[0]));
+    abertoOuErro(a.periodo_id);
+    const m = existe(db.prepare("SELECT itens FROM grelha_modelos WHERE id = ? AND prof_id = ?").get(inteiro(c.b.modelo), c.p.id), "Modelo inexistente.");
+    const itens = JSON.parse(m.itens);
+    const temPontos = db.prepare("SELECT 1 FROM notas_itens ni JOIN itens i ON i.id = ni.item_id WHERE i.avaliacao_id = ? LIMIT 1").get(a.id) || db.prepare("SELECT 1 FROM notas WHERE avaliacao_id = ? LIMIT 1").get(a.id);
+    if (temPontos && c.b.substituir !== true) throw erro(409, "Este teste já tem pontuações ou notas lançadas: ao aplicar o modelo serão apagadas.");
+    gravarGrelha(a, itens.map((i) => ({ grupo: i.grupo, nome: i.nome, cotacao: i.cotacao })), true);
+    auditar(c, a.periodo_id, "", "Grelha alterada", a.titulo, "", `modelo aplicado, ${itens.length} questões`);
     return dadosGrelha(existe(avalDe(c.p, a.id)));
   });
   // linhas: [{ aluno, item, nota }]; nota em texto («1,5», «3/4»), vazio apaga. Cada pontuação vai de 0 à cotação do item.
@@ -635,6 +650,7 @@ function criarServidor(env = process.env) {
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin, correio: CORREIO, baseUrl: BASE_URL });
+  const MODELOS = registarModelos({ rota, db, erro, texto, inteiro, existe, avalDe, itensDe });
   const ACESSOS = registarAcessos({ rota, db, erro, soAdmin });
   ACESSOS.limpar(); const relogioAcessos = setInterval(() => { try { ACESSOS.limpar(); } catch (e) { console.error("Acessos:", e.message); } }, 24 * 3600000); relogioAcessos.unref();
   const criteriosBase = registarCriterios({ rota, db, erro, texto, soAdmin, transacao, esquemaPorId, turmasDoAno, temDados, criarEsquema });

@@ -332,6 +332,48 @@ test("Acessos dos docentes e email das sugestões", async (t) => {
   assert.match((await adm.chamar("GET", "/api/admin/sugestoes")).d[0].email, /não|falhou/, "sem o envio de email ligado, o estado diz porquê");
 });
 
+test("Grelhas: cotações a somar 100 e modelos enviados a colegas", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  for (const [u, n] of [["ana@escola.pt", "Ana"], ["rui@escola.pt", "Rui"]]) await adm.chamar("POST", "/api/admin/professores", { upn: u, nome: n });
+  const ana = await entrar("ana@escola.pt"), rui = await entrar("rui@escola.pt");
+  const tu = (await ana.chamar("POST", "/api/turmas", { nome: "8.º A", ano_letivo: "2026/2027", ano: 8 })).d;
+  await ana.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Bia\n2 Leo" });
+  const per = (await ana.chamar("GET", "/api/atalhos")).d.find((x) => x.id === tu.id).periodos[0].id;
+  const pa = (await ana.chamar("GET", `/api/periodos/${per}/pauta`)).d, k = pa.criterios.find((x) => x.tipo === "testes");
+  const av = (await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Teste 1", criterio: k.id, tipo: "teste", peso: 1, maximo: 20 })).d.id;
+  let g = (await ana.chamar("PUT", `/api/avaliacoes/${av}/grelha`, { itens: [{ nome: "1", cotacao: 5, grupo: "I" }, { nome: "2", cotacao: 15, grupo: "I" }] })).d;
+  const pts = [[5, 15], [2.5, 7.5]];
+  await ana.chamar("PUT", `/api/avaliacoes/${av}/grelha/notas`, { linhas: g.alunos.flatMap((al, i) => g.itens.map((it, n) => ({ aluno: al.id, item: it.id, nota: String(pts[i][n]) }))) });
+  // Pôr o teste a somar 100 (×5): as pontuações acompanham a proporção
+  g = (await ana.chamar("PUT", `/api/avaliacoes/${av}/grelha`, { itens: g.itens.map((i) => ({ id: i.id, nome: i.nome, grupo: i.grupo, cotacao: i.cotacao * 5 })), reescalar: true })).d;
+  assert.strictEqual(g.avaliacao.maximo, 100);
+  assert.strictEqual(g.alunos[0].total, 100); assert.strictEqual(g.alunos[1].total, 50);
+  // Sem reescalar, baixar a cotação abaixo de uma pontuação lançada é recusado
+  assert.strictEqual((await ana.chamar("PUT", `/api/avaliacoes/${av}/grelha`, { itens: g.itens.map((i) => ({ id: i.id, nome: i.nome, grupo: i.grupo, cotacao: 1 })) })).estado, 409);
+  // Modelos: criar a partir do teste, aplicar a outro teste, enviar a um colega
+  const m = await ana.chamar("POST", "/api/grelha-modelos", { nome: "Teste base", avaliacao: av });
+  assert.strictEqual(m.estado, 200);
+  assert.strictEqual((await ana.chamar("POST", "/api/grelha-modelos", { nome: "", itens: [{ nome: "x", cotacao: 1 }] })).estado, 400);
+  assert.strictEqual((await ana.chamar("POST", "/api/grelha-modelos", { nome: "Mau", itens: [{ nome: "x", cotacao: 0 }] })).estado, 400);
+  const av2 = (await ana.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "Teste 2", criterio: k.id, tipo: "teste", peso: 1, maximo: 20 })).d.id;
+  const g2 = (await ana.chamar("POST", `/api/avaliacoes/${av2}/grelha/modelo`, { modelo: m.d.id })).d;
+  assert.strictEqual(g2.itens.length, 2); assert.strictEqual(g2.avaliacao.maximo, 100);
+  const colegas = (await ana.chamar("GET", "/api/colegas")).d, ruiId = colegas.find((x) => x.nome === "Rui").id;
+  assert.ok(!colegas.some((x) => x.nome === "Ana"), "não aparece a própria pessoa");
+  assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { para: [] })).estado, 400);
+  assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { para: [ruiId] })).d.enviados, 1);
+  assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 1);
+  const dele = (await rui.chamar("GET", "/api/grelha-modelos")).d;
+  assert.strictEqual(dele.length, 1); assert.strictEqual(dele[0].de, "Ana"); assert.strictEqual(dele[0].nova, true); assert.strictEqual(dele[0].soma, 100);
+  assert.strictEqual((await rui.chamar("PUT", `/api/grelha-modelos/${m.d.id}`, { nome: "roubo" })).estado, 404, "não se mexe nos modelos de outros");
+  await rui.chamar("POST", "/api/grelha-modelos/vistos", {});
+  assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 0);
+  assert.strictEqual((await rui.chamar("DELETE", `/api/grelha-modelos/${dele[0].id}`)).estado, 200);
+  assert.strictEqual((await ana.chamar("GET", "/api/grelha-modelos")).d.length, 1, "apagar a cópia do colega não afeta o original");
+});
+
 test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async (t) => {
   const http = require("node:http");
   const { ehMembro } = require("../lib/grupo");

@@ -13,7 +13,7 @@
   const dataHoje = () => new Date().toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" });
 
   const barraNiveis = (niv) => { const t = niv.reduce((z, x) => z + x, 0); return t ? `<div class="niveis" role="img" aria-label="Alunos por nível: ${niv.map((x, i) => `nível ${i + 1}: ${x}`).join(", ")}">${niv.map((x, i) => x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="Nível ${i + 1}: ${x}">${x}</span>` : "").join("")}</div>
-    <div class="niveis-leg">${[1, 2, 3, 4, 5].map((i) => `<span><i class="lv lv${i}"></i>${i}</span>`).join("")}</div>` : `<p class="pequeno">Sem níveis ainda.</p>`; };
+    <div class="niveis-leg">${[1, 2, 3, 4, 5].map((i) => `<span><i class="lv lv${i}">${i}</i>${["Muito insuf.", "Insuf.", "Suficiente", "Bom", "Muito bom"][i - 1]}</span>`).join("")}</div>` : `<p class="pequeno">Sem níveis ainda.</p>`; };
 
   const cartaoTurma = (t) => {
     const pc = t.esperadas ? Math.round((t.notas / t.esperadas) * 100) : 0;

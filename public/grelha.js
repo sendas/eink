@@ -11,7 +11,7 @@
     const a = d.avaliacao;
 
     function desenhar() {
-      const itens = d.itens;
+      const itens = d.itens, soma = itens.reduce((z, i) => z + i.cotacao, 0), dif = Math.round((100 - soma) * 100) / 100;
       // Cabeçalho com os grupos (Grupo I, II...) quando existem
       const grupos = [];
       for (const i of itens) { const u = grupos[grupos.length - 1]; if (u && u.nome === i.grupo) u.n++; else grupos.push({ nome: i.grupo, n: 1 }); }
@@ -23,9 +23,13 @@
           <p class="linha"><button class="sec" id="i-add" type="button">+ Questão</button><button class="sec" id="i-varias" type="button">+ Várias de uma vez</button></p>
           <p id="i-total"></p>
           <p class="linha"><label>Copiar a estrutura de outro teste<select id="i-origem"><option value="">A carregar…</option></select></label><button class="sec" id="i-copiar" type="button">Copiar grelha</button><button class="sec" id="i-partilhar" type="button">Partilhar esta grelha com o meu grupo</button></p>
+          <p class="linha"><label>Os meus modelos<select id="i-modelo"><option value="">A carregar…</option></select></label><button class="sec" id="i-usar-modelo" type="button">Usar este modelo</button><button class="sec" id="i-guardar-modelo" type="button">Guardar esta grelha como modelo</button><button class="sec" id="i-enviar-colegas" type="button">Enviar a colegas</button><a href="#/modelos">Gerir modelos</a></p>
           <p class="pequeno">Copia só as questões, os grupos, as cotações e a ordem. As pontuações dos alunos não se copiam.</p><p><button id="i-gravar" type="button">Guardar grelha</button> <button class="perigo" id="i-limpar" type="button">Remover a grelha</button></p></details>
         ${itens.length ? `<h2>Pontuação dos alunos</h2>
-          <div class="tabela-rolagem"><table><thead>${temGrupos ? `<tr><th rowspan="2">N.º</th><th rowspan="2">Aluno</th>${grupos.map((g) => `<th colspan="${g.n}" class="crit">${esc(g.nome || "")}</th>`).join("")}<th rowspan="2" class="num">Total</th><th rowspan="2" class="num">%</th></tr><tr>` : `<tr><th>N.º</th><th>Aluno</th>`}${itens.map((i) => `<th class="num">${esc(i.nome)}<br><span class="pequeno">/ ${num(i.cotacao)}</span></th>`).join("")}${temGrupos ? "" : `<th class="num">Total / ${num(a.maximo)}</th><th class="num">%</th>`}</tr></thead>
+          <div class="cot-soma" id="cot-soma"><strong>Soma das cotações: ${num(soma)}</strong>${Math.abs(dif) < 0.005 ? '<span class="est ok">100 % ✓</span>' : dif > 0 ? `<span class="est falta">Faltam ${num(dif)} para 100</span>` : `<span class="est passa">Passa 100 em ${num(-dif)}</span>`}
+            <button class="sec" id="cot-norm" type="button">Fazer somar 100</button><button class="sec" id="cot-igual" type="button">Dividir por igual</button>
+            <span class="pequeno">Escreve a cotação por baixo de cada questão. Ao fazer somar 100, as pontuações já lançadas ajustam-se na mesma proporção.</span></div>
+          <div class="tabela-rolagem"><table><thead>${temGrupos ? `<tr><th rowspan="2">N.º</th><th rowspan="2">Aluno</th>${grupos.map((g) => `<th colspan="${g.n}" class="crit">${esc(g.nome || "")}</th>`).join("")}<th rowspan="2" class="num">Total</th><th rowspan="2" class="num">%</th></tr><tr>` : `<tr><th>N.º</th><th>Aluno</th>`}${itens.map((i) => `<th class="num th-q">${esc(i.nome)}<br><label class="cot-h">/ <input class="cot-h-in" data-cot="${i.id}" inputmode="decimal" value="${num(i.cotacao)}" aria-label="Cotação da questão ${esc(i.nome)}"></label><span class="pequeno cot-pct">${soma ? num((i.cotacao / soma) * 100) : "0"} % do teste</span></th>`).join("")}${temGrupos ? "" : `<th class="num">Total / ${num(a.maximo)}</th><th class="num">%</th>`}</tr></thead>
           <tbody>${d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row">${esc(al.nome)}</th>${itens.map((i) => `<td><input class="nota g-nota" inputmode="decimal" data-item="${i.id}" data-aluno="${al.id}" value="${num(al.marcas[i.id])}" aria-label="${esc(al.nome)}, ${esc(i.nome)}"></td>`).join("")}<td class="num" data-t="total">${num(al.total)}</td><td class="num" data-t="pct">${al.total === null ? "" : num((al.total / a.maximo) * 100)}</td></tr>`).join("")}</tbody>
           <tfoot><tr><th></th><th>% de acerto por questão</th>${medias.map((m) => `<td class="num">${m === null ? "" : num(m)}</td>`).join("")}<td></td><td></td></tr></tfoot></table></div>
           <p class="pequeno">Escreve a pontuação de cada aluno em cada questão (por exemplo «1,5» ou «3/4»). Os totais passam para a pauta automaticamente.</p>` : `<p class="pequeno">Define as questões do teste para poderes lançar a pontuação de cada aluno em cada uma.</p>`}`);
@@ -62,6 +66,43 @@
           if (/serão apagadas/.test(e.message) && confirm("Este teste já tem pontuações ou notas. Ao copiar a grelha, são apagadas. Continuar?")) d = await api("POST", `/api/avaliacoes/${id}/grelha/copiar`, { ...origem, substituir: true }); else return;
         }
         a.maximo = d.avaliacao.maximo; aviso("Grelha copiada."); desenhar();
+      };
+      // Cotação por baixo de cada questão, soma a 100 e modelos
+      const guardarCot = async (lista, reescalar) => {
+        const foco = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.cot : null;
+        try { d = await api("PUT", `/api/avaliacoes/${id}/grelha`, { itens: lista, reescalar }); a.maximo = d.avaliacao.maximo; } catch { desenhar(); return; }
+        desenhar(); if (foco) { const e = $(`.cot-h-in[data-cot="${foco}"]`); if (e) e.focus(); }
+      };
+      const repartir = (valores, alvo) => { // arredonda a 2 casas e põe o resto na última questão, para somar exatamente o alvo
+        const r = valores.map((v) => Math.round(v * 100) / 100); const resto = Math.round((alvo - r.slice(0, -1).reduce((z, v) => z + v, 0)) * 100) / 100; r[r.length - 1] = resto; return r;
+      };
+      $$(".cot-h-in").forEach((inp) => { inp.onchange = () => {
+        const v = Number(String(inp.value).replace(",", "."));
+        if (!(v > 0)) { aviso("A cotação tem de ser maior que 0.", true); desenhar(); return; }
+        guardarCot(d.itens.map((i) => ({ id: i.id, grupo: i.grupo, nome: i.nome, cotacao: String(i.id) === inp.dataset.cot ? v : i.cotacao })), false);
+      }; });
+      if ($("#cot-norm")) {
+        const soma0 = d.itens.reduce((z, i) => z + i.cotacao, 0);
+        $("#cot-norm").onclick = () => { const nv = repartir(d.itens.map((i) => (i.cotacao * 100) / soma0), 100); if (nv.some((v) => !(v > 0))) return aviso("Não foi possível repartir: alguma questão ficaria sem cotação.", true); guardarCot(d.itens.map((i, k) => ({ id: i.id, grupo: i.grupo, nome: i.nome, cotacao: nv[k] })), true); };
+        $("#cot-igual").onclick = () => { const nv = repartir(d.itens.map(() => 100 / d.itens.length), 100); if (nv.some((v) => !(v > 0))) return aviso("Não foi possível repartir.", true); guardarCot(d.itens.map((i, k) => ({ id: i.id, grupo: i.grupo, nome: i.nome, cotacao: nv[k] })), true); };
+      }
+      const carregarModelos = () => api("GET", "/api/grelha-modelos").then((l) => {
+        $("#i-modelo").innerHTML = '<option value="">Escolhe um modelo</option>' + l.map((m) => `<option value="${m.id}">${esc(m.nome)} (${m.n} questões, ${num(m.soma)} pts${m.de ? ", de " + esc(m.de) : ""})</option>`).join("");
+      }).catch(() => {});
+      carregarModelos();
+      const guardarComoModelo = async () => {
+        if (!d.itens.length) { aviso("Define primeiro as questões deste teste.", true); return null; }
+        const nome = prompt("Nome do modelo:", a.titulo); if (!nome || !nome.trim()) return null;
+        try { const r = await api("POST", "/api/grelha-modelos", { nome, avaliacao: id }); carregarModelos(); return { id: r.id, nome: nome.trim() }; } catch { return null; }
+      };
+      $("#i-guardar-modelo").onclick = async () => { if (await guardarComoModelo()) aviso("Modelo guardado. Está em «Modelos»."); };
+      $("#i-enviar-colegas").onclick = async () => { const m = await guardarComoModelo(); if (m) EINK.dialogoEnviar(m.id, m.nome); };
+      $("#i-usar-modelo").onclick = async () => {
+        const v = $("#i-modelo").value; if (!v) return aviso("Escolhe o modelo que queres usar.", true);
+        try { d = await api("POST", `/api/avaliacoes/${id}/grelha/modelo`, { modelo: Number(v) }); } catch (e) {
+          if (/serão apagadas/.test(e.message) && confirm("Este teste já tem pontuações ou notas. Ao aplicar o modelo, são apagadas. Continuar?")) d = await api("POST", `/api/avaliacoes/${id}/grelha/modelo`, { modelo: Number(v), substituir: true }); else return;
+        }
+        a.maximo = d.avaliacao.maximo; aviso("Modelo aplicado."); desenhar();
       };
       $("#i-limpar").onclick = async () => { if (confirm("Remover a grelha? As notas totais ficam como estão, mas deixas de ver as pontuações por questão.")) { d = await api("PUT", `/api/avaliacoes/${id}/grelha`, { itens: [] }); desenhar(); } };
       $$(".g-nota").forEach((inp) => { inp.onchange = async () => {
