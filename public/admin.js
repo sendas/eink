@@ -150,10 +150,10 @@
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
 
   async function sugestoes(so = "novas") {
-    const [l, cfg] = await Promise.all([api("GET", "/api/admin/sugestoes"), api("GET", "/api/admin/sugestoes/config")]), vis = so === "todas" ? l : l.filter((x) => x.estado === "nova");
+    const [l, cfg, profs] = await Promise.all([api("GET", "/api/admin/sugestoes"), api("GET", "/api/admin/sugestoes/config"), api("GET", "/api/admin/professores").catch(() => [])]), vis = so === "todas" ? l : l.filter((x) => x.estado === "nova");
     EINK.eu.sugestoes_novas = l.filter((x) => x.estado === "nova").length;
     mostrar(`<p class="linha"><a href="#/gestao">← Gestão</a></p><h1>Sugestões dos docentes</h1>
-      <form class="painel linha" id="f-sug-email"><label>Email que recebe um aviso a cada sugestão<input name="email" type="email" maxlength="120" value="${esc(cfg.email)}" placeholder="nome@queiroz.pt"></label><button>Guardar</button>
+      <form class="painel linha" id="f-sug-email"><label>Email que recebe um aviso a cada sugestão<input name="email" type="email" list="dl-docentes" autocomplete="off" maxlength="120" value="${esc(cfg.email)}" placeholder="nome@queiroz.pt"></label><datalist id="dl-docentes">${profs.filter((p) => p.ativo && !p.local).map((p) => `<option value="${esc(p.upn)}">${esc(p.nome || "")}</option>`).join("")}</datalist><button>Guardar</button>
         <span class="pequeno">${cfg.correioLigado ? "O aviso sai pela conta ligada em Email e avisos." : 'O envio de email ainda não está ligado: <a href="#/correio">liga-o aqui</a> para os avisos seguirem.'} Deixa vazio para não enviar avisos.</span></form>
       <p class="linha"><button type="button" class="sec ${so === "novas" ? "ativo" : ""}" data-f="novas">Novas (${EINK.eu.sugestoes_novas})</button><button type="button" class="sec ${so === "todas" ? "ativo" : ""}" data-f="todas">Todas (${l.length})</button></p>
       ${vis.length ? `<div class="painel"><ul class="lista">${vis.map((x) => `<li><span><strong>${esc(x.nome || x.upn)}</strong> <span class="pequeno">${esc(x.upn)} · ${esc(x.criada.slice(0, 16).replace("T", " ").split(" ").map((p, i) => (i ? p : p.split("-").reverse().join("/"))).join(" "))}${x.pagina ? " · " + esc(x.pagina) : ""} · ${x.estado}${x.email ? " · email: " + esc(x.email) : ""}</span><br>${esc(x.texto).replace(/\n/g, "<br>")}</span>

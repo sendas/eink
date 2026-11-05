@@ -647,6 +647,8 @@ function criarServidor(env = process.env) {
   });
   rota("DELETE", "/api/alunos/:id/foto", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM fotos WHERE aluno_id = ?").run(c.id[0]); return { ok: true }; });
   rota("GET", "/api/versoes", () => ({ atual: VERSAO, lista: VERSOES }));
+  // Leve, para o navegador perguntar de tempos a tempos se há uma versão nova.
+  rota("GET", "/api/versao", () => ({ versao: VERSAO, data: VERSOES[0].data, tipo: VERSOES[0].tipo, itens: VERSOES[0].itens }));
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin, correio: CORREIO, baseUrl: BASE_URL });

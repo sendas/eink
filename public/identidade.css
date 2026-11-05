@@ -243,3 +243,30 @@ table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead
 /* Cabeçalho numa só linha em ecrãs médios: etiqueta beta mais curta e menos espaço entre ligações */
 @media (max-width: 1420px) { .beta-pill .bp-l { display: none; } .beta-pill .bp-m { display: inline; } .topo nav a { padding-left: .55rem; padding-right: .55rem; } }
 @media (max-width: 1300px) { .topo .versao { display: none; } }
+
+/* Campo «Para» com sugestões, como no Outlook */
+.dest { position: relative; margin: .6rem 0; }
+.dest-campo { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; padding: .35rem .6rem; border: 1.5px solid var(--linha-forte); border-radius: 12px; background: var(--cartao); cursor: text; min-height: 48px; }
+.dest-campo:focus-within { border-color: var(--marca); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca) 25%, transparent); }
+.dest-rot { font-size: .85rem; font-weight: 700; color: var(--suave); margin-right: .2rem; }
+.dest-chips { display: contents; }
+.dest-chip { display: inline-flex; align-items: center; gap: .15rem; padding: .15rem .25rem .15rem .7rem; border-radius: 999px; background: var(--marca-fundo); color: var(--marca); font-size: .9rem; font-weight: 600; }
+.dest-chip .dest-x { min-height: 0; padding: 0 .45rem; border: 0; background: transparent; color: inherit; font-size: 1.1rem; line-height: 1.4; border-radius: 999px; }
+.dest-chip .dest-x:hover { background: color-mix(in srgb, var(--marca) 18%, transparent); }
+.dest .dest-in { flex: 1 1 10rem; min-width: 8rem; border: 0 !important; background: transparent !important; box-shadow: none; min-height: 0 !important; padding: .35rem 0; font-size: 1rem; outline: none; }
+.dest-lista { position: absolute; z-index: 30; left: 0; right: 0; margin: .25rem 0 0; padding: .3rem; list-style: none; background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; box-shadow: var(--sombra); max-height: 16rem; overflow: auto; }
+.dest-lista li { display: flex; flex-direction: column; padding: .45rem .7rem; border-radius: 10px; cursor: pointer; }
+.dest-lista li small { color: var(--suave); font-size: .82rem; }
+.dest-lista li.ativo { background: var(--marca-fundo); }
+.dest-lista li.sem { color: var(--suave); cursor: default; }
+.dest-lista b { font-weight: 800; color: var(--marca); }
+.dest-dlg { overflow: visible; }
+
+/* Aviso de versão nova */
+.nova-versao { position: fixed; left: 1rem; bottom: 1rem; z-index: 60; max-width: min(34rem, calc(100vw - 2rem)); display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; padding: 1rem 1.2rem; border-radius: 18px; background: var(--profundo); color: var(--sobre-profundo); box-shadow: var(--sombra); font-size: .95rem; }
+.nova-versao ul { margin: .35rem 0 0; padding-left: 1.1rem; color: var(--sobre-profundo-suave); font-size: .88rem; }
+.nova-versao strong { font-family: var(--letra-titulo); font-size: 1.05rem; }
+.nova-versao .nv-acoes { display: flex; flex-wrap: wrap; gap: .5rem; }
+.nova-versao button:not(.sec) { background: var(--sinal); color: #16232a; border-color: var(--sinal); }
+.nova-versao .sec, .nova-versao a.botao { background: transparent; color: var(--sobre-profundo); border: 1.5px solid var(--sobre-profundo-suave); }
+@media print { .nova-versao { display: none; } }

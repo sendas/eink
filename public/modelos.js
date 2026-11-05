@@ -4,21 +4,75 @@
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
   const num = (v) => String(Math.round(v * 100) / 100).replace(".", ",");
 
+  // Campo de destinatários como no Outlook: escreves as primeiras letras do nome ou do email, aparecem as sugestões
+  // (setas e Enter ou Tab para escolher, clique também serve) e cada escolha vira uma etiqueta que se retira com × ou Backspace.
+  const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  EINK.campoDestinatarios = (colegas, aoMudar) => {
+    const escolhidos = [], caixa = document.createElement("div"); caixa.className = "dest";
+    caixa.innerHTML = `<div class="dest-campo"><span class="dest-rot">Para</span><span class="dest-chips"></span><input class="dest-in" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="dest-lista" placeholder="Escreve o nome ou o email do colega"></div><ul class="dest-lista" id="dest-lista" role="listbox" hidden></ul>`;
+    const campo = $(".dest-campo", caixa), chips = $(".dest-chips", caixa), entrada = $(".dest-in", caixa), lista = $(".dest-lista", caixa);
+    let sugestoes = [], ativo = 0;
+    const fechar = () => { lista.hidden = true; entrada.setAttribute("aria-expanded", "false"); sugestoes = []; };
+    const desenharChips = () => {
+      chips.innerHTML = escolhidos.map((c) => `<span class="dest-chip" title="${esc(c.email)}">${esc(c.nome)}<button type="button" class="dest-x" data-id="${c.id}" aria-label="Retirar ${esc(c.nome)}">×</button></span>`).join("");
+      $$(".dest-x", chips).forEach((x) => { x.onclick = () => { const i = escolhidos.findIndex((c) => c.id === Number(x.dataset.id)); if (i >= 0) escolhidos.splice(i, 1); desenharChips(); aoMudar(escolhidos); entrada.focus(); }; });
+    };
+    const juntar = (c) => { if (!escolhidos.some((x) => x.id === c.id)) escolhidos.push(c); entrada.value = ""; fechar(); desenharChips(); aoMudar(escolhidos); entrada.focus(); };
+    // Prefixo de uma palavra do nome ou do email primeiro; depois quem contém o texto.
+    const procurar = (t) => {
+      const q = norm(t); if (!q) return [];
+      const pontos = (c) => { const nome = norm(c.nome), email = norm(c.email); const palavras = nome.split(/\s+/);
+        if (email.startsWith(q) || nome.startsWith(q)) return 3; if (palavras.some((w) => w.startsWith(q)) || email.split("@")[0].split(/[._-]/).some((w) => w.startsWith(q))) return 2; if (nome.includes(q) || email.includes(q)) return 1; return 0; };
+      return colegas.filter((c) => !escolhidos.some((x) => x.id === c.id)).map((c) => [pontos(c), c]).filter(([p]) => p).sort((x, y) => y[0] - x[0] || x[1].nome.localeCompare(y[1].nome, "pt")).slice(0, 8).map(([, c]) => c);
+    };
+    const realce = (texto, t) => { const i = norm(texto).indexOf(norm(t)); if (!t || i < 0) return esc(texto); return esc(texto.slice(0, i)) + "<b>" + esc(texto.slice(i, i + t.length)) + "</b>" + esc(texto.slice(i + t.length)); };
+    const mostrar_ = () => {
+      sugestoes = procurar(entrada.value); ativo = 0;
+      if (!entrada.value.trim()) return fechar();
+      lista.innerHTML = sugestoes.length ? sugestoes.map((c, i) => `<li role="option" id="dest-o${i}" data-i="${i}" aria-selected="${i === 0}" class="${i === 0 ? "ativo" : ""}"><strong>${realce(c.nome, entrada.value)}</strong><small>${realce(c.email, entrada.value)}</small></li>`).join("") : '<li class="sem">Nenhum colega encontrado</li>';
+      lista.hidden = false; entrada.setAttribute("aria-expanded", "true");
+      $$("li[data-i]", lista).forEach((li) => { li.onmousedown = (e) => { e.preventDefault(); juntar(sugestoes[Number(li.dataset.i)]); }; });
+    };
+    const marcar = (i) => { ativo = (i + sugestoes.length) % sugestoes.length; $$("li[data-i]", lista).forEach((li, k) => { li.classList.toggle("ativo", k === ativo); li.setAttribute("aria-selected", String(k === ativo)); }); entrada.setAttribute("aria-activedescendant", "dest-o" + ativo); const li = $("#dest-o" + ativo, lista); if (li) li.scrollIntoView({ block: "nearest" }); };
+    entrada.oninput = mostrar_;
+    entrada.onkeydown = (e) => {
+      if (e.key === "ArrowDown" && sugestoes.length) { e.preventDefault(); marcar(ativo + 1); }
+      else if (e.key === "ArrowUp" && sugestoes.length) { e.preventDefault(); marcar(ativo - 1); }
+      else if ((e.key === "Enter" || e.key === "Tab" || e.key === ";" || e.key === ",") && sugestoes.length && entrada.value.trim()) { e.preventDefault(); juntar(sugestoes[ativo]); }
+      else if (e.key === "Enter") { e.preventDefault(); fechar(); }
+      else if (e.key === "Escape" && !lista.hidden) { e.stopPropagation(); e.preventDefault(); fechar(); }
+      else if (e.key === "Backspace" && !entrada.value && escolhidos.length) { escolhidos.pop(); desenharChips(); aoMudar(escolhidos); }
+    };
+    entrada.onblur = () => setTimeout(fechar, 120);
+    // Colar uma lista de emails (do Outlook ou do Excel): ficam os que existem na plataforma.
+    entrada.onpaste = (e) => {
+      const t = (e.clipboardData || window.clipboardData).getData("text"); if (!/[;,\n\t]/.test(t)) return;
+      e.preventDefault(); let ok = 0, falhas = 0;
+      for (const parte of t.split(/[;,\n\t]+/).map((x) => x.trim()).filter(Boolean)) {
+        const email = (/<([^>]+)>/.exec(parte) || [])[1] || parte, c = colegas.find((x) => norm(x.email) === norm(email) || norm(x.nome) === norm(parte));
+        if (c) { if (!escolhidos.some((x) => x.id === c.id)) { escolhidos.push(c); ok++; } } else falhas++;
+      }
+      desenharChips(); aoMudar(escolhidos); if (falhas) aviso(`${falhas} endereço${falhas === 1 ? "" : "s"} não ${falhas === 1 ? "pertence" : "pertencem"} a docentes da plataforma.`, true);
+    };
+    campo.onclick = () => entrada.focus();
+    return { caixa, escolhidos, focar: () => entrada.focus() };
+  };
+
   // Janela para escolher os colegas que recebem uma cópia do modelo.
   EINK.dialogoEnviar = async (modeloId, nome, depois) => {
     let colegas = []; try { colegas = await api("GET", "/api/colegas"); } catch { return; }
-    const dlg = document.createElement("dialog"); dlg.className = "sug-dlg";
+    const dlg = document.createElement("dialog"); dlg.className = "sug-dlg dest-dlg";
     dlg.innerHTML = `<h2 style="margin-top:0">Enviar «${esc(nome)}» a colegas</h2>
       <p class="pequeno">Cada colega recebe uma cópia da estrutura (questões e cotações), sem notas nem alunos. Vê-la em «Modelos».</p>
-      <label>Procurar um colega<input id="col-busca" type="search" placeholder="Nome"></label>
-      <div class="col-lista" id="col-lista">${colegas.map((c) => `<label data-n="${esc(c.nome.toLowerCase())}"><input type="checkbox" value="${c.id}"> ${esc(c.nome)}</label>`).join("") || '<p class="pequeno">Ainda não há outros docentes na plataforma.</p>'}</div>
-      <p class="linha"><button type="button" id="col-enviar">Enviar</button><button type="button" class="sec" id="col-fechar">Cancelar</button></p>`;
+      <div id="dest-aqui"></div>
+      <p class="linha"><button type="button" id="col-enviar" disabled>Enviar</button><button type="button" class="sec" id="col-fechar">Cancelar</button></p>`;
     document.body.append(dlg); dlg.showModal();
+    const campo = EINK.campoDestinatarios(colegas, (l) => { $("#col-enviar", dlg).disabled = !l.length; });
+    $("#dest-aqui", dlg).append(campo.caixa); campo.focar();
     const fechar = () => { dlg.close(); dlg.remove(); };
     $("#col-fechar", dlg).onclick = fechar; dlg.addEventListener("cancel", () => dlg.remove());
-    $("#col-busca", dlg).oninput = (e) => { const t = e.target.value.trim().toLowerCase(); $$("#col-lista label", dlg).forEach((l) => { l.hidden = !!t && !l.dataset.n.includes(t); }); };
     $("#col-enviar", dlg).onclick = async (e) => {
-      const para = $$("#col-lista input:checked", dlg).map((i) => Number(i.value));
+      const para = campo.escolhidos.map((c) => c.id);
       if (!para.length) return aviso("Escolhe pelo menos um colega.", true);
       e.target.disabled = true;
       try { const r = await api("POST", `/api/grelha-modelos/${modeloId}/enviar`, { para }); fechar(); aviso(`Modelo enviado a ${r.enviados} colega${r.enviados === 1 ? "" : "s"}.`); if (depois) depois(); } catch { e.target.disabled = false; }

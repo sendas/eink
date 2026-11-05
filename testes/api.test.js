@@ -362,6 +362,7 @@ test("Grelhas: cotações a somar 100 e modelos enviados a colegas", async (t) =
   assert.strictEqual(g2.itens.length, 2); assert.strictEqual(g2.avaliacao.maximo, 100);
   const colegas = (await ana.chamar("GET", "/api/colegas")).d, ruiId = colegas.find((x) => x.nome === "Rui").id;
   assert.ok(!colegas.some((x) => x.nome === "Ana"), "não aparece a própria pessoa");
+  assert.ok(colegas.every((x) => /@/.test(x.email)) && colegas.some((x) => x.email === "rui@escola.pt"), "os colegas trazem o email para as sugestões");
   assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { para: [] })).estado, 400);
   assert.strictEqual((await ana.chamar("POST", `/api/grelha-modelos/${m.d.id}/enviar`, { para: [ruiId] })).d.enviados, 1);
   assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 1);
@@ -372,6 +373,13 @@ test("Grelhas: cotações a somar 100 e modelos enviados a colegas", async (t) =
   assert.strictEqual((await rui.chamar("GET", "/api/eu")).d.grelhas_novas, 0);
   assert.strictEqual((await rui.chamar("DELETE", `/api/grelha-modelos/${dele[0].id}`)).estado, 200);
   assert.strictEqual((await ana.chamar("GET", "/api/grelha-modelos")).d.length, 1, "apagar a cópia do colega não afeta o original");
+});
+
+test("Versão atual para o aviso de versão nova", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt"), d = (await adm.chamar("GET", "/api/versao")).d;
+  assert.strictEqual(d.versao, require("../package.json").version); assert.ok(Array.isArray(d.itens) && d.itens.length);
 });
 
 test("Graph: pertença ao grupo (200 sim, 404 não, outro código erro)", async (t) => {

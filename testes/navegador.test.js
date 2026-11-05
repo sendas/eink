@@ -67,6 +67,12 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await pl.context().close();
   await ir("/correio", "text=Email e avisos");
 
+  // Aviso de versão nova: se o servidor diz outra versão, aparece a faixa com «Atualizar agora»
+  await p.route("**/api/versao", (r) => r.fulfill({ json: { versao: "99.0.0", data: "2099-01-01 00:00", tipo: "novidade", itens: ["Coisa nova para ver."] } }));
+  await p.evaluate(() => EINK.verificarVersao()); await p.waitForSelector(".nova-versao.nova #nv-atualizar");
+  assert.match(await p.textContent(".nova-versao.nova"), /99\.0\.0/);
+  await p.click("#nv-depois"); assert.strictEqual(await p.locator(".nova-versao").count(), 0);
+  await p.unroute("**/api/versao");
   // Versão beta e sugestões: a faixa e o botão estão sempre visíveis e o envio funciona
   assert.ok(await p.isVisible(".beta-faixa"), "faixa «Versão beta» visível");
   assert.match(await p.textContent(".beta-faixa"), /Versão beta/);
