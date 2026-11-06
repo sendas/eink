@@ -653,7 +653,7 @@ function criarServidor(env = process.env) {
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin, correio: CORREIO, baseUrl: BASE_URL });
-  registarDiretorio({ rota, db, erro, soAdmin, dominios: DOMINIOS });
+  registarDiretorio({ rota, db, erro, soAdmin, dominios: DOMINIOS, graph: { url: GRAPH_URL, loginBase: "https://login.microsoftonline.com", tenant: env.TENANT_ID, clientId: env.CLIENT_ID, clientSecret: env.CLIENT_SECRET, grupoId: GRUPO_DOCENTES, auto: !env.DEV_LOGIN && env.DIRETORIO_AUTO !== "0" } });
   const MODELOS = registarModelos({ rota, db, erro, texto, inteiro, existe, avalDe, itensDe, dominios: DOMINIOS });
   const ACESSOS = registarAcessos({ rota, db, erro, soAdmin });
   ACESSOS.limpar(); const relogioAcessos = setInterval(() => { try { ACESSOS.limpar(); } catch (e) { console.error("Acessos:", e.message); } }, 24 * 3600000); relogioAcessos.unref();

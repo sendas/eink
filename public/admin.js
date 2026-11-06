@@ -10,6 +10,7 @@
       ${EINK.eu.grupoDocentes ? `<p class="painel">O acesso é dado pelo grupo «docentes» do Entra ID: quem pertence ao grupo entra e aparece aqui ao fazer o primeiro acesso; quem sai do grupo deixa de poder entrar. Aqui só se escolhe o grupo disciplinar de cada docente.</p>`
         : `<form class="painel linha" id="f-prof"><label>Email da escola<input name="upn" type="email" required placeholder="nome@escola.pt"></label><label>Nome<input name="nome" maxlength="120"></label><button>Dar acesso</button></form>`}
       <section class="painel" id="dir"><h2 style="margin-top:0">Lista de docentes da escola</h2>
+        <p class="linha"><button type="button" id="dir-sinc"${dir.entra.disponivel ? "" : " disabled"}>Sincronizar com o Entra agora</button><span class="pequeno">${dir.entra.erro ? "<strong>" + esc(dir.entra.erro) + "</strong>" : dir.entra.em ? "Última sincronização: " + new Date(dir.entra.em).toLocaleString("pt-PT") + "." : "Sincroniza sozinha a cada 12 horas (precisa da permissão User.Read.All com consentimento do administrador)."}</span></p>
         <p class="pequeno">Serve para sugerir colegas pelo nome (como no Outlook) quando se envia um modelo de grelha, mesmo que ainda não tenham entrado na plataforma. ${dir.total ? `<strong>Tem ${dir.total} docentes.</strong>` : "<strong>Ainda está vazia.</strong>"}</p>
         <p class="pequeno">Como obter a lista: no centro de administração do Entra, abre Grupos, o grupo «AEEQ - Todos os Docentes», Membros e «Transferir membros» (CSV). Carrega aqui esse ficheiro, ou cola duas colunas do Excel: nome e email.</p>
         <label>Ficheiro (Excel ou CSV)<input type="file" id="dir-f" accept=".xlsx,.csv,.txt,text/csv"></label>
@@ -31,6 +32,7 @@
     };
     // Lista de docentes da escola: primeiro mostra o que encontrou, depois importa
     const lerFich = (f) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.readAsDataURL(f); });
+    $("#dir-sinc").onclick = async () => { try { const g = await api("POST", "/api/admin/diretorio/sincronizar", {}); aviso(`Lista sincronizada: ${g.total} docentes.`); } catch (e) { aviso(e.message); } docentes(); };
     $("#dir-ver").onclick = async () => {
       const f = $("#dir-f").files[0], corpo = f ? { base64: await lerFich(f), nome: f.name } : { texto: $("#dir-t").value };
       try {

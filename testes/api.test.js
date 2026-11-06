@@ -1420,3 +1420,21 @@ test("Lista de docentes da escola: aparecem nas sugestões mesmo sem terem entra
   assert.strictEqual((await adm.chamar("POST", "/api/admin/diretorio/apagar", {})).estado, 400);
   assert.strictEqual((await adm.chamar("POST", "/api/admin/diretorio/apagar", { confirmar: true })).d.apagados, 3);
 });
+
+test("Lista de docentes: sincronização com o Entra (permissão de aplicação)", async () => {
+  const { DatabaseSync } = require("node:sqlite");
+  const db = new DatabaseSync(":memory:"); db.exec("CREATE TABLE docentes_dir (upn TEXT PRIMARY KEY, nome TEXT NOT NULL)");
+  const rotas = {}, pedidos = [];
+  const fetchFn = async (url, o = {}) => {
+    pedidos.push(url);
+    const res = (st, j) => ({ ok: st < 400, status: st, json: async () => j });
+    if (/oauth2\/v2\.0\/token/.test(url)) return res(200, { access_token: "tk" });
+    if (/skip=1/.test(url)) return res(200, { value: [{ displayName: "Rui Lima Docente-110 - Português", userPrincipalName: "rui@escola.pt", accountEnabled: true }] });
+    return res(200, { value: [{ displayName: "Ana Sá", userPrincipalName: "ana@escola.pt", accountEnabled: true }, { displayName: "Inativa", userPrincipalName: "off@escola.pt", accountEnabled: false }, { displayName: "Fora", userPrincipalName: "x@outro.pt", accountEnabled: true }], "@odata.nextLink": "https://g/users?skip=1" });
+  };
+  require("../lib/m-diretorio")({ rota: (m, u, f) => { rotas[m + u] = f; }, db, erro: (e, m) => Object.assign(new Error(m), { estado: e }), soAdmin: () => {}, dominios: ["escola.pt"], graph: { url: "https://g", loginBase: "https://l", tenant: "t", clientId: "c", clientSecret: "s", grupoId: "", fetchFn } });
+  const r = await rotas["POST/api/admin/diretorio/sincronizar"]({});
+  assert.strictEqual(r.total, 2);
+  assert.deepStrictEqual(db.prepare("SELECT nome FROM docentes_dir ORDER BY nome").all().map((x) => x.nome), ["Ana Sá", "Rui Lima"], "segue as páginas, ignora contas inativas e de outros domínios e limpa o sufixo do grupo");
+  assert.ok(rotas["GET/api/admin/diretorio"]({}).entra.em > 0);
+});
