@@ -17,7 +17,7 @@
 
   const cartaoTurma = (t) => {
     const pc = t.esperadas ? Math.round((t.notas / t.esperadas) * 100) : 0;
-    return `<article class="turma-cartao">
+    return `<article class="turma-cartao"${t.foco ? ` data-foco="${t.foco.id}"` : ""}>
       <header><div><h3>${esc(t.nome)}</h3><p class="pequeno">${t.ano ? t.ano + ".º ano · " : ""}${t.alunos} aluno${t.alunos === 1 ? "" : "s"}</p></div>
         ${t.acompanhar ? `<span class="selo-alerta" title="Alunos com nível 1 ou 2">${t.acompanhar} a acompanhar</span>` : ""}</header>
       <div class="turma-corpo">
@@ -25,7 +25,7 @@
         <div class="turma-niveis"><p class="rotulo">Alunos por nível</p>${barraNiveis(t.niveis)}</div>
       </div>
       <div><div class="progresso-topo"><span class="rotulo">Notas lançadas</span><span class="pequeno">${t.esperadas ? `${t.notas} de ${t.esperadas}` : "sem avaliações"}</span></div><div class="progresso"><div style="width:${pc}%"></div></div></div>
-      <footer>${t.periodos.map((d) => `<a class="botao ${t.foco && d.id === t.foco.id ? "" : "sec"}" href="#/pauta/${d.id}">${esc(d.nome)}${d.fechado ? " (fechado)" : ""}</a>`).join("")}<a class="botao fantasma" href="#/turma/${t.id}">Alunos</a></footer>
+      <footer><p class="rotulo foot-rot">Abrir a pauta de:</p>${t.periodos.map((d) => `<a class="botao periodo ${t.foco && d.id === t.foco.id ? "" : "sec"}" href="#/pauta/${d.id}">${esc(d.nome)}${d.fechado ? " (fechado)" : ""}<span class="seta" aria-hidden="true"> →</span></a>`).join("")}<a class="botao fantasma" href="#/turma/${t.id}">Alunos</a></footer>
     </article>`;
   };
 
@@ -64,7 +64,7 @@
     mostrar(`${EINK.avisoSegredo()}<section class="heroi"><div><p class="heroi-data">${esc(dataHoje())}</p><h1>${saudacao()}${nome ? ", " + esc(nome) : ""}</h1><p class="heroi-grupo" id="heroi-grupo"></p><p class="heroi-sub" id="heroi-sub">A preparar o teu resumo…</p></div>
         <div class="heroi-acoes" id="heroi-acoes"><a class="botao grande" href="#/notas">Abrir notas</a></div></section>
       <div class="kpis" id="kpis"></div><section id="criterios-grupo"></section><div id="alertas"></div>
-      <h2>As minhas turmas</h2><div class="turmas-grelha" id="turmas"><p class="pequeno">A carregar…</p></div>
+      <h2>As minhas turmas</h2><p class="pequeno turmas-dica">Para lançar notas, escolhe o período da turma (por exemplo «1.º período»). Tocar no cartão abre o período atual.</p><div class="turmas-grelha" id="turmas"><p class="pequeno">A carregar…</p></div>
       <h2>Ferramentas de sala</h2><div class="cartoes ferramentas">${FERRAMENTAS.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
     try {
       const r = await api("GET", "/api/inicio"), T = r.totais;
@@ -88,6 +88,7 @@
       $("#heroi-sub").textContent = T.turmas ? `${T.turmas} turma${T.turmas === 1 ? "" : "s"} e ${T.alunos} aluno${T.alunos === 1 ? "" : "s"}${T.acompanhar ? `. ${T.acompanhar} a precisar de atenção.` : "."}` : "Começa por criar a tua primeira turma.";
       $("#heroi-acoes").innerHTML = (ultima ? `<a class="botao grande" href="#/pauta/${ultima.id}">Continuar: ${esc(ultima.nome)}</a>` : r.turmas.length && r.turmas[0].foco ? `<a class="botao grande" href="#/pauta/${r.turmas[0].foco.id}">Abrir a pauta de ${esc(r.turmas[0].nome)}</a>` : "") + (T.turmas ? `<a class="botao sec grande" href="#/notas">Todas as notas</a>` : `<a class="botao grande" href="#/turmas">Criar turma</a>`);
       $("#kpis").innerHTML = [[T.turmas, T.turmas === 1 ? "turma" : "turmas"], [T.alunos, T.alunos === 1 ? "aluno" : "alunos"], [T.media === null ? "–" : n1(T.media), "média geral (%)"], [T.acompanhar, "a acompanhar"]].map(([v, l], i) => `<div class="kpi k${i}"><strong>${v}</strong><span>${l}</span></div>`).join("");
+      $("#turmas").onclick = (e) => { if (e.target.closest("a, button, summary, input, select")) return; const c = e.target.closest(".turma-cartao[data-foco]"); if (c) location.hash = "#/pauta/" + c.dataset.foco; };
       $("#turmas").innerHTML = r.turmas.length ? r.turmas.map(cartaoTurma).join("") : `<div class="vazio"><p><strong>Ainda não tens turmas.</strong></p><p class="pequeno">Cria uma turma, adiciona os alunos e começa a lançar notas.</p><a class="botao grande" href="#/turmas">Criar a primeira turma</a></div>`;
     } catch { /* o aviso de erro já foi mostrado */ }
     // Alunos a acompanhar (nota baixa ou muitas faltas), sem atrasar o resto.

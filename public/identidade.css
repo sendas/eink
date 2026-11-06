@@ -272,3 +272,73 @@ table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead
 @media print { .nova-versao { display: none; } }
 .dest-chip.pendente { background: var(--sinal-fundo); color: var(--sinal-texto); border: 1.5px dashed var(--sinal-texto); }
 .dest-lista li.sem { white-space: normal; line-height: 1.4; }
+
+/* Telemóvel: cabeçalho numa grelha de três colunas (logótipo, etiqueta beta, tema e Sair) e menu por baixo; nada passa da largura do ecrã */
+@media (max-width: 760px) {
+  .topo { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .topo .versao { display: none; }
+  .topo .beta-pill { grid-column: 2; grid-row: 1; justify-self: start; }
+  .topo .utilizador { grid-column: 3; grid-row: 1; justify-self: end; }
+  .marca-nome { font-size: 1.25rem; }
+  .marca svg { width: 30px; height: 30px; }
+  .beta-faixa { padding: .4rem .8rem; font-size: .82rem; gap: .2rem .6rem; }
+  .beta-faixa span { display: none; }
+  .troca-vista { flex-wrap: wrap; }
+  .troca-vista button { white-space: nowrap; flex: none; }
+  .barra-pauta > * { max-width: 100%; }
+  .nova-versao { left: .6rem; right: .6rem; bottom: .6rem; max-width: none; }
+}
+@media (max-width: 520px) { .beta-pill .bp-l, .beta-pill .bp-m { display: none; } .beta-pill .bp-c { display: inline; } }
+
+/* Entrada: cartão com instruções e botão grande da conta da escola; a entrada com utilizador fica minimizada */
+.ln-sub { font-size: 15px; line-height: 24px; color: var(--suave); }
+.ln-info { display: flex; gap: .9rem; align-items: flex-start; padding: 1rem 1.1rem; border-radius: 16px; border: 1.5px solid color-mix(in srgb, var(--azul) 35%, transparent); background: var(--azul-fundo); color: var(--texto); }
+.ln-info strong { display: block; color: var(--azul-texto); }
+.ln-info p { margin: .15rem 0 0; color: var(--texto); font-size: 14px; }
+.ln-info-ico { flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%; display: grid; place-items: center; background: var(--azul); color: #fff; font-weight: 800; font-family: var(--letra-titulo); font-size: .95rem; }
+.ln-ms { display: flex; align-items: center; justify-content: center; gap: .9rem; min-height: 58px; padding: .6rem 1rem; border-radius: 16px; background: var(--marca); color: var(--sobre-marca); text-decoration: none; font-size: 1.05rem; font-weight: 700; text-align: center; box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--marca) 70%, transparent); }
+.ln-ms:hover { filter: brightness(1.08); }
+.ln-ms svg { flex: none; }
+.ln-caixa .ln-selo { text-align: center; font-size: .85rem; }
+.ln-local { margin-top: .2rem; border-top: 1px solid var(--linha); padding-top: .8rem; }
+.ln-local summary { cursor: pointer; color: var(--suave); font-size: .85rem; text-align: center; list-style: none; }
+.ln-local summary::-webkit-details-marker { display: none; }
+.ln-local summary:hover { color: var(--texto); text-decoration: underline; }
+.ln-local[open] summary { margin-bottom: .8rem; }
+.ln-local form { margin-bottom: .6rem; }
+
+/* Grelha: reutilizar e partilhar fora de «Questões e cotações» */
+.g-reuso-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.2rem; }
+.g-reuso h3 { margin: 0 0 .4rem; font-size: 1rem; }
+.g-reuso label { display: flex; flex-direction: column; gap: .3rem; }
+.g-reuso select { width: 100%; }
+
+/* As minhas turmas: o período é o que se abre */
+.turmas-dica { margin: -.3rem 0 .8rem; font-size: .95rem; color: var(--suave); }
+.turma-cartao[data-foco] { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.turma-cartao[data-foco]:hover { border-color: var(--marca); box-shadow: var(--sombra), 0 0 0 2px color-mix(in srgb, var(--marca) 22%, transparent); }
+.turma-cartao .foot-rot { flex: 1 0 100%; margin: 0 0 .1rem; }
+.turma-cartao .botao.periodo { min-height: 44px; }
+.turma-cartao .botao.periodo .seta { margin-left: .3rem; transition: transform .15s; }
+.turma-cartao .botao.periodo:hover .seta { transform: translateX(3px); }
+
+/* Telemóvel (até 760 px): tabelas que deslizam, listas empilhadas, ligações do menu com 44 px e o botão de sugestões discreto */
+@media (max-width: 760px) {
+  main table:not(.folha):not(.cg-tab) { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lista li { flex-direction: column; align-items: stretch; gap: .5rem; }
+  .lista li > .linha, .lista li > span.linha { width: 100%; }
+  .lista li select, .lista li input:not([type=checkbox]):not([type=radio]) { width: 100%; }
+  .topo nav a { min-height: 44px; display: inline-flex; align-items: center; }
+  .utilizador a { padding: .6rem .3rem; }
+  main { padding-bottom: 5.5rem; }
+  .turma-cartao { padding: 1.1rem; }
+  .turma-cartao footer .botao { flex: 1 1 auto; justify-content: center; }
+  .turmas-dica { font-size: .9rem; }
+  .ln-ms { font-size: 1rem; }
+  .g-reuso-grid { grid-template-columns: 1fr; }
+  .cot-soma { padding: .7rem .8rem; }
+  .cot-soma button { flex: 1 1 auto; }
+  .sug-botao { font-size: 0; width: 46px; height: 46px; padding: 0; border-radius: 50%; right: .6rem; bottom: .6rem; background-repeat: no-repeat; background-position: center; background-size: 22px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'/%3E%3C/svg%3E"); }
+  :root[data-tema="escuro"] .sug-botao { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e1614' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'/%3E%3C/svg%3E"); }
+}
+@media (max-width: 760px) and (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) .sug-botao { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e1614' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'/%3E%3C/svg%3E"); } }

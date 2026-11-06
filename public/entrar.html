@@ -45,15 +45,25 @@
   </div>
   <main class="ln-caixa caixa-entrar" id="entrar">
     <h2>Entrar</h2>
-    <a class="ln-grande" href="/auth/entrar">Entrar com a conta da escola</a>
-    <p>Só entram docentes da escola com acesso autorizado.</p>
-    <div class="ln-ou">ou</div>
-    <form id="f-local">
-      <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
-      <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
-      <button>Entrar com utilizador</button><p id="erro-local" role="alert"></p>
-    </form>
-    <p>Sem conta Office da escola? Pede as credenciais a um administrador.</p>
+    <p class="ln-sub">Entra com a tua conta da escola para abrires as tuas turmas e lançares notas.</p>
+    <div class="ln-info" role="note">
+      <span class="ln-info-ico" aria-hidden="true">i</span>
+      <div><strong>Instruções de acesso</strong><p>Usa as mesmas credenciais do email institucional.</p></div>
+    </div>
+    <a class="ln-ms" href="/auth/entrar">
+      <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#ffffff"/><rect x="4.5" y="4.5" width="7" height="7" fill="#f25022"/><rect x="12.5" y="4.5" width="7" height="7" fill="#7fba00"/><rect x="4.5" y="12.5" width="7" height="7" fill="#00a4ef"/><rect x="12.5" y="12.5" width="7" height="7" fill="#ffb900"/></svg>
+      <span>Entrar com email ou conta da escola</span>
+    </a>
+    <p class="ln-selo">Autenticação segura via Microsoft Entra ID</p>
+    <details class="ln-local" id="local">
+      <summary>Sem conta Office da escola?</summary>
+      <form id="f-local">
+        <label>Utilizador<input name="utilizador" autocomplete="username" required maxlength="40" autocapitalize="none" spellcheck="false"></label>
+        <label>Palavra-passe<input name="senha" type="password" autocomplete="current-password" required maxlength="200"></label>
+        <button>Entrar com utilizador</button><p id="erro-local" role="alert"></p>
+      </form>
+      <p>Para docentes que não têm conta Office da escola. Pede as credenciais a um administrador.</p>
+    </details>
   </main>
 </section>
 
