@@ -18,6 +18,7 @@ const registarDisciplinas = require("./lib/m-disciplinas");
 const registarSugestoes = require("./lib/m-sugestoes");
 const registarAcessos = require("./lib/m-acessos");
 const registarModelos = require("./lib/m-modelos");
+const registarDiretorio = require("./lib/m-diretorio");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -652,6 +653,7 @@ function criarServidor(env = process.env) {
   registarContas({ rota, db, erro, texto, inteiro, existe, soAdmin });
   registarDisciplinas({ rota, db, erro, inteiro, existe, soAdmin });
   const SUG = registarSugestoes({ rota, db, erro, inteiro, existe, soAdmin, correio: CORREIO, baseUrl: BASE_URL });
+  registarDiretorio({ rota, db, erro, soAdmin, dominios: DOMINIOS });
   const MODELOS = registarModelos({ rota, db, erro, texto, inteiro, existe, avalDe, itensDe, dominios: DOMINIOS });
   const ACESSOS = registarAcessos({ rota, db, erro, soAdmin });
   ACESSOS.limpar(); const relogioAcessos = setInterval(() => { try { ACESSOS.limpar(); } catch (e) { console.error("Acessos:", e.message); } }, 24 * 3600000); relogioAcessos.unref();

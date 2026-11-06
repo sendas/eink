@@ -31,10 +31,10 @@
       const t = entrada.value.trim().toLowerCase();
       // Um email completo que ainda não está na plataforma: envia-se na mesma, e chega quando o colega entrar.
       const emailLivre = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t) && t !== meu && !colegas.some((c) => c.email === t) && !escolhidos.some((c) => c.email === t);
-      if (emailLivre) sugestoes.push({ id: null, nome: t, email: t, pendente: true });
+      if (emailLivre) sugestoes.push({ id: null, nome: t, email: t, pendente: true, livre: true });
       if (!t) return fechar();
-      const aviso0 = colegas.length ? "Nenhum colega encontrado. Para quem ainda não entrou na plataforma, escreve o email completo (nome@…)." : "Ainda não há outros docentes registados: só aparecem os colegas que já entraram. Escreve o email completo para enviar na mesma.";
-      lista.innerHTML = sugestoes.length ? sugestoes.map((c, i) => `<li role="option" id="dest-o${i}" data-i="${i}" aria-selected="${i === 0}" class="${i === 0 ? "ativo" : ""}">${c.pendente ? `<strong>Enviar para ${esc(c.email)}</strong><small>Ainda não entrou na plataforma: recebe o modelo quando entrar</small>` : `<strong>${realce(c.nome, entrada.value)}</strong><small>${realce(c.email, entrada.value)}</small>`}</li>`).join("") : `<li class="sem">${aviso0}</li>`;
+      const aviso0 = colegas.length ? "Nenhum colega encontrado. Escreve o email completo (nome@…) para enviar na mesma." : (EINK.eu && EINK.eu.admin ? "Ainda não há lista de docentes. Importa-a em Gestão, Docentes, para os nomes aparecerem aqui; entretanto escreve o email completo." : "Ainda não há outros docentes na lista. Escreve o email completo do colega para enviar na mesma.");
+      lista.innerHTML = sugestoes.length ? sugestoes.map((c, i) => `<li role="option" id="dest-o${i}" data-i="${i}" aria-selected="${i === 0}" class="${i === 0 ? "ativo" : ""}">${c.livre ? `<strong>Enviar para ${esc(c.email)}</strong><small>Ainda não entrou na plataforma: recebe o modelo quando entrar</small>` : `<strong>${realce(c.nome, entrada.value)}</strong><small>${realce(c.email, entrada.value)}${c.pendente ? " · ainda não entrou na plataforma" : ""}</small>`}</li>`).join("") : `<li class="sem">${aviso0}</li>`;
       lista.hidden = false; entrada.setAttribute("aria-expanded", "true");
       $$("li[data-i]", lista).forEach((li) => { li.onmousedown = (e) => { e.preventDefault(); juntar(sugestoes[Number(li.dataset.i)]); }; });
     };

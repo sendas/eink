@@ -4,11 +4,17 @@
   const { api, aviso, mostrar, esc, $, $$ } = EINK;
 
   async function docentes() {
-    const [l, grupos, recusados] = await Promise.all([api("GET", "/api/admin/professores"), api("GET", "/api/grupos"), EINK.eu.grupoDocentes ? [] : api("GET", "/api/admin/recusados")]);
+    const [l, grupos, recusados, dir] = await Promise.all([api("GET", "/api/admin/professores"), api("GET", "/api/grupos"), EINK.eu.grupoDocentes ? [] : api("GET", "/api/admin/recusados"), api("GET", "/api/admin/diretorio")]);
     mostrar(`<h1>Docentes com acesso</h1>
       ${recusados.length ? `<div class="painel" id="recusados"><h2 style="margin-top:0">Quiseram entrar e não foram reconhecidos</h2><p class="pequeno">O Microsoft 365 não os identifica como docentes. Vê o que o Entra diz de cada um e dá acesso só a quem for docente.</p><ul class="lista">${recusados.map((r) => `<li><span><strong>${esc(r.nome || r.upn)}</strong> <span class="pequeno">${esc(r.upn)}</span><br><span class="pequeno">Entra: ${r.textos.length ? esc(r.textos.join(" · ")) : "sem informação"}</span></span><button type="button" data-aceitar="${esc(r.upn)}" data-nome="${esc(r.nome)}">Dar acesso</button></li>`).join("")}</ul></div>` : ""}
       ${EINK.eu.grupoDocentes ? `<p class="painel">O acesso é dado pelo grupo «docentes» do Entra ID: quem pertence ao grupo entra e aparece aqui ao fazer o primeiro acesso; quem sai do grupo deixa de poder entrar. Aqui só se escolhe o grupo disciplinar de cada docente.</p>`
         : `<form class="painel linha" id="f-prof"><label>Email da escola<input name="upn" type="email" required placeholder="nome@escola.pt"></label><label>Nome<input name="nome" maxlength="120"></label><button>Dar acesso</button></form>`}
+      <section class="painel" id="dir"><h2 style="margin-top:0">Lista de docentes da escola</h2>
+        <p class="pequeno">Serve para sugerir colegas pelo nome (como no Outlook) quando se envia um modelo de grelha, mesmo que ainda não tenham entrado na plataforma. ${dir.total ? `<strong>Tem ${dir.total} docentes.</strong>` : "<strong>Ainda está vazia.</strong>"}</p>
+        <p class="pequeno">Como obter a lista: no centro de administração do Entra, abre Grupos, o grupo «AEEQ - Todos os Docentes», Membros e «Transferir membros» (CSV). Carrega aqui esse ficheiro, ou cola duas colunas do Excel: nome e email.</p>
+        <label>Ficheiro (Excel ou CSV)<input type="file" id="dir-f" accept=".xlsx,.csv,.txt,text/csv"></label>
+        <label>Ou cola a lista<textarea id="dir-t" rows="4" placeholder="Ana Silva&#9;ana.silva@escola.pt"></textarea></label>
+        <p class="linha"><button type="button" id="dir-ver">Ver o que vai ser importado</button>${dir.total ? '<button type="button" class="perigo" id="dir-apagar">Apagar a lista</button>' : ""}</p><div id="dir-res"></div></section>
       <form class="painel linha" id="f-local"><strong>Conta local</strong> <label>Utilizador<input name="utilizador" required maxlength="40" placeholder="ana.silva" autocapitalize="none" spellcheck="false"></label><label>Nome<input name="nome" maxlength="120"></label><label class="linha"><input type="checkbox" name="admin"> Administrador</label><button>Criar conta local</button>
         <span class="pequeno">Para docentes sem conta Office. Gera-se uma palavra-passe que só vês uma vez; o docente muda-a na primeira entrada.</span></form>
       <div id="credenciais"></div>
@@ -23,6 +29,17 @@
       $("#cred-copiar").onclick = async () => { try { await navigator.clipboard.writeText(`Utilizador: ${d.utilizador}\nPalavra-passe: ${d.senha}`); aviso("Copiado."); } catch { aviso("Não foi possível copiar. Seleciona o texto e copia à mão.", true); } };
       $("#credenciais").scrollIntoView({ block: "nearest" });
     };
+    // Lista de docentes da escola: primeiro mostra o que encontrou, depois importa
+    const lerFich = (f) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.readAsDataURL(f); });
+    $("#dir-ver").onclick = async () => {
+      const f = $("#dir-f").files[0], corpo = f ? { base64: await lerFich(f), nome: f.name } : { texto: $("#dir-t").value };
+      try {
+        const r = await api("POST", "/api/admin/diretorio/importar", corpo);
+        $("#dir-res").innerHTML = `<div class="painel" role="status"><p><strong>Encontrei ${r.encontrados} docentes</strong>${r.ignorados ? ` (${r.ignorados} linhas ignoradas: sem email da escola)` : ""}.</p><p class="pequeno">Por exemplo: ${r.exemplos.map((x) => esc(x.nome) + " (" + esc(x.upn) + ")").join("; ")}</p><p class="linha"><button type="button" id="dir-ok">Importar estes ${r.encontrados}</button><label class="linha"><input type="checkbox" id="dir-subst"> Substituir a lista atual</label></p></div>`;
+        $("#dir-ok").onclick = async () => { const g = await api("POST", "/api/admin/diretorio/importar", { ...corpo, aplicar: true, substituir: $("#dir-subst").checked }); aviso(`Lista guardada: ${g.total} docentes.`); docentes(); };
+      } catch { /* aviso mostrado */ }
+    };
+    if ($("#dir-apagar")) $("#dir-apagar").onclick = async () => { if (confirm("Apagar a lista de docentes da escola? Os colegas deixam de aparecer nas sugestões até a importares outra vez.")) { await api("POST", "/api/admin/diretorio/apagar", { confirmar: true }); docentes(); } };
     $("#f-local").onsubmit = async (e) => { e.preventDefault(); const f = new FormData(e.target); const d = await api("POST", "/api/admin/professores/locais", { utilizador: f.get("utilizador"), nome: f.get("nome"), admin: f.get("admin") === "on" }); await docentes(); mostrarCred(d, "Conta local criada"); };
     $$("[data-aceitar]").forEach((b) => { b.onclick = async () => { await api("POST", "/api/admin/professores", { upn: b.dataset.aceitar, nome: b.dataset.nome }); aviso("Acesso dado."); docentes(); }; });
     $$("[data-nova]").forEach((b) => { b.onclick = async () => { if (confirm("Gerar uma palavra-passe nova? A anterior deixa de funcionar.")) { const d = await api("POST", `/api/admin/professores/${b.dataset.nova}/senha`, {}); mostrarCred(d, "Nova palavra-passe"); } }; });

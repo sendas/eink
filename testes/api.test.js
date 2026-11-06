@@ -1398,3 +1398,25 @@ test("Disciplinas: cada docente escolhe as suas; PDFs dos critérios por grupo (
   assert.strictEqual((await adm.chamar("DELETE", `/api/admin/documentos/${id}`)).estado, 200);
   assert.strictEqual((await ana.chamar("GET", `/api/documentos?grupo=${inf.id}`)).d.length, 0);
 });
+
+test("Lista de docentes da escola: aparecem nas sugestões mesmo sem terem entrado", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana = await entrar("ana@escola.pt");
+  const csv = 'displayName,userPrincipalName\n"Marta Soares Docente-550 - Informática",marta.soares@escola.pt\nMário Reis,mario.reis@escola.pt\nAna,ana@escola.pt\nFora,fora@outro.pt\n';
+  assert.strictEqual((await ana.chamar("POST", "/api/admin/diretorio/importar", { texto: csv })).estado, 403, "só administradores");
+  const ver = (await adm.chamar("POST", "/api/admin/diretorio/importar", { texto: csv })).d;
+  assert.strictEqual(ver.encontrados, 3); assert.strictEqual(ver.ignorados, 1);
+  assert.strictEqual((await adm.chamar("GET", "/api/admin/diretorio")).d.total, 0, "sem aplicar não grava");
+  const ok = (await adm.chamar("POST", "/api/admin/diretorio/importar", { texto: csv, aplicar: true })).d;
+  assert.strictEqual(ok.total, 3);
+  const col = (await ana.chamar("GET", "/api/colegas")).d;
+  const marta = col.find((x) => x.email === "marta.soares@escola.pt");
+  assert.ok(marta && marta.pendente && marta.nome === "Marta Soares", "aparece pelo nome, sem prefixo do grupo");
+  assert.ok(col.some((x) => x.nome === "Mário Reis"));
+  assert.ok(!col.some((x) => x.email === "ana@escola.pt"), "nem a própria pessoa");
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/diretorio/apagar", {})).estado, 400);
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/diretorio/apagar", { confirmar: true })).d.apagados, 3);
+});
