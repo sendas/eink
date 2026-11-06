@@ -15,7 +15,7 @@
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
     const g = (gi) => "g" + (gi % 3);
-    const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span></th>`).join("");
+    const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span>${k.tipo !== "nivel" && !fechado ? ` <button type="button" class="sec add-aval" data-add-aval="${k.id}">+ Adicionar avaliação</button>` : ""}</th>`).join("");
     const l2 = d.criterios.map((k, gi) => {
       if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="${dicaComp}">${pct ? "0 a 100 %" : modo === "auto" ? "1 a 5 ou %" : "Nível 1 a 5"}</th>`;
       const sp = somaPesos(k);
@@ -98,6 +98,8 @@
     pintar(d); resumo(d); cartoesFinal(d); ligarFotos(); aplicarVista(vistaCart ? "cartoes" : "tabela");
     const recalcular = async () => { const dd = await api("GET", `/api/periodos/${id}/pauta`); pintar(dd); resumo(dd); cartoesFinal(dd); };
 
+    // «+ Adicionar avaliação» no cabeçalho do critério: abre o formulário com esse critério escolhido e põe o cursor no título.
+    $$("[data-add-aval]").forEach((b) => { b.onclick = () => { const det = $(".nova-aval"); if (!det) return; det.open = true; const sel = $("#f-aval [name=criterio]"); if (sel) sel.value = b.dataset.addAval; det.scrollIntoView({ block: "center", behavior: "smooth" }); $("#f-aval [name=titulo]").focus({ preventScroll: true }); }; });
     if (!fechado) $("#f-aval").onsubmit = async (e) => {
       e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
       await api("POST", `/api/periodos/${id}/avaliacoes`, { ...f, criterio: Number(f.criterio), peso: Number(f.peso), maximo: Number(f.maximo) }); pautaVista(id);
