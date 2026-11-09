@@ -345,3 +345,51 @@ table.folha thead th.crit, table.folha thead th.g0:not(.crit), table.folha thead
 
 /* Pauta: botão «+ Adicionar avaliação» no cabeçalho do critério */
 .add-aval { margin-left: .5rem; padding: .25rem .6rem; min-height: 0; font-size: .8rem; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+
+/* Botão do cabeçalho que parece uma ligação (Tutorial) */
+button.ligacao { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: var(--marca); text-decoration: underline; cursor: pointer; min-height: 0; box-shadow: none; }
+button.ligacao:hover { color: var(--texto); }
+
+/* Tutorial de boas-vindas */
+.tut-dlg { border: 0; padding: 0; width: min(54rem, calc(100vw - 1.5rem)); max-height: min(46rem, calc(100vh - 1.5rem)); border-radius: 22px; background: var(--cartao); color: var(--texto); box-shadow: 0 30px 80px -20px rgba(8, 20, 16, .55); overflow: hidden; }
+.tut-dlg[open] { display: flex; flex-direction: column; animation: tut-entra .22s ease-out; }
+.tut-dlg::backdrop { background: rgba(10, 22, 18, .6); }
+@keyframes tut-entra { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tut-dlg[open] { animation: none; } }
+.tut-topo { display: flex; align-items: center; justify-content: space-between; padding: .7rem 1rem .7rem 1.4rem; background: var(--marca); color: var(--sobre-marca); flex: none; }
+.tut-passo { font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.tut-x { width: 2.4rem; height: 2.4rem; min-height: 0; padding: 0; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .16); color: inherit; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.tut-x:hover { background: rgba(255, 255, 255, .28); }
+.tut-corpo { padding: 1.3rem 1.5rem 1rem; overflow-y: auto; display: grid; gap: 1.1rem; flex: 1 1 auto; min-height: 0; align-content: start; }
+.tut-fig { margin: 0; border-radius: 14px; border: 1px solid var(--linha); background: var(--cartao); box-shadow: 0 10px 28px -16px rgba(20, 40, 32, .5); overflow: hidden; aspect-ratio: 2.25 / 1; }
+.tut-fig img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+.tut-fig.tut-centro { display: grid; place-items: center; }
+.tut-fig.tut-centro img { width: auto; max-width: 100%; height: 100%; object-fit: contain; }
+.tut-texto h2 { margin: 0 0 .35rem; font-family: var(--letra-titulo); font-size: clamp(1.4rem, 3.2vw, 1.9rem); line-height: 1.2; }
+.tut-texto p { margin: .3rem 0; font-size: 1.02rem; line-height: 1.55; }
+.tut-sub { color: var(--suave); }
+.tut-pontos { margin: .6rem 0 0; padding: 0; list-style: none; display: grid; gap: .45rem; }
+.tut-pontos li { position: relative; padding-left: 1.6rem; line-height: 1.5; }
+.tut-pontos li::before { content: ""; position: absolute; left: .15rem; top: .45rem; width: .55rem; height: .55rem; border-radius: 50%; background: var(--marca); }
+.tut-lista { margin: .9rem 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; }
+.tut-lista li { display: flex; gap: .8rem; align-items: flex-start; padding: .8rem .9rem; border: 1px solid var(--linha); border-radius: 14px; background: var(--marca-fundo); }
+.tut-lista strong { display: block; }
+.tut-lista small { display: block; color: var(--suave); font-size: .85rem; line-height: 1.4; margin-top: .1rem; }
+.tut-n { flex: none; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--marca); color: var(--sobre-marca); font-weight: 800; font-family: var(--letra-titulo); }
+.tut-capa .tut-texto { padding: .4rem 0 .2rem; }
+.tut-capa .tut-texto h2 { font-size: clamp(1.7rem, 4.5vw, 2.4rem); }
+.tut-pe { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .9rem 1.5rem 1.1rem; border-top: 1px solid var(--linha); }
+.tut-pontinhos { display: flex; gap: .15rem; }
+.tut-pontinhos button { width: 1.6rem; height: 1.6rem; min-height: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; box-shadow: none; }
+.tut-pontinhos button::after { content: ""; position: absolute; left: 50%; top: 50%; width: .6rem; height: .6rem; border-radius: 50%; transform: translate(-50%, -50%); background: var(--linha); transition: width .15s, background .15s; }
+.tut-pontinhos button.ativo::after { width: 1.3rem; border-radius: .4rem; background: var(--marca); }
+.tut-botoes { display: flex; gap: .6rem; }
+.tut-botoes button { min-height: 44px; }
+@media (max-width: 640px) {
+  .tut-dlg { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .tut-corpo { padding: 1rem 1rem .8rem; }
+  .tut-pe { padding: .8rem 1rem calc(.9rem + env(safe-area-inset-bottom)); }
+  .tut-pontinhos button { width: 1.2rem; }
+  .tut-botoes { width: 100%; } .tut-botoes button { flex: 1; }
+}
+@media print { .tut-dlg { display: none !important; } }

@@ -42,6 +42,7 @@ function criarServidor(env = process.env) {
   // Como no helpdesk-escolar: quem entra é quem pertence ao grupo «docentes» do Entra ID (ID do grupo); sem esta variável, vale a lista de docentes do administrador.
   const GRUPO_DOCENTES = String(env.GRUPO_DOCENTES_ID || "").trim();
   const GRUPO_ADMIN = String(env.GRUPO_ADMIN_ID || "").trim();
+  const TUTORIAL_VERSAO = 1; // sobe quando o tutorial muda o suficiente para voltar a aparecer a todos
   const GRAPH_URL = env.GRAPH_URL || "https://graph.microsoft.com/v1.0";
   // Entrada de teste sem Microsoft: só em http (nunca em produção com HTTPS).
   const DEV = env.DEV_LOGIN === "1" && !BASE_URL.startsWith("https://");
@@ -218,7 +219,9 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  // Tutorial de boas-vindas: aparece uma vez a cada docente (e outra vez se a TUTORIAL_VERSAO subir, por exemplo com novidades grandes).
+  rota("POST", "/api/eu/tutorial", (c) => { db.prepare("UPDATE professores SET tutorial_visto = ? WHERE id = ?").run(TUTORIAL_VERSAO, c.p.id); return { ok: true }; });
   rota("PUT", "/api/eu/comportamento", (c) => {
     if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };

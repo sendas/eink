@@ -32,6 +32,16 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   // Entrada e painel
   await p.goto(`${base}/auth/entrar?dev=admin@escola.pt`);
   await p.waitForSelector(".cartoes");
+  // Tutorial de boas-vindas: aparece no primeiro início de sessão, anda pelos passos e não volta depois de fechado
+  await p.waitForSelector("dialog.tut-dlg[open]");
+  assert.ok((await p.textContent(".tut-dlg h2")).includes("Bem-vindo"), "abre na capa");
+  await p.click("#tut-seg"); assert.match(await p.textContent(".tut-passo"), /Passo 1 de 7/);
+  await p.keyboard.press("ArrowRight"); assert.match(await p.textContent(".tut-passo"), /Passo 2 de 7/);
+  await p.waitForFunction(() => { const i = document.querySelector(".tut-fig img"); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }); // a imagem do passo carrega
+  await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector("dialog.tut-dlg"));
+  await p.reload(); await p.waitForSelector(".cartoes"); await p.waitForTimeout(1200);
+  assert.ok(!(await p.$("dialog.tut-dlg")), "depois de fechado, não volta a aparecer sozinho");
+  await p.click("#nav-tutorial"); await p.waitForSelector("dialog.tut-dlg[open]"); await p.click(".tut-x"); await p.waitForFunction(() => !document.querySelector("dialog.tut-dlg"));
   const cartoes = await p.locator(".cartao").allTextContents();
   assert.ok(cartoes.some((c) => c.includes("Sondagem")) && cartoes.some((c) => c.includes("Quizzes")));
   assert.ok(!cartoes.some((c) => /ruído/i.test(c)), "o medidor de ruído foi retirado");

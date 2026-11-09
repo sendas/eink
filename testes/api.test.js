@@ -1438,3 +1438,15 @@ test("Lista de docentes: sincronização com o Entra (permissão de aplicação)
   assert.deepStrictEqual(db.prepare("SELECT nome FROM docentes_dir ORDER BY nome").all().map((x) => x.nome), ["Ana Sá", "Rui Lima"], "segue as páginas, ignora contas inativas e de outros domínios e limpa o sufixo do grupo");
   assert.ok(rotas["GET/api/admin/diretorio"]({}).entra.em > 0);
 });
+
+test("Tutorial de boas-vindas: aparece uma vez por docente", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.tutorial, true, "no primeiro início de sessão");
+  assert.strictEqual((await adm.chamar("POST", "/api/eu/tutorial", {})).estado, 200);
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.tutorial, false, "depois de visto, deixa de aparecer");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana = await entrar("ana@escola.pt");
+  assert.strictEqual((await ana.chamar("GET", "/api/eu")).d.tutorial, true, "é por docente");
+});
