@@ -219,9 +219,19 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, guias: String(c.p.guias_vistos || "").split(",").filter(Boolean), dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
   // Tutorial de boas-vindas: aparece uma vez a cada docente (e outra vez se a TUTORIAL_VERSAO subir, por exemplo com novidades grandes).
   rota("POST", "/api/eu/tutorial", (c) => { db.prepare("UPDATE professores SET tutorial_visto = ? WHERE id = ?").run(TUTORIAL_VERSAO, c.p.id); return { ok: true }; });
+  // Guias de cada ecrã (avisos que dizem o que fazer e onde clicar): guarda quais o docente já viu; «*» = não mostrar mais; `repor` volta a mostrá-los.
+  rota("POST", "/api/eu/guia", (c) => {
+    if (c.b.repor === true) { db.prepare("UPDATE professores SET guias_vistos = '' WHERE id = ?").run(c.p.id); return { guias: [] }; }
+    const chave = String(c.b.chave || "");
+    if (!/^(\*|[a-z]{2,20})$/.test(chave)) throw erro(400, "Ecrã inválido.");
+    const lista = String(c.p.guias_vistos || "").split(",").filter(Boolean);
+    if (!lista.includes(chave)) lista.push(chave);
+    const guias = lista.slice(-40);
+    db.prepare("UPDATE professores SET guias_vistos = ? WHERE id = ?").run(guias.join(","), c.p.id); return { guias };
+  });
   rota("PUT", "/api/eu/comportamento", (c) => {
     if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };

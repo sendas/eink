@@ -42,6 +42,13 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.reload(); await p.waitForSelector(".cartoes"); await p.waitForTimeout(1200);
   assert.ok(!(await p.$("dialog.tut-dlg")), "depois de fechado, não volta a aparecer sozinho");
   await p.click("#nav-tutorial"); await p.waitForSelector("dialog.tut-dlg[open]"); await p.click(".tut-x"); await p.waitForFunction(() => !document.querySelector("dialog.tut-dlg"));
+  // Guia do ecrã: aparece sozinho depois do tutorial, aponta para um botão e não volta a aparecer depois de visto
+  await p.waitForSelector(".guia-pop", { timeout: 8000 });
+  assert.match(await p.textContent(".guia-pop"), /Faz assim/, "diz o que fazer e onde clicar");
+  assert.ok(await p.evaluate(() => { const a = document.querySelector(".guia-anel").getBoundingClientRect(); return a.width > 10 && a.height > 10; }), "o realce está sobre um elemento");
+  await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector(".guia-pop"));
+  await p.click("#nav-guia"); await p.waitForSelector(".guia-pop"); await p.click(".guia-nunca"); await p.waitForFunction(() => !document.querySelector(".guia-pop"));
+  assert.deepStrictEqual(await p.evaluate(() => EINK.eu.guias), ["*"], "«Não mostrar mais guias» fica guardado");
   const cartoes = await p.locator(".cartao").allTextContents();
   assert.ok(cartoes.some((c) => c.includes("Sondagem")) && cartoes.some((c) => c.includes("Quizzes")));
   assert.ok(!cartoes.some((c) => /ruído/i.test(c)), "o medidor de ruído foi retirado");

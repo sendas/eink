@@ -26,11 +26,11 @@
     <a href="#/gestao" id="nav-gestao" hidden>Gestão</a>
     <a href="#/senha" id="nav-senha" hidden>Palavra-passe</a>
   </nav>
-  <span class="utilizador"><span id="tema-sw" data-tema-switch></span> <span id="nome"></span> · <button type="button" class="ligacao" id="nav-tutorial">Tutorial</button> · <a href="/auth/sair">Sair</a></span>
+  <span class="utilizador"><span id="tema-sw" data-tema-switch></span> <span id="nome"></span> · <span class="so-pc"><span id="guia-caixa" data-guia-caixa hidden><button type="button" class="ligacao" id="nav-guia" data-abrir-guia>Guia do ecrã</button> · </span><button type="button" class="ligacao" id="nav-tutorial" data-abrir-tutorial>Tutorial</button> · </span><a href="/auth/sair">Sair</a></span>
 </header>
 <div class="regua" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <main id="vista" tabindex="-1"></main>
-<footer class="rodape"><span>Cada docente só vê as suas turmas. Os dados não são partilhados com terceiros.</span> <a href="/privacidade.html">Privacidade</a></footer>
+<footer class="rodape"><span>Cada docente só vê as suas turmas. Os dados não são partilhados com terceiros.</span> <a href="/privacidade.html">Privacidade</a> <span class="so-movel"><span data-guia-caixa hidden><button type="button" class="ligacao" data-abrir-guia>Guia do ecrã</button> · </span><button type="button" class="ligacao" data-abrir-tutorial>Tutorial</button></span></footer>
 <div id="aviso" role="status" aria-live="polite"></div>
 <script src="/app.js?v=__V__"></script>
 <script src="/apreciacao.js?v=__V__"></script>
@@ -58,6 +58,7 @@
 <script src="/modelos.js?v=__V__"></script>
 <script src="/atualizacao.js?v=__V__"></script>
 <script src="/tutorial.js?v=__V__"></script>
+<script src="/guia.js?v=__V__"></script>
 <script src="/arranque.js?v=__V__"></script>
 </body>
 </html>

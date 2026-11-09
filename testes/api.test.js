@@ -1450,3 +1450,20 @@ test("Tutorial de boas-vindas: aparece uma vez por docente", async (t) => {
   const ana = await entrar("ana@escola.pt");
   assert.strictEqual((await ana.chamar("GET", "/api/eu")).d.tutorial, true, "é por docente");
 });
+
+test("Guias de cada ecrã: guardam-se por docente e podem ser repostos", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  assert.deepStrictEqual((await adm.chamar("GET", "/api/eu")).d.guias, []);
+  await adm.chamar("POST", "/api/eu/guia", { chave: "pauta" }); await adm.chamar("POST", "/api/eu/guia", { chave: "pauta" }); await adm.chamar("POST", "/api/eu/guia", { chave: "grelha" });
+  assert.deepStrictEqual((await adm.chamar("GET", "/api/eu")).d.guias, ["pauta", "grelha"], "sem repetidos");
+  assert.strictEqual((await adm.chamar("POST", "/api/eu/guia", { chave: "x;drop" })).estado, 400, "só nomes de ecrã válidos");
+  assert.strictEqual((await adm.chamar("POST", "/api/eu/guia", { chave: "*" })).estado, 200);
+  assert.ok((await adm.chamar("GET", "/api/eu")).d.guias.includes("*"), "«não mostrar mais» fica guardado");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "ana@escola.pt", nome: "Ana" });
+  const ana = await entrar("ana@escola.pt");
+  assert.deepStrictEqual((await ana.chamar("GET", "/api/eu")).d.guias, [], "é por docente");
+  assert.deepStrictEqual((await adm.chamar("POST", "/api/eu/guia", { repor: true })).d.guias, []);
+  assert.deepStrictEqual((await adm.chamar("GET", "/api/eu")).d.guias, []);
+});

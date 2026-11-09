@@ -37,7 +37,7 @@
     dlg = document.createElement("dialog"); dlg.className = "tut-dlg"; dlg.setAttribute("aria-labelledby", "tut-titulo");
     document.body.append(dlg);
     const marcarVisto = () => { if (EINK.eu && EINK.eu.tutorial) { EINK.eu.tutorial = false; EINK.api("POST", "/api/eu/tutorial", {}).catch(() => {}); } };
-    const fechar = () => { marcarVisto(); const d = dlg; dlg = null; try { d.close(); } catch { /* já fechada */ } d.remove(); };
+    const fechar = () => { marcarVisto(); const d = dlg; dlg = null; try { d.close(); } catch { /* já fechada */ } d.remove(); if (EINK.guia) setTimeout(EINK.guia.aoAbrirEcra, 350); };
     const desenhar = () => {
       const x = PASSOS[i], ultimo = i === PASSOS.length - 1;
       dlg.innerHTML = `

@@ -10,7 +10,8 @@
     try { if (!sessionStorage.getItem("eink.modelosAviso")) { sessionStorage.setItem("eink.modelosAviso", "1"); EINK.aviso(`Recebeste ${EINK.eu.grelhas_novas} grelha${EINK.eu.grelhas_novas === 1 ? "" : "s"} de colegas. Vê em «Modelos».`); } } catch { /* sem sessionStorage */ }
   }
   if (EINK.vigiarVersao) EINK.vigiarVersao();
-  if (EINK.tutorial) { const t = document.getElementById("nav-tutorial"); if (t) t.onclick = () => EINK.tutorial.abrir(); if (EINK.eu.tutorial && !EINK.eu.trocar) setTimeout(() => EINK.tutorial.abrir({ primeira: true }), 600); }
+  if (EINK.guia) EINK.guia.ligar();
+  if (EINK.tutorial) { document.querySelectorAll("[data-abrir-tutorial]").forEach((t) => { t.onclick = () => EINK.tutorial.abrir(); }); if (EINK.eu.tutorial && !EINK.eu.trocar) setTimeout(() => EINK.tutorial.abrir({ primeira: true }), 600); }
   if (EINK.eu.local) document.getElementById("nav-senha").hidden = false;
   // Diz ao servidor o tamanho do ecrã e se é táctil, uma vez por sessão do navegador (junto com o endereço IP e o navegador, vistos pelo servidor).
   try {
@@ -37,7 +38,7 @@
     document.querySelectorAll(".topo nav a").forEach((a) => { if (a.getAttribute("href") === area || (area === "#/pauta" && a.getAttribute("href") === "#/notas") || ((area === "#/turma") && a.getAttribute("href") === "#/turmas")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
-      if (m) { try { await fn(...m.slice(1)); } catch (e) { if (!e || !e.mostrado) { console.error(e); EINK.aviso("Esta página não abriu por um erro do programa. Recarrega com Ctrl+Shift+R; se continuar, diz-me qual era a página.", true); } } document.getElementById("vista").focus(); return; }
+      if (m) { try { await fn(...m.slice(1)); } catch (e) { if (!e || !e.mostrado) { console.error(e); EINK.aviso("Esta página não abriu por um erro do programa. Recarrega com Ctrl+Shift+R; se continuar, diz-me qual era a página.", true); } } document.getElementById("vista").focus(); if (EINK.guia) EINK.guia.aoAbrirEcra(); return; }
     }
     location.hash = "#/";
   };
