@@ -90,10 +90,13 @@ docker compose start eink
   Níveis 1 a 5 pelos limites 20, 50, 70 e 90 %.
 - Avaliações intercalares (1.ª e 2.ª de cada período): menção qualitativa (Não satisfaz, Satisfaz, Satisfaz bastante), proposta pela nota, e descritiva por aluno.
 - Gestão (administradores): fecho de períodos (bloqueia notas depois do conselho de turma), registo de alterações (quem mudou o quê), cópias de segurança e privacidade/retenção.
-- Ferramentas de sala: temporizador, sorteio, chamada, listas, sondagem com código, mapa de sala, quadros e quizzes ao vivo (estilo Kahoot, com modelos do tic.techpro.pt).
-  Os alunos entram nas sondagens (`/s/CÓDIGO`) e nos quizzes (`/j/CÓDIGO` ou `/jogar`) sem conta, só com um código e, nos quizzes, uma alcunha.
+- Sala de aula (menu próprio, em três categorias, com modo projetor em todas as atividades):
+  - com telemóvel: sondagem com código, mural da turma (ideias ou dúvidas), bilhete de saída e quizzes (ao vivo, por equipas ou ao próprio ritmo);
+  - sem telemóvel: temporizador, sorteio e grupos, pergunta e roda, quiz no projetor com cartões A/B/C/D, placar de equipas, ecrã da tarefa e quadros;
+  - gestão da turma: «Começar a aula» (chamada, plano de hoje e lembretes), chamada, mapa de sala, lembretes da turma e registo de participação (só o docente).
+  Os alunos entram nas sondagens, no mural e no bilhete (`/s/CÓDIGO`) e nos quizzes (`/j/CÓDIGO` ou `/jogar`) sem conta, só com um código e, nos quizzes, uma alcunha.
 - Também há: importar notas do Excel (colar ou ficheiro, com pré-visualização), grelhas e quizzes partilhados entre docentes do mesmo grupo disciplinar,
-  diretores de turma (veem a pauta de todas as disciplinas da turma, só leitura), quizzes com imagens, sondagem aberta com nuvem de palavras e estatísticas de acesso.
+  quizzes com imagens, sondagem aberta com nuvem de palavras e estatísticas de acesso.
 - `scripts/copia-externa.sh <destino>` copia as cópias de segurança para fora do servidor (pasta/partilha ou nuvem com rclone).
 - `CLIENT_SECRET_EXPIRA=aaaa-mm-dd` no `.env` faz a plataforma avisar os administradores 60 dias antes de o segredo do Entra expirar.
 - `npm test` corre os testes de API e, se houver Playwright e Chromium, um teste no navegador que percorre os ecrãs principais.
