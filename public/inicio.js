@@ -2,12 +2,6 @@
 // Página inicial: saudação, o atalho principal, números grandes e um cartão por turma com média, níveis e progresso.
 (() => {
   const { api, mostrar, esc, $ } = EINK;
-  const FERRAMENTAS = [
-    ["⏱", "Temporizador", "Contagem decrescente", "#/temporizador"], ["🔀", "Sorteio", "Aluno ou grupos ao acaso", "#/sorteio"],
-    ["✅", "Chamada", "Presenças por aula", "#/chamada"], ["☑️", "Listas", "Listas de verificação", "#/listas"],
-    ["📊", "Sondagem", "Pergunta rápida com código", "#/sondagens"], ["🪑", "Mapa de sala", "Lugares dos alunos", "#/mapa"],
-    ["🖼", "Quadros", "Notas e ideias da aula", "#/quadros"], ["🎮", "Quizzes", "Jogo ao vivo estilo Kahoot", "#/quizzes"],
-  ];
   const n1 = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
   const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite"; };
   const dataHoje = () => new Date().toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" });
@@ -65,7 +59,7 @@
         <div class="heroi-acoes" id="heroi-acoes"><a class="botao grande" href="#/notas">Abrir notas</a></div></section>
       <div class="kpis" id="kpis"></div><section id="criterios-grupo"></section><div id="alertas"></div>
       <h2>As minhas turmas</h2><p class="pequeno turmas-dica">Para lançar notas, escolhe o período da turma (por exemplo «1.º período»). Tocar no cartão abre o período atual.</p><div class="turmas-grelha" id="turmas"><p class="pequeno">A carregar…</p></div>
-      <h2>Ferramentas de sala</h2><div class="cartoes ferramentas">${FERRAMENTAS.map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
+      <h2>Ferramentas de sala</h2><div class="cartoes ferramentas"><a class="cartao cartao-aula" href="#/aula"><span class="icone" aria-hidden="true">▶️</span><span>Começar a aula<small>Chamada, plano e lembretes</small></span></a>${EINK.favoritas().filter((f) => f[3] !== "#/aula").map((f) => EINK.cartaoFerramenta(f)).join("")}<a class="cartao sec" href="#/sala"><span class="icone" aria-hidden="true">🧰</span><span>Todas as ferramentas<small>Sala de aula: ${EINK.FERRAMENTAS.length} atividades</small></span></a></div>`);
     try {
       const r = await api("GET", "/api/inicio"), T = r.totais;
       let ultima = null; try { ultima = JSON.parse(localStorage.getItem("eink.ultimaPauta") || "null"); } catch { /* sem armazenamento */ }

@@ -952,52 +952,21 @@ test("API: bancos partilhados por disciplina, importar notas do Excel e aviso do
   void base;
 });
 
-test("API: vista do diretor de turma (pauta consolidada, só leitura)", async (t) => {
-  const { base, servidor, entrar, db } = await arrancar();
+test("API: a direção de turma foi retirada (rotas e tabela)", async (t) => {
+  const { servidor, entrar, db } = await arrancar();
   t.after(() => servidor.close());
   const adm = await entrar("admin@escola.pt");
-  const g1 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "550 Informática" })).d.id, g2 = (await adm.chamar("POST", "/api/admin/grupos", { nome: "300 Português" })).d.id;
-  for (const u of ["dt@escola.pt", "inf@escola.pt", "por@escola.pt", "outro@escola.pt"]) await adm.chamar("POST", "/api/admin/professores", { upn: u, nome: u.split("@")[0] });
-  const dt = await entrar("dt@escola.pt"), inf = await entrar("inf@escola.pt"), por = await entrar("por@escola.pt"), outro = await entrar("outro@escola.pt");
-  const nova = async (u, grupo, nome, alunos) => { const id = (await u.chamar("POST", "/api/turmas", { nome, ano_letivo: "2026/2027", grupo_id: grupo })).d.id; await u.chamar("POST", `/api/turmas/${id}/alunos`, { texto: alunos }); return (await u.chamar("GET", "/api/turmas/" + id)).d; };
-  const tI = await nova(inf, g1, "7.º B", "1 Ana Silva\n2 Bruno Costa\n3 Carla Mendes"), tP = await nova(por, g2, "7.º b", "1 Ana Silva\n2 Bruno Costa\n4 Diogo Lopes"), tX = await nova(outro, g1, "9.º C", "1 Zé Ninguém");
-  const teste = async (u, tt, notas) => { const av = (await u.chamar("POST", `/api/periodos/${tt.periodos[0].id}/avaliacoes`, { titulo: "T", peso: 1, maximo: 20 })).d.id; await u.chamar("PUT", `/api/avaliacoes/${av}/notas`, { linhas: tt.alunos.map((a) => ({ aluno: a.id, nota: String(notas[a.nome]) })).filter((l) => l.nota !== "undefined") }); };
-  await teste(inf, tI, { "Ana Silva": 16, "Bruno Costa": 6, "Carla Mendes": 12 });
-  await teste(por, tP, { "Ana Silva": 14, "Bruno Costa": 8, "Diogo Lopes": 18 });
-  await por.chamar("PUT", `/api/turmas/${tP.id}/presencas`, { data: "2026-10-01", estados: { [tP.alunos[1].id]: "F" } });
-  await inf.chamar("PUT", `/api/turmas/${tI.id}/presencas`, { data: "2026-10-02", estados: { [tI.alunos[1].id]: "F" } });
-
-  const url = (extra = "") => `/api/dt/consolidado?ano_letivo=${encodeURIComponent("2026/2027")}&turma=${encodeURIComponent("7.º B")}${extra}`;
-  assert.strictEqual((await dt.chamar("GET", url())).estado, 403, "ainda não é diretor");
-  assert.strictEqual((await dt.chamar("GET", "/api/dt")).d.length, 0);
-  assert.strictEqual((await dt.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: 1 })).estado, 403);
-  const dirs = (await adm.chamar("GET", "/api/admin/direcoes")).d;
-  assert.deepStrictEqual(dirs.map((x) => [x.turma, x.docentes, x.disciplinas]).sort(), [["7.º B", 2, 2], ["9.º C", 1, 1]], "7.º B e 7.º b juntam-se");
-  const dtId = (await adm.chamar("GET", "/api/admin/professores")).d.find((x) => x.upn === "dt@escola.pt").id;
-  assert.strictEqual((await adm.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: dtId })).estado, 200);
-  assert.strictEqual((await dt.chamar("GET", "/api/eu")).d.dt, true);
-  assert.deepStrictEqual((await dt.chamar("GET", "/api/dt")).d.map((x) => [x.turma, x.disciplinas]), [["7.º B", 2]]);
-  assert.strictEqual((await dt.chamar("GET", `/api/dt/consolidado?ano_letivo=${encodeURIComponent("2026/2027")}&turma=${encodeURIComponent("9.º C")}`)).estado, 403, "só a sua turma");
-
-  const c = (await dt.chamar("GET", url())).d;
-  assert.deepStrictEqual(c.disciplinas.map((d) => [d.disciplina, d.docente]).sort(), [["300 Português", "por"], ["550 Informática", "inf"]]);
-  assert.deepStrictEqual(c.alunos.map((a) => a.nome), ["Ana Silva", "Bruno Costa", "Carla Mendes", "Diogo Lopes"], "união dos alunos das duas turmas");
-  const por_ = (n) => c.alunos.find((a) => a.nome === n);
-  const dI = c.disciplinas.find((d) => d.docente === "inf").turma_id, dP = c.disciplinas.find((d) => d.docente === "por").turma_id;
-  assert.deepStrictEqual([por_("Ana Silva").celulas[dI].final, por_("Ana Silva").celulas[dP].final, por_("Ana Silva").media], [80, 70, 75]);
-  assert.deepStrictEqual([por_("Bruno Costa").negativas, por_("Bruno Costa").faltas], [2, 2], "duas disciplinas abaixo de 50 e as faltas somam-se");
-  assert.strictEqual(por_("Carla Mendes").celulas[dP], undefined, "não está na turma de Português");
-  assert.strictEqual(por_("Diogo Lopes").celulas[dI], undefined);
-  assert.deepStrictEqual([por_("Diogo Lopes").media, por_("Diogo Lopes").comNota], [90, 1]);
-  assert.ok(c.periodos.includes("1.º período"));
-  // Só leitura e fica registado
-  assert.strictEqual((await dt.chamar("PUT", `/api/avaliacoes/1/notas`, { linhas: [] })).estado, 404);
-  assert.ok(db.prepare("SELECT COUNT(*) AS n FROM auditoria WHERE acao = 'Vista do diretor de turma' AND quem = 'dt@escola.pt'").get().n >= 1);
-  // O administrador vê qualquer turma; retirar o diretor tira-lhe o acesso
-  assert.strictEqual((await adm.chamar("GET", url())).estado, 200);
-  await adm.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: null });
-  assert.strictEqual((await dt.chamar("GET", url())).estado, 403);
-  void tX;
+  for (const u of ["/api/dt", "/api/dt/consolidado?ano_letivo=2026%2F2027&turma=7", "/api/admin/direcoes"]) assert.strictEqual((await adm.chamar("GET", u)).estado, 404, u);
+  assert.strictEqual((await adm.chamar("PUT", "/api/admin/direcoes", { ano_letivo: "2026/2027", turma: "7.º B", prof_id: 1 })).estado, 404);
+  assert.ok(!("dt" in (await adm.chamar("GET", "/api/eu")).d), "o /api/eu já não traz «dt»");
+  assert.strictEqual(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'direcoes'").get().n, 0, "a tabela apaga-se na migração");
+  // Uma base antiga com a tabela: ao abrir, a migração apaga-a.
+  const { abrir } = require("../lib/db");
+  const f = require("node:path").join(require("node:os").tmpdir(), `eink-dt-${process.pid}.db`);
+  try { require("node:fs").rmSync(f, { force: true }); } catch { /* não existia */ }
+  const velha = abrir(f); velha.exec("CREATE TABLE direcoes (ano_letivo TEXT, turma TEXT, prof_id INTEGER)"); velha.close();
+  const nova = abrir(f); assert.strictEqual(nova.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'direcoes'").get().n, 0); nova.close();
+  for (const x of ["", "-wal", "-shm"]) require("node:fs").rmSync(f + x, { force: true });
 });
 
 test("API: imagens nas perguntas dos quizzes e sondagem aberta com nuvem de palavras", async (t) => {

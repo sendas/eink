@@ -1,6 +1,6 @@
 "use strict";
 // Núcleo da interface: pedidos à API, rotas por «#/…» e as vistas de turmas e avaliação.
-// As ferramentas de sala (temporizador, sorteio…) estão em ferramentas.js e registam-se em EINK.vistas.
+// As ferramentas de sala estão em ferramentas.js, sala.js, aula.js, atividades.js e quizzes.js e registam-se em EINK.rotas.
 const EINK = { vistas: [], eu: null };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -145,6 +145,89 @@ async function turma(id) {
   if (EINK.ligarFotosPdf) EINK.ligarFotosPdf(t.alunos, () => turma(id));
   $("#apagar-turma").onclick = async () => { if (confirm(`Apagar a turma ${t.nome}, os alunos e todas as notas? Não se pode desfazer.`)) { await api("DELETE", "/api/turmas/" + id); location.hash = "#/turmas"; } };
 }
+
+// ---------- partilhado pelas ferramentas de sala ----------
+// Catálogo das ferramentas de sala, por categoria: com telemóvel (os alunos entram com um código), sem telemóvel (projetor) e gestão da aula.
+EINK.CATEGORIAS = [
+  ["tel", "📱", "Com telemóvel", "Os alunos entram com um código ou o QR, sem conta."],
+  ["proj", "📽", "Sem telemóvel (projetor)", "Projeta e os alunos participam sem ecrã."],
+  ["gestao", "🗂", "Gestão da turma", "Só para ti: conduzir a aula e registar."],
+];
+EINK.FERRAMENTAS = [
+  ["▶️", "Começar a aula", "Chamada, plano de hoje e lembretes", "#/aula", "gestao"],
+  ["✅", "Chamada", "Presenças por aula, com fotografias", "#/chamada", "gestao"],
+  ["🪑", "Mapa de sala", "Lugares dos alunos e disposições", "#/mapa", "gestao"],
+  ["☑️", "Lembretes", "Lembretes de cada turma", "#/lembretes", "gestao"],
+  ["⭐", "Participação", "Registo rápido, só para ti", "#/participacao", "gestao"],
+  ["📊", "Sondagem", "Pergunta rápida com código", "#/sondagens", "tel"],
+  ["🧱", "Mural", "Ideias e dúvidas dos alunos", "#/mural", "tel"],
+  ["🎟", "Bilhete de saída", "O que ficou da aula, em 3 minutos", "#/bilhete", "tel"],
+  ["🎮", "Quizzes", "Ao vivo, por equipas ou ao próprio ritmo", "#/quizzes", "tel"],
+  ["⏱", "Temporizador", "Contagem decrescente ou cronómetro", "#/temporizador", "proj"],
+  ["🔀", "Sorteio", "Aluno ou grupos ao acaso", "#/sorteio", "proj"],
+  ["🎡", "Pergunta e roda", "Tempo para pensar e quem responde", "#/roda", "proj"],
+  ["📽", "Quiz no projetor", "Equipas com cartões, sem telemóveis", "#/quiz-projetor", "proj"],
+  ["🏆", "Placar de equipas", "Pontos das equipas no ecrã", "#/placar", "proj"],
+  ["📋", "Ecrã da tarefa", "O que fazer agora e como", "#/tarefa", "proj"],
+  ["🖼", "Quadros", "Notas e ideias da aula", "#/quadros", "proj"],
+  ["🔷", "Cartões de resposta", "Imprimir cartões A, B, C e D", "#/cartoes", "proj"],
+];
+EINK.cartaoFerramenta = ([i, n, d, h, cat]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span>${cat ? `<span class="etq-cat etq-${cat}" title="${esc(EINK.CATEGORIAS.find((c) => c[0] === cat)[2])}">${EINK.CATEGORIAS.find((c) => c[0] === cat)[1]}</span>` : ""}</a>`;
+EINK.voltarSala = '<p class="nao-projetar"><a href="#/sala">← Sala de aula</a></p>';
+
+// Guardar pequenas preferências no navegador (sem armazenamento, segue sem elas).
+EINK.guardar = (k, v) => { try { localStorage.setItem("eink." + k, JSON.stringify(v)); } catch { /* sem armazenamento */ } };
+EINK.ler = (k, def) => { try { const v = JSON.parse(localStorage.getItem("eink." + k)); return v ?? def; } catch { return def; } };
+EINK.hoje = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+EINK.acaso = (n) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+EINK.baralhar = (l) => { const x = [...l]; for (let i = x.length - 1; i > 0; i--) { const j = EINK.acaso(i + 1); [x[i], x[j]] = [x[j], x[i]]; } return x; };
+EINK.foto = (a, cls = "foto-al") => (a && a.foto ? `<img class="${cls}" src="/api/alunos/${a.id}/foto?v=${encodeURIComponent(a.foto)}" alt="">` : `<span class="${cls} sem-foto" aria-hidden="true">${esc(((a && a.nome) || "?").trim()[0] || "?")}</span>`);
+EINK.nomeCurto = (a) => { const p = a.nome.split(/\s+/); return `${p[0]}${p.length > 1 ? " " + p[p.length - 1] : ""}`; };
+
+// Escolher a turma (partilhado pelas ferramentas): lembra a última escolhida em «eink.turma».
+EINK.escolherTurma = async (titulo, aoEscolher, opc = {}) => {
+  const ts = await api("GET", "/api/turmas");
+  const topo = opc.topo || EINK.voltarSala;
+  if (!ts.length) { mostrar(`${topo}<h1>${titulo}</h1><p>Cria primeiro uma <a href="#/turmas">turma</a>.</p>`); return; }
+  const guardada = EINK.ler("turma", ts[0].id), sel = ts.some((t) => t.id === guardada) ? guardada : ts[0].id;
+  mostrar(`${topo}<div class="linha cab-ferr"><h1>${titulo}</h1>${opc.projetar ? EINK.botaoProjetar() : ""}</div><p class="nao-projetar"><label>Turma<select id="t">${ts.map((t) => `<option value="${t.id}" ${t.id === sel ? "selected" : ""}>${esc(t.nome)}</option>`).join("")}</select></label></p><div id="corpo"></div>`);
+  const carregar = async () => { EINK.guardar("turma", Number($("#t").value)); await aoEscolher(await api("GET", "/api/turmas/" + $("#t").value), $("#corpo")); };
+  $("#t").onchange = carregar; await carregar();
+};
+
+// Modo projetor: ecrã inteiro, sem cabeçalho, faixa beta, botão de sugestões nem rodapé, e letras maiores. Esc ou F para sair.
+EINK.botaoProjetar = () => '<button type="button" class="sec botao-projetar" data-projetar title="Projetar (tecla F)">⛶ Projetar</button>';
+EINK.projetar = (ligar) => {
+  const on = ligar === undefined ? !document.body.classList.contains("projetar") : !!ligar;
+  document.body.classList.toggle("projetar", on);
+  document.querySelectorAll("[data-projetar]").forEach((b) => { b.textContent = on ? "✕ Sair do projetor" : "⛶ Projetar"; b.setAttribute("aria-pressed", String(on)); });
+  try {
+    if (on && document.fullscreenEnabled && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  } catch { /* sem ecrã inteiro */ }
+};
+document.addEventListener("click", (e) => { if (e.target.closest("[data-projetar]")) EINK.projetar(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "f" && e.key !== "F") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+  if (document.querySelector("#vista [data-projetar]")) { e.preventDefault(); EINK.projetar(); }
+});
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("projetar")) EINK.projetar(false); });
+window.addEventListener("hashchange", () => { if (document.body.classList.contains("projetar")) EINK.projetar(false); });
+
+// Animação do sorteio: os nomes passam e abrandam até parar no escolhido (cerca de 1,5 s). Sem animação se o sistema pedir menos movimento.
+EINK.animarSorteio = (el, nomes, final, desenhar = (x) => esc(x)) => new Promise((fim) => {
+  const reduzir = matchMedia("(prefers-reduced-motion: reduce)").matches || !EINK.ler("animacao", true);
+  if (reduzir || nomes.length < 2) { el.innerHTML = desenhar(final); fim(); return; }
+  let t = 30, passos = 0;
+  const passo = () => {
+    passos++;
+    if (t > 260) { el.innerHTML = desenhar(final); el.classList.remove("a-rodar"); el.classList.add("a-parou"); setTimeout(() => el.classList.remove("a-parou"), 700); fim(); return; }
+    el.classList.add("a-rodar"); el.innerHTML = desenhar(nomes[(passos * 7) % nomes.length]);
+    t *= 1.18; setTimeout(passo, t);
+  };
+  passo();
+});
 
 // ---------- rotas ----------
 EINK.rotas = [

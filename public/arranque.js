@@ -20,7 +20,6 @@
       EINK.api("POST", "/api/acesso", { largura: screen.width, altura: screen.height, janela: innerWidth, dpr: devicePixelRatio, toque: navigator.maxTouchPoints > 0, idioma: navigator.language }).catch(() => {});
     }
   } catch { /* sem sessionStorage */ }
-  if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
   // Estatísticas de utilização: diz-se ao servidor em que ecrã se está (só o nome do ecrã, no máximo uma vez a cada 10 segundos por ecrã).
   const vistos = new Map();
   const contarEcra = (caminho) => {
@@ -35,7 +34,7 @@
     if (EINK.eu.trocar && caminho !== "/senha") { location.hash = "#/senha"; return; }
     contarEcra(caminho);
     const area = "#/" + (caminho.split("/")[1] || "");
-    document.querySelectorAll(".topo nav a").forEach((a) => { if (a.getAttribute("href") === area || (area === "#/pauta" && a.getAttribute("href") === "#/notas") || ((area === "#/turma") && a.getAttribute("href") === "#/turmas")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    document.querySelectorAll(".topo nav a").forEach((a) => { if (a.getAttribute("href") === area || (area === "#/pauta" && a.getAttribute("href") === "#/notas") || ((area === "#/turma") && a.getAttribute("href") === "#/turmas") || (a.getAttribute("href") === "#/sala" && EINK.FERRAMENTAS.some((f) => f[3] === area))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
       if (m) { try { await fn(...m.slice(1)); } catch (e) { if (!e || !e.mostrado) { console.error(e); EINK.aviso("Esta página não abriu por um erro do programa. Recarrega com Ctrl+Shift+R; se continuar, diz-me qual era a página.", true); } } document.getElementById("vista").focus(); if (EINK.guia) EINK.guia.aoAbrirEcra(); return; }
