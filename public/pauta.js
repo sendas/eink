@@ -51,6 +51,7 @@
         <button>Adicionar avaliação</button>
       </form></details>`}
       <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p></details>
+      <div id="pauta-registos"></div>
       <div class="resumo-pauta" id="resumo-pauta"></div>
       <div class="barra-pauta"><div class="troca-vista" role="group" aria-label="Vista da pauta"><button type="button" class="sec ${vistaCart ? "" : "ativo"}" data-vista="tabela">Tabela</button><button type="button" class="sec ${vistaCart ? "ativo" : ""}" data-vista="cartoes">Pauta final em cartões</button></div>
         <div class="troca-vista" role="group" aria-label="Escala do comportamento"><span class="pequeno" style="align-self:center;padding:0 .4rem">Comportamento</span><button type="button" class="sec ${modo === "nivel" ? "ativo" : ""}" data-escala="nivel">1 a 5</button><button type="button" class="sec ${pct ? "ativo" : ""}" data-escala="pct">0 a 100 %</button><button type="button" class="sec ${modo === "auto" ? "ativo" : ""}" data-escala="auto" title="Um inteiro de 1 a 5 é nível; o resto é percentagem">Automático</button></div>
@@ -167,5 +168,5 @@
     };
   }
 
-  EINK.rotas.push([/^\/pauta\/(\d+)$/, (id) => pautaVista(+id)]);
+  EINK.rotas.push([/^\/pauta\/(\d+)$/, async (id) => { await pautaVista(+id); if (EINK.registosNaPauta) EINK.registosNaPauta(+id); }]);
 })();

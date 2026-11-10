@@ -162,8 +162,29 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   // Ferramentas de sala
   await ir("/temporizador", "#rel"); await p.click("#ini"); await p.waitForFunction(() => document.getElementById("rel").textContent !== "05:00");
   await ir("/sorteio", "#um"); await p.click("#um"); await p.waitForFunction(() => document.getElementById("res").textContent !== "–");
-  await ir("/chamada", "#al button");
-  await ir("/listas", "#fl");
+  // Modo projetor: esconde o cabeçalho e o que é só do docente; sai com o mesmo botão
+  await p.click("[data-projetar]"); await p.waitForFunction(() => document.body.classList.contains("projetar"));
+  assert.ok(!(await p.isVisible(".topo")) && !(await p.isVisible(".tempo-opc")), "no projetor não aparece o cabeçalho nem as opções");
+  await p.click("[data-projetar]"); await p.waitForFunction(() => !document.body.classList.contains("projetar"));
+  // Sala de aula: as três categorias e as favoritas
+  await ir("/sala", ".sala-comecar"); assert.strictEqual(await p.locator(".sala-cat").count(), 3);
+  assert.ok((await p.locator(".sala-cat .cartao").count()) >= 16, "todas as atividades estão na biblioteca");
+  // Chamada: um toque marca a falta e guarda sozinho
+  await ir("/chamada", ".ch-al"); await p.click(".ch-al >> nth=0");
+  await p.waitForFunction(() => document.querySelector(".ch-al.est-F") && /Guardado/.test(document.getElementById("ch-estado").textContent), null, { timeout: 8000 });
+  // O sorteio não escolhe quem faltou hoje
+  await ir("/sorteio", "#um"); for (let i = 0; i < 4; i++) { await p.click("#um"); await p.waitForFunction(() => !document.getElementById("um").disabled); assert.doesNotMatch(await p.textContent("#res"), /Ana Silva/, "quem faltou não sai no sorteio"); }
+  // Começar a aula: plano de hoje e lembretes da turma
+  await ir("/aula", "#au-plano"); await p.selectOption("#au-f [name=tipo]", "sorteio"); await p.click("#au-f button");
+  await p.waitForSelector("#au-plano a[href='#/sorteio']");
+  await p.fill("#au-lem [name=t]", "Recolher as autorizações"); await p.click("#au-lem button:has-text('Acrescentar')"); await p.waitForSelector(".lem-lista li:has-text('Recolher')");
+  await ir("/listas", ".lem-lista"); assert.match(await p.textContent(".lem-lista"), /Recolher/, "as antigas listas abrem os lembretes da turma");
+  // Registo de participação: um toque no aluno e outro no tipo
+  await ir("/participacao", ".pa-al"); await p.click(".pa-al >> nth=0"); await p.click("[data-tipo] >> nth=0"); await p.waitForSelector(".pa-al .pa-pos");
+  // Atividades sem telemóvel
+  await ir("/placar", "#pl-f"); await p.click("#pl-f button"); await p.waitForSelector(".pl-eq"); await p.click(".pl-eq [data-d='1'] >> nth=0");
+  await p.waitForFunction(() => [...document.querySelectorAll(".pl-pontos")].some((x) => x.textContent.trim() === "1"));
+  await ir("/roda", "#ro-f"); await ir("/tarefa", "#ta-modo"); await ir("/cartoes", "#ct-imp");
   await ir("/mapa", ".m-lugar"); await p.click("#m-acaso");
   await p.waitForFunction(() => document.querySelectorAll(".m-lugar.ocup").length === 3);
   await ir("/quadros", "#f-quadro"); await p.click("#f-quadro button"); await p.waitForSelector("#q-nota"); await p.click("#q-nota"); await p.waitForSelector(".q-nota");
@@ -175,7 +196,18 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   const codigo = (await p.textContent(".s-codigo")).trim();
   const aluno = await (await browser.newContext({ viewport: { width: 390, height: 780 } })).newPage(); vigiar(aluno, "aluno");
   await aluno.goto(`${base}/s/${codigo}`); await aluno.waitForSelector(".op-publica"); await aluno.click(".op-publica >> nth=0"); await aluno.waitForSelector(".grande-msg");
-  await p.waitForFunction(() => /1 votos/.test(document.getElementById("s-estado").textContent), null, { timeout: 8000 });
+  await p.waitForFunction(() => /^1 votos/.test(document.getElementById("s-contador").textContent), null, { timeout: 8000 });
+
+  // Mural: o aluno escreve uma ideia e ela aparece no ecrã do docente
+  await ir("/mural", "#f-mural"); await p.fill("#f-mural [name=pergunta]", "O que já sabes?"); await p.click("#f-mural button"); await p.waitForSelector(".s-codigo");
+  const cMural = (await p.textContent(".s-codigo")).trim();
+  await aluno.goto(`${base}/s/${cMural}`); await aluno.fill("textarea[name=texto]", "As plantas fazem fotossíntese"); await aluno.click("button.grande"); await aluno.waitForSelector(".mu-nota-p");
+  await p.waitForSelector(".mu-nota:has-text('fotossíntese')", { timeout: 8000 });
+  // Bilhete de saída: escala e texto; o docente vê a média
+  await ir("/bilhete", "#f-bil"); await p.click("#f-bil button"); await p.waitForSelector(".s-codigo");
+  const cBil = (await p.textContent(".s-codigo")).trim();
+  await aluno.goto(`${base}/s/${cBil}`); await aluno.click(".bi-botoes label >> nth=3"); await aluno.fill("textarea >> nth=0", "Frações"); await aluno.click("button.grande"); await aluno.waitForSelector("text=bilhete foi entregue");
+  await p.waitForFunction(() => /média de 1/.test(document.getElementById("bi-res").textContent), null, { timeout: 8000 });
 
   // Quiz ao vivo: modelo do tic, sala, um aluno entra e responde
   await ir("/quizzes", "[data-mod]"); await p.click("[data-mod] >> nth=0"); await p.waitForSelector("#f-quiz");
@@ -194,6 +226,22 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await aluno.waitForSelector(".op-publica:not([disabled])"); await aluno.click(".op-publica >> nth=0"); await aluno.waitForSelector("text=Resposta enviada");
   await p.click("#v-mostrar"); await p.waitForSelector(".pv-op.certa");
   await aluno.waitForSelector(".certo, .errado");
+  // Quiz no projetor (sem telemóveis): pergunta, resposta e as equipas que acertaram
+  await ir("/quiz-projetor", "a[href^='#/quiz-projetor/']"); await p.click("a[href^='#/quiz-projetor/'] >> nth=0"); await p.waitForSelector("#qp-f");
+  await p.click("#qp-f button"); await p.click("#qp-mostrar"); await p.click(".qp-eq >> nth=0"); await p.click("#qp-prox");
+  await p.waitForFunction(() => [...document.querySelectorAll(".pl-pontos")].some((x) => x.textContent.trim() === "1"));
+  // Quiz por equipas: o aluno escolhe a equipa ao entrar
+  await ir("/quizzes", "[data-opcoes]"); await p.click("[data-opcoes] >> nth=0"); await p.selectOption("#q-op-f [name=equipas]", "2"); await p.click("#q-op-f button"); await p.waitForSelector(".pv-codigo");
+  const pinEq = (await p.textContent(".pv-codigo")).trim();
+  await aluno.goto(`${base}/j/${pinEq}`); await aluno.fill("input[name=alcunha]", "Lince"); await aluno.check("input[name=equipa] >> nth=1"); await aluno.click("button.grande");
+  await aluno.waitForSelector("text=Estás dentro"); assert.match(await aluno.textContent(".cab-jogo"), /Azul/);
+  await p.click("#v-fechar"); await p.waitForSelector("[data-opcoes]");
+  // Revisão ao próprio ritmo: responde, vê a explicação e passa à seguinte
+  await ir("/quizzes", "[data-opcoes]"); await p.click("[data-opcoes] >> nth=0"); await p.check("#q-op-f [name=modo][value=ritmo]"); await p.click("#q-op-f button"); await p.waitForSelector("#v-terminar");
+  const pinR = (await p.textContent(".pv-codigo")).trim();
+  await aluno.goto(`${base}/j/${pinR}`); await aluno.fill("input[name=alcunha]", "Mocho"); await aluno.click("button.grande");
+  await aluno.waitForSelector(".op-publica:not([disabled])"); await aluno.click(".op-publica >> nth=0"); await aluno.waitForSelector("#seguinte"); await aluno.click("#seguinte");
+  await p.waitForFunction(() => /1<\/strong> aluno/.test(document.getElementById("vista").innerHTML), null, { timeout: 8000 });
 
   // Ecrãs de gestão (administrador)
   for (const [hash, sel] of [["/gestao", ".cartoes"], ["/admin", "#f-prof"], ["/criterios", "section[data-grupo]"], ["/fecho", "table"], ["/auditoria", "#f-aud"], ["/copias", "#c-fazer"], ["/privacidade-admin", "#f-ret"], ["/estatisticas", ".e-grafico"], ["/turmas-arquivadas", "h1"]]) await ir(hash, sel);
