@@ -42,7 +42,7 @@ function criarServidor(env = process.env) {
   // Como no helpdesk-escolar: quem entra é quem pertence ao grupo «docentes» do Entra ID (ID do grupo); sem esta variável, vale a lista de docentes do administrador.
   const GRUPO_DOCENTES = String(env.GRUPO_DOCENTES_ID || "").trim();
   const GRUPO_ADMIN = String(env.GRUPO_ADMIN_ID || "").trim();
-  const TUTORIAL_VERSAO = 1; // sobe quando o tutorial muda o suficiente para voltar a aparecer a todos
+  const TUTORIAL_VERSAO = 2; // sobe quando o tutorial muda o suficiente para voltar a aparecer a todos
   const GRAPH_URL = env.GRAPH_URL || "https://graph.microsoft.com/v1.0";
   // Entrada de teste sem Microsoft: só em http (nunca em produção com HTTPS).
   const DEV = env.DEV_LOGIN === "1" && !BASE_URL.startsWith("https://");

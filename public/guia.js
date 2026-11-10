@@ -13,7 +13,7 @@
       { alvo: q("button", /Criar (a primeira )?turma/), tit: "Cria a tua primeira turma", txt: "Sem turmas não há pauta. Depois de criada, colas a lista de alunos e podes começar a lançar notas.", acao: "Clica em «Criar a primeira turma»." },
       { alvo: q("#turmas .turma-cartao .botao.periodo"), tit: "Escolhe o período", txt: "A pauta abre-se pelo período da turma. Tocar no cartão abre o período atual.", acao: "Clica em «1.º período» (ou no que quiseres) para lançar notas." },
       { alvo: q("#cg-escolher"), tit: "Diz que disciplina lecionas", txt: "Com a disciplina escolhida, vês os critérios de avaliação e os documentos da escola.", acao: "Clica em «Escolher disciplinas»." },
-      { alvo: q("h2", /Ferramentas de sala/), tit: "Ferramentas para a aula", txt: "Quizzes ao vivo, sondagens, sorteios, temporizador, chamada, mapa de sala e quadros. Os alunos não precisam de conta.", acao: "Desce a página e clica na ferramenta que quiseres usar." },
+      { alvo: q("h2", /Ferramentas de sala/), tit: "Ferramentas para a aula", txt: "«Começar a aula» junta a chamada, o plano de hoje e os lembretes. As tuas 4 favoritas aparecem aqui; as outras estão em «Sala de aula». Os alunos não precisam de conta.", acao: "Clica em «Começar a aula» ou em «Todas as ferramentas»." },
     ],
     notas: [
       { alvo: q("a.botao.sec"), tit: "Escolhe a turma e o período", txt: "Cada linha é uma turma. Os botões abrem a pauta do período.", acao: "Clica em «1.º período» para lançar notas." },
@@ -53,6 +53,63 @@
       { alvo: q("#propor"), tit: "Propor menções pelas notas", txt: "Preenche as menções de todos os alunos a partir da nota atual. Depois podes mudar uma a uma.", acao: "Clica em «Propor menções pelas notas»." },
       { alvo: q("td select"), tit: "Menção de cada aluno", txt: "«Não satisfaz», «Satisfaz» ou «Satisfaz bastante». Guarda-se sozinha.", acao: "Clica e escolhe a menção." },
       { alvo: q("button", /Sugerir/), tit: "Texto de partida", txt: "Dá-te uma descritiva para o nível do aluno, que podes editar à vontade.", acao: "Clica em «Sugerir texto»." },
+    ],
+    sala: [
+      { alvo: q(".sala-comecar"), tit: "Começar a aula", txt: "Escolhe a turma e tens num só ecrã a chamada, o plano de hoje e os lembretes.", acao: "Clica em «Começar a aula» no início de cada aula." },
+      { alvo: q(".sala-cat h2"), tit: "Três tipos de atividade", txt: "Com telemóvel (os alunos entram com um código), sem telemóvel (para projetar) e gestão da turma (só para ti).", acao: "Escolhe a atividade no cartão." },
+      { alvo: q(".estrela"), tit: "As tuas favoritas", txt: "Marca até 4 atividades com a estrela: ficam no Início.", acao: "Clica na estrela ☆ de uma atividade." },
+    ],
+    aula: [
+      { alvo: q("#t"), tit: "A turma desta aula", txt: "Sugerimos a turma que costumas ter a esta hora. Muda aqui se for outra.", acao: "Escolhe a turma na lista." },
+      { alvo: q("#au-ch .ch-grelha"), tit: "Chamada com um toque", txt: "Toca em quem faltou (falta) e outra vez para atraso. Guarda sozinha.", acao: "Toca nos cartões dos alunos que faltaram." },
+      { alvo: q("#au-f"), tit: "Plano de hoje", txt: "Junta as atividades da aula; cada uma fica com um botão «Abrir» já com esta turma. Na próxima aula podes copiar o plano.", acao: "Escolhe a atividade e clica em «Acrescentar»." },
+      { alvo: q("#au-lem"), tit: "Lembretes da turma", txt: "Coisas a não esquecer com esta turma, como recolher autorizações.", acao: "Escreve o lembrete e clica em «Acrescentar»." },
+    ],
+    chamada: [
+      { alvo: q(".ch-grelha"), tit: "Toca em quem faltou", txt: "Um toque marca falta, outro marca atraso, outro volta a presente. Guarda sozinha.", acao: "Toca no cartão do aluno." },
+      { alvo: q("#ch-todos"), tit: "Estão todos?", txt: "Se ninguém faltou, guarda a chamada de uma vez.", acao: "Clica em «Todos presentes»." },
+      { alvo: q("[data-tab]", /Resumo/), tit: "Resumo da turma", txt: "Faltas e atrasos de cada aluno, com aviso a partir de 5 faltas.", acao: "Clica em «Resumo da turma»." },
+    ],
+    sorteio: [
+      { alvo: q("#um"), tit: "Sortear um aluno", txt: "Não repete ninguém até saírem todos e não escolhe quem faltou hoje.", acao: "Clica em «Sortear um aluno»." },
+      { alvo: q("#gr"), tit: "Grupos ao acaso", txt: "Por número de grupos ou por alunos em cada grupo, equilibrados. Podes separar dois alunos e guardar os grupos para o placar.", acao: "Escolhe o número e clica em «Formar grupos»." },
+    ],
+    temporizador: [
+      { alvo: q("#ini"), tit: "Iniciar", txt: "O anel mostra o tempo que falta e muda de cor no último minuto. O som no fim pode ser desligado.", acao: "Escolhe os minutos e clica em «Iniciar»." },
+      { alvo: q("[data-projetar]"), tit: "Projetar", txt: "Põe o ecrã inteiro só com o relógio e a tarefa. Também podes carregar na tecla F.", acao: "Clica em «Projetar»; Esc para sair." },
+    ],
+    sondagens: [
+      { alvo: q("#f-sond"), tit: "Pergunta rápida", txt: "Escolha múltipla, resposta curta ou «só na sala» (de braço no ar, sem telemóveis). Podes marcar a resposta certa e esconder os resultados até os revelares.", acao: "Escreve a pergunta, escolhe um modelo e abre a sondagem." },
+    ],
+    mural: [
+      { alvo: q("#f-mural"), tit: "Mural da turma", txt: "Os alunos escrevem ideias ou dúvidas curtas no telemóvel, sem nome. Podes aprovar antes de aparecerem e usar colunas como «Sei / Quero saber / Aprendi».", acao: "Escreve a pergunta e clica em «Abrir o mural»." },
+    ],
+    bilhete: [
+      { alvo: q("#f-bil"), tit: "Bilhete de saída", txt: "Nos últimos minutos, cada aluno responde no telemóvel (anónimo). Vês a média e as respostas, guardadas por turma e data.", acao: "Revê as perguntas e clica em «Abrir o bilhete»." },
+    ],
+    placar: [
+      { alvo: q("#pl-f"), tit: "Placar de equipas", txt: "Usa os grupos que guardaste no sorteio ou um número de equipas. Fica guardado neste navegador.", acao: "Escolhe e clica em «Começar»." },
+    ],
+    "quiz-projetor": [
+      { alvo: q("a[href^='#/quiz-projetor/']"), tit: "Quiz sem telemóveis", txt: "As equipas respondem com os cartões A, B, C e D; tu marcas quem acertou e o placar soma.", acao: "Clica no quiz que queres projetar." },
+    ],
+    roda: [
+      { alvo: q("#ro-f"), tit: "Pergunta e roda", txt: "Projeta a pergunta, dá tempo para pensar e só depois sorteia quem responde. Quem faltou hoje não sai.", acao: "Escreve as perguntas (ou escolhe um quiz) e clica em «Começar»." },
+    ],
+    tarefa: [
+      { alvo: q("[data-modo]"), tit: "Como se trabalha agora", txt: "Individual, pares, grupo ou turma toda, com os passos e o tempo no ecrã.", acao: "Escolhe o modo e escreve os passos." },
+    ],
+    lembretes: [
+      { alvo: q("#lem"), tit: "Lembretes da turma", txt: "Substituem as antigas listas de verificação e ficam guardados por turma. Aparecem em «Começar a aula».", acao: "Escreve o lembrete e clica em «Acrescentar»." },
+    ],
+    participacao: [
+      { alvo: q(".aviso-privado"), tit: "Só para ti", txt: "Os registos nunca aparecem no projetor nem aos alunos e não entram nas notas. Apagam-se com o prazo de retenção da escola.", acao: "Lê e continua." },
+      { alvo: q(".pa-al"), tit: "Um toque por registo", txt: "Toca no aluno e escolhe o tipo (por exemplo «Participou»). Os totais aparecem na pauta, como apoio ao nível.", acao: "Toca no cartão de um aluno." },
+      { alvo: q("[data-tab]", /Tipos/), tit: "Os teus tipos", txt: "Até 8 tipos, positivos ou a melhorar.", acao: "Clica em «Tipos de registo» para os mudar." },
+    ],
+    quizzes: [
+      { alvo: q("[data-vivo]"), tit: "Jogar ao vivo", txt: "Os alunos entram no telemóvel com um código e uma alcunha.", acao: "Clica em «Jogar ao vivo»." },
+      { alvo: q("[data-opcoes]"), tit: "Outras formas de jogar", txt: "Por equipas, com perguntas baralhadas, revisão ao próprio ritmo (para casa) ou no projetor sem telemóveis.", acao: "Clica em «Outras formas de jogar»." },
     ],
   };
   const NOMES = { "": "inicio" };
