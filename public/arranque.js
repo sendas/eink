@@ -20,7 +20,6 @@
       EINK.api("POST", "/api/acesso", { largura: screen.width, altura: screen.height, janela: innerWidth, dpr: devicePixelRatio, toque: navigator.maxTouchPoints > 0, idioma: navigator.language }).catch(() => {});
     }
   } catch { /* sem sessionStorage */ }
-  if (EINK.eu.dt) document.getElementById("nav-dt").hidden = false;
   // Estatísticas de utilização: diz-se ao servidor em que ecrã se está (só o nome do ecrã, no máximo uma vez a cada 10 segundos por ecrã).
   const vistos = new Map();
   const contarEcra = (caminho) => {

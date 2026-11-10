@@ -26,8 +26,8 @@ const criarCorreio = require("./lib/correio");
 const ferramentas = require("./lib/m-ferramentas");
 const registarQuiz = require("./lib/m-quiz");
 const registarNotas = require("./lib/m-notas");
-const registarDT = require("./lib/m-dt");
 const registarPartilhas = require("./lib/m-partilhas");
+const registarAula = require("./lib/m-aula");
 const estatisticas = require("./lib/m-estatisticas");
 const criarPublico = require("./lib/m-publico");
 const VIVO = require("./lib/vivo");
@@ -219,7 +219,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, guias: String(c.p.guias_vistos || "").split(",").filter(Boolean), dt: c.p.admin || (XDT.nDirecoes ? XDT.nDirecoes(c.p.id) > 0 : false) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, guias: String(c.p.guias_vistos || "").split(",").filter(Boolean) }));
   // Tutorial de boas-vindas: aparece uma vez a cada docente (e outra vez se a TUTORIAL_VERSAO subir, por exemplo com novidades grandes).
   rota("POST", "/api/eu/tutorial", (c) => { db.prepare("UPDATE professores SET tutorial_visto = ? WHERE id = ?").run(TUTORIAL_VERSAO, c.p.id); return { ok: true }; });
   // Guias de cada ecrã (avisos que dizem o que fazer e onde clicar): guarda quais o docente já viu; «*» = não mostrar mais; `repor` volta a mostrá-los.
@@ -258,7 +258,7 @@ function criarServidor(env = process.env) {
     return {
       ...t,
       grupo: esquemaDaTurma(t),
-      alunos: db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(t.id),
+      alunos: db.prepare("SELECT a.id, a.numero, a.nome, f.atualizada AS foto FROM alunos a LEFT JOIN fotos f ON f.aluno_id = a.id WHERE a.turma_id = ? ORDER BY COALESCE(a.numero, 9999), a.nome").all(t.id),
       periodos: db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id),
     };
   });
@@ -677,9 +677,8 @@ function criarServidor(env = process.env) {
   ferramentas.registar(XF);
   registarQuiz(XF);
   registarNotas({ rota, db, erro, existe, avalDe });
-  const XDT = { rota, db, erro, texto, inteiro, soAdmin, dadosPauta };
-  registarDT(XDT);
   registarPartilhas({ rota, db, erro, texto, inteiro, existe, avalDe, soAdmin });
+  registarAula({ rota, db, erro, texto, inteiro, existe, turmaDe, transacao });
   rota("POST", "/api/admin/grupos", (c) => {
     soAdmin(c);
     const nome = texto(c.b.nome, 60);

@@ -165,7 +165,7 @@
     ["👥", "Docentes", "Contas Office e locais, e a disciplina de cada um", "#/admin"], ["✉️", "Email e avisos", "Aviso antes de o segredo do Entra expirar", "#/correio"], ["⚖️", "Critérios de avaliação", "Por disciplina e ano", "#/criterios"],
     ["🔒", "Fecho de períodos", "Bloquear as notas depois do conselho de turma", "#/fecho"], ["📜", "Registo de alterações", "Quem mudou o quê e quando", "#/auditoria"],
     ["💾", "Cópias de segurança", "Da base de dados", "#/copias"], ["🛡", "Privacidade e retenção", "Turmas arquivadas e prazos", "#/privacidade-admin"],
-    ["🖥", "Acessos dos docentes", "Endereço IP, navegador e ecrã de cada acesso", "#/acessos"], ["💡", "Sugestões dos docentes" + (EINK.eu.sugestoes_novas ? ` (${EINK.eu.sugestoes_novas} novas)` : ""), "O que os colegas pedem ou sugerem", "#/sugestoes"], ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"], ["🧑‍🏫", "Diretores de turma", "Quem vê a pauta de todas as disciplinas", "#/direcoes"],
+    ["🖥", "Acessos dos docentes", "Endereço IP, navegador e ecrã de cada acesso", "#/acessos"], ["💡", "Sugestões dos docentes" + (EINK.eu.sugestoes_novas ? ` (${EINK.eu.sugestoes_novas} novas)` : ""), "O que os colegas pedem ou sugerem", "#/sugestoes"], ["📈", "Estatísticas de acesso", "Quem usa a plataforma e como", "#/estatisticas"],
   ].map(([i, n, d, h]) => `<a class="cartao" href="${h}"><span class="icone" aria-hidden="true">${i}</span><span>${n}<small>${d}</small></span></a>`).join("")}</div>`);
 
   async function sugestoes(so = "novas") {
@@ -246,11 +246,11 @@
   async function privacidadeAdmin() {
     const r = await api("GET", "/api/admin/privacidade");
     mostrar(`<p><a href="#/gestao">← Gestão</a></p><h1>Privacidade e retenção</h1>
-      <p>A plataforma guarda ${r.alunosTotal} alunos (nome, número e, se importado, o email). As turmas arquivadas e o registo de alterações são apagados quando passa o prazo de retenção. A <a href="/privacidade.html">página de privacidade</a> mostra este prazo aos docentes.</p>
+      <p>A plataforma guarda ${r.alunosTotal} alunos (nome, número e, se importado, o email). As turmas arquivadas, o registo de alterações e os registos de participação são apagados quando passa o prazo de retenção. A <a href="/privacidade.html">página de privacidade</a> mostra este prazo aos docentes.</p>
       <form class="painel linha" id="f-ret"><label>Prazo de retenção das turmas arquivadas (anos)<input name="anos" type="number" min="1" max="10" value="${r.anos}" style="width:6rem"></label><button>Guardar</button></form>
       <h2>Turmas arquivadas (${r.arquivadas.length})</h2>
       <div class="painel"><ul class="lista">${r.arquivadas.map((t) => `<li><span>${esc(t.nome)} · ${esc(t.ano_letivo)} · ${esc(t.docente)} <span class="pequeno">${t.alunos} alunos, arquivada em ${esc((t.arquivada_em || "").slice(0, 10))}</span></span><strong>${t.expirada ? "Fora do prazo" : "Dentro do prazo"}</strong></li>`).join("") || '<li class="pequeno">Não há turmas arquivadas.</li>'}</ul></div>
-      <p class="pequeno">Registo de alterações fora do prazo: ${r.auditoriaExpirada}.</p>
+      <p class="pequeno">Registo de alterações fora do prazo: ${r.auditoriaExpirada}. Registos de participação fora do prazo: ${r.registosExpirados || 0}.</p>
       <form class="painel linha" id="f-apagar"><label>Para apagar as turmas arquivadas fora do prazo (e o registo antigo), escreve APAGAR<input name="confirmar" autocomplete="off"></label><button class="perigo">Apagar o que está fora do prazo</button></form>`);
     $("#f-ret").onsubmit = async (e) => { e.preventDefault(); try { await api("POST", "/api/admin/privacidade/retencao", { anos: Number(new FormData(e.target).get("anos")) }); aviso("Prazo guardado."); privacidadeAdmin(); } catch { /* aviso mostrado */ } };
     $("#f-apagar").onsubmit = async (e) => { e.preventDefault(); try { const x = await api("POST", "/api/admin/privacidade/apagar", { confirmar: new FormData(e.target).get("confirmar") }); aviso(`${x.turmas} turma(s) apagada(s).`); privacidadeAdmin(); } catch { /* aviso mostrado */ } };
@@ -258,8 +258,8 @@
 
 
   // ---------- estatísticas de acesso ----------
-  const NOME_AREA = { painel: "Início", turmas: "Turmas", "turmas-arquivadas": "Turmas arquivadas", turma: "Turma e alunos", pauta: "Pauta", grelha: "Grelha de teste", intercalares: "Intercalares", temporizador: "Temporizador", sorteio: "Sorteio", chamada: "Chamada", listas: "Listas", sondagens: "Sondagens", sondagem: "Sondagem (resultados)", mapa: "Mapa de sala", quadros: "Quadros", quadro: "Quadro", quizzes: "Quizzes", quiz: "Editor de quiz", "quiz-resultados": "Resultados de quiz", vivo: "Jogo ao vivo", gestao: "Gestão", admin: "Docentes", criterios: "Critérios", fecho: "Fecho de períodos", auditoria: "Registo de alterações", copias: "Cópias de segurança", "privacidade-admin": "Privacidade", estatisticas: "Estatísticas" };
-  const NOME_PUBLICO = { sondagem_pagina: "Aberturas da página de sondagem", sondagem_voto: "Votos em sondagens", jogo_pagina: "Aberturas da página do jogo", jogo_entrada: "Alunos que entraram em jogos" };
+  const NOME_AREA = { painel: "Início", turmas: "Turmas", "turmas-arquivadas": "Turmas arquivadas", turma: "Turma e alunos", pauta: "Pauta", grelha: "Grelha de teste", intercalares: "Intercalares", temporizador: "Temporizador", sorteio: "Sorteio", chamada: "Chamada", listas: "Listas", sondagens: "Sondagens", sondagem: "Sondagem (resultados)", mapa: "Mapa de sala", quadros: "Quadros", quadro: "Quadro", quizzes: "Quizzes", quiz: "Editor de quiz", "quiz-resultados": "Resultados de quiz", vivo: "Jogo ao vivo", gestao: "Gestão", admin: "Docentes", criterios: "Critérios", fecho: "Fecho de períodos", auditoria: "Registo de alterações", copias: "Cópias de segurança", "privacidade-admin": "Privacidade", estatisticas: "Estatísticas", sala: "Sala de aula", aula: "Começar a aula", lembretes: "Lembretes da turma", mural: "Mural da turma", bilhete: "Bilhete de saída", placar: "Placar de equipas", "quiz-projetor": "Quiz no projetor", cartoes: "Cartões de resposta", roda: "Pergunta e roda de respostas", tarefa: "Ecrã da tarefa", participacao: "Registo de participação" };
+  const NOME_PUBLICO = { sondagem_pagina: "Aberturas da página de sondagem", sondagem_voto: "Votos em sondagens", jogo_pagina: "Aberturas da página do jogo", jogo_entrada: "Alunos que entraram em jogos", mural_nota: "Notas escritas no mural", bilhete_resposta: "Bilhetes de saída entregues" };
   async function estatisticas(dias = 30) {
     const d = await api("GET", "/api/admin/estatisticas?dias=" + dias);
     const max = Math.max(1, ...d.serie.map((x) => x.vistas));

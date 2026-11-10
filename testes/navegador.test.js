@@ -196,7 +196,7 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await aluno.waitForSelector(".certo, .errado");
 
   // Ecrãs de gestão (administrador)
-  for (const [hash, sel] of [["/gestao", ".cartoes"], ["/admin", "#f-prof"], ["/criterios", "section[data-grupo]"], ["/fecho", "table"], ["/auditoria", "#f-aud"], ["/copias", "#c-fazer"], ["/privacidade-admin", "#f-ret"], ["/estatisticas", ".e-grafico"], ["/direcoes", "h1"], ["/dt", "h1"], ["/turmas-arquivadas", "h1"]]) await ir(hash, sel);
+  for (const [hash, sel] of [["/gestao", ".cartoes"], ["/admin", "#f-prof"], ["/criterios", "section[data-grupo]"], ["/fecho", "table"], ["/auditoria", "#f-aud"], ["/copias", "#c-fazer"], ["/privacidade-admin", "#f-ret"], ["/estatisticas", ".e-grafico"], ["/turmas-arquivadas", "h1"]]) await ir(hash, sel);
   await p.click("#c-fazer").catch(() => {});
 
   assert.deepStrictEqual(erros, [], "erros no navegador:\n" + erros.join("\n"));
