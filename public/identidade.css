@@ -607,3 +607,4 @@ body.projetar .pl-pontos { font-size: clamp(4rem, 12vh, 9rem); }
 .ta-passos { text-align: left; max-width: 46rem; margin: 1rem auto; font-size: clamp(1.2rem, 2.6vw, 2rem); line-height: 1.5; }
 .ta-tempo { font-size: clamp(2rem, 6vw, 4rem); font-weight: 800; font-variant-numeric: tabular-nums; }
 .ta-bt[aria-pressed="true"], [data-vista][aria-pressed="true"] { background: var(--marca); color: var(--sobre-marca); border-color: var(--marca); }
+#au-f label { flex: 1 1 12rem; } #au-f select { width: 100%; }

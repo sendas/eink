@@ -35,8 +35,8 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   // Tutorial de boas-vindas: aparece no primeiro início de sessão, anda pelos passos e não volta depois de fechado
   await p.waitForSelector("dialog.tut-dlg[open]");
   assert.ok((await p.textContent(".tut-dlg h2")).includes("Bem-vindo"), "abre na capa");
-  await p.click("#tut-seg"); assert.match(await p.textContent(".tut-passo"), /Passo 1 de 7/);
-  await p.keyboard.press("ArrowRight"); assert.match(await p.textContent(".tut-passo"), /Passo 2 de 7/);
+  await p.click("#tut-seg"); assert.match(await p.textContent(".tut-passo"), /Passo 1 de 8/);
+  await p.keyboard.press("ArrowRight"); assert.match(await p.textContent(".tut-passo"), /Passo 2 de 8/);
   await p.waitForFunction(() => { const i = document.querySelector(".tut-fig img"); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 8000 }); // a imagem do passo carrega
   await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector("dialog.tut-dlg"));
   await p.reload(); await p.waitForSelector(".cartoes"); await p.waitForTimeout(1200);
