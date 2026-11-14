@@ -12,7 +12,7 @@
       pontos: ["Cada cartão mostra a média, os alunos por nível e quantas notas já lançaste.", "Para lançar notas, escolhe o período da turma, por exemplo «1.º período». Tocar no cartão abre o período atual."] },
     { tit: "Lança as notas como no Excel", img: "tut-pauta.jpg", alt: "Pauta com notas, níveis coloridos e média de cada aluno",
       txt: "A pauta funciona como uma folha de cálculo: escreve a nota, carrega em Enter ou Tab e passa para a seguinte. Também podes colar blocos copiados do Excel.",
-      pontos: ["As cores e os nomes dos níveis aparecem sozinhos em cada nota e em cada média.", "Em «Testes e trabalhos», o botão «+ Adicionar avaliação» cria um teste, uma ficha ou um trabalho.", "Descarrega a pauta em Excel ou CSV quando precisares."] },
+      pontos: ["As cores e os nomes dos níveis aparecem sozinhos em cada nota e em cada média.", "A nota final sai em níveis de 1 a 5 no ensino básico e de 0 a 20 no ensino secundário (10.º ao 12.º ano).", "Em «Testes e trabalhos», o botão «+ Adicionar avaliação» cria um teste, uma ficha ou um trabalho.", "Descarrega a pauta em Excel ou CSV quando precisares."] },
     { tit: "Grelhas de teste por questão", img: "tut-grelha.jpg", alt: "Grelha de um teste com questões, cotações e pontuação de cada aluno",
       txt: "Em vez de uma nota única, pontua cada questão. A grelha soma o total e passa-o para a pauta.",
       pontos: ["Define a cotação por baixo de cada questão. Se a soma der 100, as pontuações ajustam-se na mesma proporção.", "Copia a estrutura de outro teste ou guarda-a como modelo para usares outra vez."] },

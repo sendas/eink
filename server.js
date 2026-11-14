@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const criarAuth = require("./lib/auth");
 const { abrir, criarEsquema } = require("./lib/db");
-const { pauta, lerComportamento, lerNota, NIVEIS, INTERCALAR, propostaInter } = require("./lib/avaliacao");
+const { pauta, lerComportamento, lerNota, NIVEIS, INTERCALAR, propostaInter, escalaDe, valoresDe, nivelDe, mencaoDe } = require("./lib/avaliacao");
 const { criarXlsx } = require("./lib/xlsx");
 const { lerAlunos } = require("./lib/xlsx-ler");
 const APR = require("./public/apreciacao.js");
@@ -183,7 +183,11 @@ function criarServidor(env = process.env) {
     const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, percentagens, casas: grupo.casas });
     const fotos = new Map(db.prepare("SELECT f.aluno_id id, f.atualizada t FROM fotos f JOIN alunos a ON a.id = f.aluno_id WHERE a.turma_id = ?").all(per.turma_id).map((r) => [r.id, r.t]));
     for (const a of alunos) a.foto = fotos.get(a.id) || null;
-    return { periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
+    // Ensino secundário e cursos profissionais: a nota final é uma classificação de 0 a 20, e a menção sai da classificação já arredondada
+    // (47,5 % são 10 valores, por isso «Suficiente» e não «Insuficiente»).
+    const escala = escalaDe(turma.ano, (db.prepare("SELECT profissional p FROM grupos WHERE id = ?").get(turma.grupo_id) || {}).p);
+    if (escala === "valores") for (const l of linhas) { l.valores = valoresDe(l.final); if (l.valores !== null) { l.nivel = nivelDe(l.valores * 5); l.mencao = mencaoDe(l.nivel); } }
+    return { escala, periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
   }
   const csv = (d) => {
     const c = (v) => { let s = v === null || v === undefined ? "" : String(v); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -193,14 +197,14 @@ function criarServidor(env = process.env) {
       if (k.tipo === "nivel") cab.push(`${k.nome} (${k.peso} %, nível)`);
       else { for (const a of d.avaliacoes.filter((x) => x.criterio_id === k.id)) cab.push(`${a.titulo} (peso ${a.peso})`); cab.push(`Média ${k.nome} (${k.peso} %)`); }
     }
-    cab.push("Nota final (%)", "Nível", "Menção", "Parcial");
+    cab.push("Nota final (%)", d.escala === "valores" ? "Classificação (0 a 20)" : "Nível", "Menção", "Parcial");
     const l = d.alunos.map((a) => {
       const r = [a.numero, a.nome];
       for (const k of d.criterios) {
         if (k.tipo === "nivel") r.push(a.niveis[k.id] ?? "");
         else { for (const x of d.avaliacoes.filter((y) => y.criterio_id === k.id)) r.push(n1(a.pcts[x.id])); r.push(n1(a.criterios[k.id])); }
       }
-      r.push(a.final, a.nivel, a.mencao, a.parcial ? "sim" : "");
+      r.push(a.final, d.escala === "valores" ? a.valores : a.nivel, a.mencao, a.parcial ? "sim" : "");
       return r;
     });
     return "\ufeff" + [cab, ...l].map((r) => r.map(c).join(";")).join("\r\n") + "\r\n";
@@ -219,7 +223,7 @@ function criarServidor(env = process.env) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
     return { expira: d, dias: Math.ceil((Date.parse(d + "T23:59:59Z") - Date.now()) / 86400000) };
   };
-  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, guias: String(c.p.guias_vistos || "").split(",").filter(Boolean) }));
+  rota("GET", "/api/eu", (c) => ({ upn: c.p.upn, nome: c.p.nome, admin: !!c.p.admin, grupo_id: c.p.grupo_id, grupoDocentes: !!GRUPO_DOCENTES, grupo_ad: c.p.grupo_ad || null, versao: VERSAO, local: !!c.p.local, trocar: !!c.p.trocar, dev: DEV, segredo: c.p.admin ? segredoExpira() : null, sugestoes_novas: c.p.admin ? SUG.novas() : 0, grelhas_novas: MODELOS.novas(c.p.id), comp_escala: ["pct", "auto", "v20"].includes(c.p.comp_escala) ? c.p.comp_escala : "nivel", tutorial: (c.p.tutorial_visto || 0) < TUTORIAL_VERSAO, guias: String(c.p.guias_vistos || "").split(",").filter(Boolean) }));
   // Tutorial de boas-vindas: aparece uma vez a cada docente (e outra vez se a TUTORIAL_VERSAO subir, por exemplo com novidades grandes).
   rota("POST", "/api/eu/tutorial", (c) => { db.prepare("UPDATE professores SET tutorial_visto = ? WHERE id = ?").run(TUTORIAL_VERSAO, c.p.id); return { ok: true }; });
   // Guias de cada ecrã (avisos que dizem o que fazer e onde clicar): guarda quais o docente já viu; «*» = não mostrar mais; `repor` volta a mostrá-los.
@@ -233,7 +237,7 @@ function criarServidor(env = process.env) {
     db.prepare("UPDATE professores SET guias_vistos = ? WHERE id = ?").run(guias.join(","), c.p.id); return { guias };
   });
   rota("PUT", "/api/eu/comportamento", (c) => {
-    if (!["nivel", "pct", "auto"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %» ou «Automático».");
+    if (!["nivel", "pct", "auto", "v20"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %», «0 a 20» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };
   });
   rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
@@ -478,7 +482,7 @@ function criarServidor(env = process.env) {
     const k = esquemaDaTurma(t).criterios.find((x) => x.tipo === "nivel" && x.id === inteiro(c.b.criterio));
     if (!k) throw erro(400, "Critério inválido para esta turma.");
     const lido = lerComportamento(c.b.valor !== undefined ? c.b.valor : c.b.nivel, c.p.comp_escala);
-    if (lido === undefined) throw erro(400, c.p.comp_escala === "pct" ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)." : c.p.comp_escala === "auto" ? "Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %)." : "Escreve um nível de 1 a 5. Para lançar em percentagem, muda a escala do comportamento para «0 a 100 %».");
+    if (lido === undefined) throw erro(400, c.p.comp_escala === "v20" ? "Escreve uma classificação de 0 a 20 (por exemplo 14)." : c.p.comp_escala === "pct" ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)." : c.p.comp_escala === "auto" ? "Escreve um nível de 1 a 5 ou uma percentagem de 0 a 100 (por exemplo 85 %)." : "Escreve um nível de 1 a 5. Para lançar em percentagem, muda a escala do comportamento para «0 a 100 %».");
     abertoOuErro(per.id);
     const ant = db.prepare("SELECT nivel, pct FROM niveis WHERE criterio_id = ? AND periodo_id = ? AND aluno_id = ?").get(k.id, per.id, a.id) || {};
     const txt = (r) => (!r || r.nivel == null ? "" : r.pct != null ? String(r.pct).replace(".", ",") + " %" : String(r.nivel)), antes = txt(ant), depois = txt(lido);
@@ -495,8 +499,8 @@ function criarServidor(env = process.env) {
     const linhas = new Map(db.prepare("SELECT aluno_id l, mencao m, descritiva t, niveis v FROM intercalares WHERE periodo_id = ? AND n = ?").all(per.id, n).map((r) => [r.l, r]));
     const generos = new Map(db.prepare("SELECT id, genero FROM alunos WHERE turma_id = ?").all(per.turma_id).map((r) => [r.id, r.genero]));
     return {
-      periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas, criterios: APR.CRITERIOS.map((k) => ({ id: k.id, nome: k.nome })), etiquetas: APR.ETIQUETAS,
-      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, genero: generos.get(a.id) || "", final: a.final, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "", niveis: linhas.get(a.id)?.v ? JSON.parse(linhas.get(a.id).v) : {} })),
+      escala: d.escala, periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas, criterios: APR.CRITERIOS.map((k) => ({ id: k.id, nome: k.nome })), etiquetas: APR.ETIQUETAS,
+      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, genero: generos.get(a.id) || "", final: a.final, valores: a.valores ?? null, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(d.escala === "valores" && a.valores != null ? a.valores * 5 : a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "", niveis: linhas.get(a.id)?.v ? JSON.parse(linhas.get(a.id).v) : {} })),
     };
   }
   rota("GET", "/api/periodos/:id/intercalares", (c, u) => dadosInter(existe(periodoDe(c.p, c.id[0])), lerN(u.searchParams.get("n") || 1)));
@@ -560,7 +564,7 @@ function criarServidor(env = process.env) {
       for (const a of d.avaliacoes.filter((x) => x.criterio_id === k.id)) { cab.push(`${a.titulo} (%)`); larg.push(14); }
       cab.push(`Média ${k.nome} (${k.peso} %)`); larg.push(18);
     }
-    cab.push("Nota final (%)", "Nível", "Menção", "Parcial"); larg.push(14, 8, 20, 9);
+    cab.push("Nota final (%)", d.escala === "valores" ? "Classificação (0 a 20)" : "Nível", "Menção", "Parcial"); larg.push(14, d.escala === "valores" ? 20 : 8, 20, 9);
     const linhas = [cab.map((v) => ({ v, e: "cab" }))];
     for (const a of d.alunos) {
       const r = [a.numero, a.nome];
@@ -569,7 +573,7 @@ function criarServidor(env = process.env) {
         for (const x of d.avaliacoes.filter((y) => y.criterio_id === k.id)) r.push(a.pcts[x.id] === null ? null : Math.round(a.pcts[x.id] * 100) / 100);
         r.push(a.criterios[k.id]);
       }
-      r.push(a.final, a.nivel, a.mencao || null, a.parcial ? "sim" : null);
+      r.push(a.final, d.escala === "valores" ? a.valores : a.nivel, a.mencao || null, a.parcial ? "sim" : null);
       linhas.push(r);
     }
     const folhas = [{ nome: "Pauta", larguras: larg, congelar: true, linhas }];
@@ -627,9 +631,9 @@ function criarServidor(env = process.env) {
       let foco = periodos[0] || null;
       for (const p of periodos) if (db.prepare("SELECT 1 FROM avaliacoes WHERE periodo_id = ? LIMIT 1").get(p.id)) foco = p;
       const alunos = db.prepare("SELECT COUNT(*) AS n FROM alunos WHERE turma_id = ?").get(t.id).n;
-      const r = { ...t, alunos, periodos: periodos.map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })), foco: foco ? { id: foco.id, nome: foco.nome } : null, media: null, niveis: [0, 0, 0, 0, 0], acompanhar: 0, avaliacoes: 0, notas: 0, esperadas: 0 };
+      const r = { ...t, alunos, periodos: periodos.map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })), foco: foco ? { id: foco.id, nome: foco.nome } : null, media: null, escala: escalaDe(t.ano, false), niveis: [0, 0, 0, 0, 0], acompanhar: 0, avaliacoes: 0, notas: 0, esperadas: 0 };
       if (foco && alunos) {
-        const d = dadosPauta(foco), fin = d.alunos.filter((a) => a.final !== null);
+        const d = dadosPauta(foco), fin = d.alunos.filter((a) => a.final !== null); r.escala = d.escala;
         r.media = fin.length ? Math.round((fin.reduce((z, a) => z + a.final, 0) / fin.length) * 10) / 10 : null;
         for (const a of d.alunos) if (a.nivel) r.niveis[a.nivel - 1]++;
         r.acompanhar = r.niveis[0] + r.niveis[1];

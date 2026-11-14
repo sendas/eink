@@ -6,8 +6,8 @@
   const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 20 ? "Boa tarde" : "Boa noite"; };
   const dataHoje = () => new Date().toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long" });
 
-  const barraNiveis = (niv) => { const t = niv.reduce((z, x) => z + x, 0); return t ? `<div class="niveis" role="img" aria-label="Alunos por nível: ${niv.map((x, i) => `nível ${i + 1}: ${x}`).join(", ")}">${niv.map((x, i) => x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="Nível ${i + 1}: ${x}">${x}</span>` : "").join("")}</div>
-    <div class="niveis-leg">${[1, 2, 3, 4, 5].map((i) => `<span><i class="lv lv${i}">${i}</i>${["Muito insuf.", "Insuf.", "Suficiente", "Bom", "Muito bom"][i - 1]}</span>`).join("")}</div>` : `<p class="pequeno">Sem níveis ainda.</p>`; };
+  const barraNiveis = (niv, esc20) => { const fx = esc20 ? EINK.faixasValores() : null; const t = niv.reduce((z, x) => z + x, 0); return t ? `<div class="niveis" role="img" aria-label="Alunos por ${fx ? "classificação" : "nível"}: ${niv.map((x, i) => `${fx ? fx[i] + " valores" : "nível " + (i + 1)}: ${x}`).join(", ")}">${niv.map((x, i) => x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="${fx ? fx[i] + " valores" : "Nível " + (i + 1)}: ${x}">${x}</span>` : "").join("")}</div>
+    <div class="niveis-leg${fx ? " leg-val" : ""}">${[1, 2, 3, 4, 5].map((i) => `<span><i class="lv lv${i}">${fx ? fx[i - 1] : i}</i>${["Muito insuf.", "Insuf.", "Suficiente", "Bom", "Muito bom"][i - 1]}</span>`).join("")}</div>` : `<p class="pequeno">Sem níveis ainda.</p>`; };
 
   const cartaoTurma = (t) => {
     const pc = t.esperadas ? Math.round((t.notas / t.esperadas) * 100) : 0;
@@ -16,7 +16,7 @@
         ${t.acompanhar ? `<span class="selo-alerta" title="Alunos com nível 1 ou 2">${t.acompanhar} a acompanhar</span>` : ""}</header>
       <div class="turma-corpo">
         <div class="anel" style="--p:${t.media === null ? 0 : Math.min(100, t.media)}" role="img" aria-label="Média ${t.media === null ? "sem notas" : n1(t.media) + " %"}"><span class="anel-n">${t.media === null ? "–" : n1(t.media)}</span><span class="anel-u">média %</span></div>
-        <div class="turma-niveis"><p class="rotulo">Alunos por nível</p>${barraNiveis(t.niveis)}</div>
+        <div class="turma-niveis"><p class="rotulo">${t.escala === "valores" ? "Alunos por classificação (0 a 20)" : "Alunos por nível"}</p>${barraNiveis(t.niveis, t.escala === "valores")}</div>
       </div>
       <div><div class="progresso-topo"><span class="rotulo">Notas lançadas</span><span class="pequeno">${t.esperadas ? `${t.notas} de ${t.esperadas}` : "sem avaliações"}</span></div><div class="progresso"><div style="width:${pc}%"></div></div></div>
       <footer><p class="rotulo foot-rot">Abrir a pauta de:</p>${t.periodos.map((d) => `<a class="botao periodo ${t.foco && d.id === t.foco.id ? "" : "sec"}" href="#/pauta/${d.id}">${esc(d.nome)}${d.fechado ? " (fechado)" : ""}<span class="seta" aria-hidden="true"> →</span></a>`).join("")}<a class="botao fantasma" href="#/turma/${t.id}">Alunos</a></footer>

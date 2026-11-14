@@ -608,3 +608,8 @@ body.projetar .pl-pontos { font-size: clamp(4rem, 12vh, 9rem); }
 .ta-tempo { font-size: clamp(2rem, 6vw, 4rem); font-weight: 800; font-variant-numeric: tabular-nums; }
 .ta-bt[aria-pressed="true"], [data-vista][aria-pressed="true"] { background: var(--marca); color: var(--sobre-marca); border-color: var(--marca); }
 #au-f label { flex: 1 1 12rem; } #au-f select { width: 100%; }
+
+/* Escala de 0 a 20 (ensino secundário): a legenda mostra a faixa de valores de cada nível */
+.niveis-leg.leg-val i.lv { width: auto; min-width: 2.9rem; padding: 0 .35rem; font-size: .76rem; }
+.ln-niv span small { display: block; font-size: .8em; opacity: .85; margin-top: .1rem; }
+th small { font-weight: 500; }

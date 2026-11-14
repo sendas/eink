@@ -9,15 +9,15 @@
     const testes = d.criterios.filter((k) => k.tipo === "testes");
     const doCrit = (k) => d.avaliacoes.filter((a) => a.criterio_id === k.id);
     const casas = d.grupo.casas, fechado = !!d.periodo.fechado, dis = fechado ? "disabled" : "";
-    const modo = EINK.eu.comp_escala || "nivel", pct = modo === "pct"; // escala do comportamento escolhida pelo docente (1 a 5, 0 a 100 % ou automática)
-    const dicaComp = pct ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)" : modo === "auto" ? "Um inteiro de 1 a 5 é um nível; qualquer outro valor, ou com %, é uma percentagem de 0 a 100 (para 4 %, escreve 4 %)" : "Escreve um nível de 1 a 5";
+    const modo = EINK.eu.comp_escala || "nivel", pct = modo === "pct", v20 = modo === "v20", val = d.escala === "valores", fx = EINK.faixasValores(d.limites); // escala do comportamento escolhida pelo docente (1 a 5, 0 a 100 % ou automática)
+    const dicaComp = v20 ? "Escreve uma classificação de 0 a 20 (por exemplo 14)" : pct ? "Escreve uma percentagem de 0 a 100 (por exemplo 85)" : modo === "auto" ? "Um inteiro de 1 a 5 é um nível; qualquer outro valor, ou com %, é uma percentagem de 0 a 100 (para 4 %, escreve 4 %)" : "Escreve um nível de 1 a 5";
     const somaPesos = (k) => doCrit(k).reduce((z, a) => z + a.peso, 0);
 
     // Cabeçalho em duas linhas: critério (com o seu peso na nota final) e, por baixo, as avaliações dele e a média.
     const g = (gi) => "g" + (gi % 3);
     const l1 = d.criterios.map((k, gi) => `<th class="crit ini fim ${g(gi)}" colspan="${k.tipo === "nivel" ? 1 : doCrit(k).length + 1}" scope="colgroup"><span class="nome-crit">${esc(k.nome)}</span> <span class="peso-crit">${k.peso} %</span>${k.tipo !== "nivel" && !fechado ? ` <button type="button" class="sec add-aval" data-add-aval="${k.id}">+ Adicionar avaliação</button>` : ""}</th>`).join("");
     const l2 = d.criterios.map((k, gi) => {
-      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="${dicaComp}">${pct ? "0 a 100 %" : modo === "auto" ? "1 a 5 ou %" : "Nível 1 a 5"}</th>`;
+      if (k.tipo === "nivel") return `<th scope="col" class="ini fim ${g(gi)}" title="${dicaComp}">${v20 ? "0 a 20" : pct ? "0 a 100 %" : modo === "auto" ? "1 a 5 ou %" : "Nível 1 a 5"}</th>`;
       const sp = somaPesos(k);
       return doCrit(k).map((a, ai) => `<th class="col-av ${g(gi)}${ai === 0 ? " ini" : ""}" scope="col" title="${esc(a.titulo)} · ${esc(a.tipo)} · máx. ${a.maximo}${a.data ? " · " + esc(a.data) : ""} · peso ${num(a.peso)}${sp ? ` (${num((a.peso / sp) * 100, 0)} % do critério)` : ""}">
         <div class="av-tit"><a href="#/grelha/${a.id}" title="Abrir a grelha de ${esc(a.titulo)}">${esc(a.titulo)}</a></div><div class="av-sub">${esc(a.tipo)} · /${a.maximo}${sp ? ` · ${num((a.peso / sp) * 100, 0)} %` : ""}${a.n_itens ? ` · ${a.n_itens} q.` : ""}</div>
@@ -26,9 +26,14 @@
     }).join("");
 
     const fp = (v) => String(v).replace(".", ",");
-    const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); const nivel = !m[2] && Number.isInteger(n) && n >= 1 && n <= 5 && modo !== "pct"; return nivel ? String(n) : fp(Math.round(n * 100) / 100) + " %"; };
+    const normComp = (v) => { const t = String(v ?? "").trim().replace(",", "."), m = /^(\d+(?:\.\d+)?)\s*(%?)$/.exec(t); if (!m) return t; const n = Number(m[1]); if (v20) return fp(Math.round(n * 100) / 100); const nivel = !m[2] && Number.isInteger(n) && n >= 1 && n <= 5 && modo !== "pct"; return nivel ? String(n) : fp(Math.round(n * 100) / 100) + " %"; };
     const marcarComp = (el) => { el.classList.toggle("comp-pct", /%$/.test(el.value)); };
-    const compTxt = (al, k) => (al.compPct && al.compPct[k.id] !== undefined ? fp(al.compPct[k.id]) + " %" : String(al.niveis[k.id] ?? ""));
+    const meioNivel = (n) => { const L = [0, ...d.limites, 100]; return (L[n - 1] + L[n]) / 2; }; // um nível de 1 a 5 vale o meio da sua faixa
+    const compTxt = (al, k) => {
+      const p = al.compPct ? al.compPct[k.id] : undefined, n = al.niveis[k.id];
+      if (v20) return p !== undefined ? fp(Math.round((p / 5) * 100) / 100) : n ? fp(Math.round((meioNivel(n) / 5) * 100) / 100) : "";
+      return p !== undefined ? fp(p) + " %" : String(n ?? "");
+    };
     const lerLS = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch { return def; } };
     const fotosOn = lerLS("eink.fotos", "1") === "1", vistaCart = lerLS("eink.pautaVista", "tabela") === "cartoes";
     const linhas = d.alunos.map((al) => `<tr data-aluno="${al.id}"><td class="num">${al.numero ?? ""}</td><th scope="row"><span class="aluno-nome">${esc(al.nome)}</span>${fotosOn ? `<div class="foto-linha">${EINK.fotoAluno(al)}</div>` : ""}</th>
@@ -50,13 +55,13 @@
         <label>Data<input name="data" type="date"></label>
         <button>Adicionar avaliação</button>
       </form></details>`}
-      <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.</p></details>
+      <details class="painel como-funciona"><summary><strong>Como funciona</strong> <span class="pequeno">notas, pesos e arredondamentos</span></summary><p class="pequeno">Podes lançar vários testes em cada critério. Dentro do critério a média é ponderada pelo «peso no critério» (por exemplo, um teste com peso 2 conta o dobro de um com peso 1); a nota final junta os critérios pelos pesos definidos pelo administrador (${d.criterios.map((k) => `${esc(k.nome)} ${k.peso} %`).join(", ")}). Escreve «15», «15,5» ou «15/20». Um asterisco (*) na nota final quer dizer que falta algum critério. A nota final arredonda-se a ${casas} casa${casas === 1 ? "" : "s"} decimal${casas === 1 ? "" : "is"}. Para um teste com várias questões, abre a «Grelha»: defines as cotações e lanças a pontuação de cada aluno em cada questão.${val ? " Nesta turma (ensino secundário ou curso profissional) a nota final converte-se numa classificação de 0 a 20, arredondada às unidades: por exemplo, 47,5 % são 10 valores." : " A nota final converte-se num nível de 1 a 5. No ensino secundário (10.º ao 12.º ano) aparece a classificação de 0 a 20."}</p></details>
       <div id="pauta-registos"></div>
       <div class="resumo-pauta" id="resumo-pauta"></div>
       <div class="barra-pauta"><div class="troca-vista" role="group" aria-label="Vista da pauta"><button type="button" class="sec ${vistaCart ? "" : "ativo"}" data-vista="tabela">Tabela</button><button type="button" class="sec ${vistaCart ? "ativo" : ""}" data-vista="cartoes">Pauta final em cartões</button></div>
-        <div class="troca-vista" role="group" aria-label="Escala do comportamento"><span class="pequeno" style="align-self:center;padding:0 .4rem">Comportamento</span><button type="button" class="sec ${modo === "nivel" ? "ativo" : ""}" data-escala="nivel">1 a 5</button><button type="button" class="sec ${pct ? "ativo" : ""}" data-escala="pct">0 a 100 %</button><button type="button" class="sec ${modo === "auto" ? "ativo" : ""}" data-escala="auto" title="Um inteiro de 1 a 5 é nível; o resto é percentagem">Automático</button></div>
+        <div class="troca-vista" role="group" aria-label="Escala do comportamento"><span class="pequeno" style="align-self:center;padding:0 .4rem">Comportamento</span><button type="button" class="sec ${modo === "nivel" ? "ativo" : ""}" data-escala="nivel">1 a 5</button><button type="button" class="sec ${pct ? "ativo" : ""}" data-escala="pct">0 a 100 %</button><button type="button" class="sec ${v20 ? "ativo" : ""}" data-escala="v20" title="Classificação de 0 a 20, como no ensino secundário">0 a 20</button><button type="button" class="sec ${modo === "auto" ? "ativo" : ""}" data-escala="auto" title="Um inteiro de 1 a 5 é nível; o resto é percentagem">Automático</button></div>
         <label class="linha"><input type="checkbox" id="ver-fotos" ${fotosOn ? "checked" : ""}> Mostrar fotografias</label></div>
-      <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">Nível</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
+      <div class="tabela-rolagem"><table><thead><tr><th rowspan="2" class="num" scope="col">N.º</th><th rowspan="2" scope="col">Aluno</th>${l1}<th rowspan="2" class="num res-ini" scope="col">Final %</th><th rowspan="2" class="num" scope="col">${val ? "Classif.<br><small>0 a 20</small>" : "Nível"}</th><th rowspan="2" scope="col">Menção</th></tr><tr>${l2}</tr></thead>
       <tbody>${linhas || `<tr><td colspan="${nCols}">Adiciona alunos à turma.</td></tr>`}</tbody></table></div>
       <div id="cartoes-final" class="cartoes-final" ${vistaCart ? "" : "hidden"}></div>
       <p class="linha"><a class="botao" href="#/intercalares/${id}">Avaliações intercalares</a><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx)</a><a class="botao sec" href="/api/periodos/${id}/pauta.csv">Descarregar CSV</a><button class="sec" id="hist-bot" type="button">Histórico de alterações</button></p><div id="hist"></div>`);
@@ -73,14 +78,14 @@
       for (const a of dd.avaliacoes) { const inp = $(`input[data-aval="${a.id}"][data-aluno="${al.id}"]`, tr); if (inp) marcarQual(inp.closest("td"), al.pcts[a.id], dd.limites); }
       for (const k of testes) { const c = $(`[data-c="crit-${k.id}"]`, tr); c.textContent = num(al.criterios[k.id], casas); marcarQual(c, al.criterios[k.id], dd.limites); }
       $('[data-c="final"]', tr).innerHTML = al.final === null ? "" : `<span class="fin-n">${num(al.final, casas)}${al.parcial ? "*" : ""}</span>${EINK.escala(al.final, dd.limites)}`;
-      $('[data-c="nivel"]', tr).textContent = al.nivel ?? ""; $('[data-c="mencao"]', tr).textContent = al.mencao;
+      $('[data-c="nivel"]', tr).textContent = (val ? al.valores : al.nivel) ?? ""; $('[data-c="mencao"]', tr).textContent = al.mencao;
       tr.className = al.nivel ? "n" + al.nivel : "";
     });
     const ligarFotos = () => $$("[data-foto]").forEach((b) => { b.onclick = () => { const al = d.alunos.find((x) => x.id === Number(b.dataset.foto)); if (al) EINK.janelaFoto(al, () => pautaVista(id)); }; });
     const cartoesFinal = (dd) => { const alvo = $("#cartoes-final"); if (!alvo) return;
       alvo.innerHTML = dd.alunos.map((al) => `<article class="aluno-cartao">${fotosOn ? EINK.fotoAluno(al, "foto-g") : ""}<h3>${esc(al.nome)}</h3><p class="pequeno">${al.numero ? "N.º " + al.numero : "&nbsp;"}</p>
         <div class="aluno-final"><strong>${al.final === null ? "–" : num(al.final, casas)}</strong><span>%${al.parcial ? " *" : ""}</span></div>${EINK.escala(al.final, dd.limites, { grande: true })}
-        <p class="aluno-mencao">${al.nivel ? `<span class="lv lv${al.nivel}"></span> Nível ${al.nivel} · ${esc(al.mencao || "")}` : "Sem nota final"}</p></article>`).join("") || '<p class="pequeno">Adiciona alunos à turma.</p>';
+        <p class="aluno-mencao">${al.nivel ? `<span class="lv lv${al.nivel}"></span> ${val ? al.valores + " valores" : "Nível " + al.nivel} · ${esc(al.mencao || "")}` : "Sem nota final"}</p></article>`).join("") || '<p class="pequeno">Adiciona alunos à turma.</p>';
       ligarFotos(); };
     const aplicarVista = (v) => { try { localStorage.setItem("eink.pautaVista", v); } catch { /* sem armazenamento */ }
       $(".tabela-rolagem").hidden = v === "cartoes"; $("#cartoes-final").hidden = v !== "cartoes"; $$("[data-vista]").forEach((b) => b.classList.toggle("ativo", b.dataset.vista === v)); };
@@ -92,8 +97,8 @@
       const fin = dd.alunos.filter((a) => a.final !== null), niv = [0, 0, 0, 0, 0];
       dd.alunos.forEach((a) => { if (a.nivel) niv[a.nivel - 1]++; });
       const media = fin.length ? fin.reduce((z, a) => z + a.final, 0) / fin.length : null, esp = dd.avaliacoes.length * dd.alunos.length, lanc = Object.keys(dd.notas).length, pc = esp ? Math.round((lanc / esp) * 100) : 0, ac = niv[0] + niv[1];
-      $("#resumo-pauta").innerHTML = `<div><span class="rotulo">Média da turma</span><strong class="grande-n">${media === null ? "–" : num(media, 1)}<small> %</small></strong><span class="pequeno">${fin.length} de ${dd.alunos.length} alunos com nota final</span></div>
-        <div><span class="rotulo">Alunos por nível</span>${niv.some((x) => x) ? `<div class="niveis">${niv.map((x, i) => (x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="Nível ${i + 1}: ${x}">${x}</span>` : "")).join("")}</div><div class="niveis-leg">${[1, 2, 3, 4, 5].map((i) => `<span title="Nível ${i}: ${EINK.nivelCel.NOMES[i - 1]}"><i class="lv lv${i}">${i}</i>${["Muito insuf.", "Insuf.", "Suficiente", "Bom", "Muito bom"][i - 1]}</span>`).join("")}</div>` : '<span class="pequeno">Sem níveis ainda.</span>'}</div>
+      $("#resumo-pauta").innerHTML = `<div><span class="rotulo">Média da turma</span><strong class="grande-n">${media === null ? "–" : num(media, 1)}<small> %</small></strong>${val && media !== null ? `<span class="pequeno">cerca de ${num(media / 5, 1)} valores</span>` : ""}<span class="pequeno">${fin.length} de ${dd.alunos.length} alunos com nota final</span></div>
+        <div><span class="rotulo">${val ? "Alunos por classificação (0 a 20)" : "Alunos por nível"}</span>${niv.some((x) => x) ? `<div class="niveis">${niv.map((x, i) => (x ? `<span class="lv lv${i + 1}" style="flex:${x}" title="${val ? fx[i] + " valores" : "Nível " + (i + 1)}: ${x}">${x}</span>` : "")).join("")}</div><div class="niveis-leg${val ? " leg-val" : ""}">${[1, 2, 3, 4, 5].map((i) => `<span title="${val ? fx[i - 1] + " valores" : "Nível " + i}: ${EINK.nivelCel.NOMES[i - 1]}"><i class="lv lv${i}">${val ? fx[i - 1] : i}</i>${["Muito insuf.", "Insuf.", "Suficiente", "Bom", "Muito bom"][i - 1]}</span>`).join("")}</div>` : '<span class="pequeno">Sem níveis ainda.</span>'}</div>
         <div><span class="rotulo">Notas lançadas</span><strong class="grande-n">${pc}<small> %</small></strong><div class="progresso"><div style="width:${pc}%"></div></div><span class="pequeno">${lanc} de ${esp}${ac ? ` · ${ac} aluno${ac === 1 ? "" : "s"} a acompanhar` : ""}</span></div>`;
     };
     pintar(d); resumo(d); cartoesFinal(d); ligarFotos(); aplicarVista(vistaCart ? "cartoes" : "tabela");

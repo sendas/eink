@@ -32,7 +32,7 @@
       { alvo: q("#troca"), tit: "Muda de turma sem sair daqui", txt: "Em vez de voltares atrás, escolhe outra turma ou outro período.", acao: "Clica na lista e escolhe." },
       { alvo: q("button.add-aval"), tit: "Cria um teste, ficha ou trabalho", txt: "Cada avaliação é uma coluna da pauta. Escolhe o título, o peso e a nota máxima.", acao: "Clica em «+ Adicionar avaliação»." },
       { alvo: q("input.nota[data-aval]"), tit: "Lança as notas", txt: "Escreve a nota e carrega em Enter ou Tab para passar à seguinte. Também podes colar um bloco copiado do Excel. A cor e o nome do nível aparecem sozinhos.", acao: "Clica numa célula e escreve a nota." },
-      { alvo: q("input[data-nivel]"), tit: "Comportamento", txt: "Escreve o nível de 1 a 5 (ou uma percentagem, conforme a escala que escolheres por cima da tabela).", acao: "Clica na célula do aluno e escreve." },
+      { alvo: q("input[data-nivel]"), tit: "Comportamento", txt: "Escreve o nível de 1 a 5, uma percentagem ou uma classificação de 0 a 20, conforme a escala que escolheres por cima da tabela.", acao: "Clica na célula do aluno e escreve." },
       { alvo: q("details.menu-col summary"), tit: "Opções de cada avaliação", txt: "Abre a grelha por questões, muda o peso, importa notas ou apaga a avaliação.", acao: "Clica nos três pontos «⋯» do cabeçalho." },
       { alvo: q("[data-vista]"), tit: "Tabela ou cartões", txt: "A «Pauta final em cartões» mostra cada aluno com a nota final e a escala, ótima para consultar.", acao: "Clica em «Pauta final em cartões»." },
       { alvo: q("a.botao", /Avaliações intercalares/), tit: "Avaliações intercalares", txt: "Aqui escreves a menção e a descritiva de cada aluno a meio do período.", acao: "Clica em «Avaliações intercalares»." },

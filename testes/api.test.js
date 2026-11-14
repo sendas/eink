@@ -1436,3 +1436,41 @@ test("Guias de cada ecrã: guardam-se por docente e podem ser repostos", async (
   assert.deepStrictEqual((await adm.chamar("POST", "/api/eu/guia", { repor: true })).d.guias, []);
   assert.deepStrictEqual((await adm.chamar("GET", "/api/eu")).d.guias, []);
 });
+
+test("Ensino secundário: nota final de 0 a 20 (o básico continua em níveis de 1 a 5)", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const cria = async (nome, ano) => {
+    const tu = (await adm.chamar("POST", "/api/turmas", { nome, ano_letivo: "2026/2027", ano })).d;
+    await adm.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Ana\n2 Rui" });
+    const per = (await adm.chamar("GET", "/api/atalhos")).d.find((x) => x.id === tu.id).periodos[0].id;
+    const pa = (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d;
+    const av = (await adm.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "T1", criterio: pa.criterios.find((k) => k.tipo === "testes").id, tipo: "teste", peso: 1, maximo: 20 })).d.id;
+    return { per, av, comp: pa.criterios.find((k) => k.tipo === "nivel").id, alunos: pa.alunos.map((a) => a.id) };
+  };
+  // 11.º ano: 9,5 em 20 no teste e 9,5 no comportamento (escala de 0 a 20) = 47,5 % = 10 valores, por isso «Suficiente»
+  const sec = await cria("11.º A", 11);
+  assert.strictEqual((await adm.chamar("PUT", "/api/eu/comportamento", { escala: "v20" })).estado, 200);
+  assert.strictEqual((await adm.chamar("GET", "/api/eu")).d.comp_escala, "v20");
+  await adm.chamar("PUT", `/api/avaliacoes/${sec.av}/notas`, { linhas: [{ aluno: sec.alunos[0], nota: "9,5" }, { aluno: sec.alunos[1], nota: "18" }] });
+  assert.strictEqual((await adm.chamar("PUT", `/api/periodos/${sec.per}/niveis`, { criterio: sec.comp, aluno: sec.alunos[0], valor: "9,5" })).estado, 200);
+  assert.strictEqual((await adm.chamar("PUT", `/api/periodos/${sec.per}/niveis`, { criterio: sec.comp, aluno: sec.alunos[1], valor: "19" })).estado, 200);
+  assert.strictEqual((await adm.chamar("PUT", `/api/periodos/${sec.per}/niveis`, { criterio: sec.comp, aluno: sec.alunos[1], valor: "21" })).estado, 400, "acima de 20 não vale");
+  const p = (await adm.chamar("GET", `/api/periodos/${sec.per}/pauta`)).d;
+  assert.strictEqual(p.escala, "valores");
+  assert.strictEqual(p.alunos[0].final, 47.5); assert.strictEqual(p.alunos[0].valores, 10); assert.strictEqual(p.alunos[0].mencao, "Suficiente"); assert.strictEqual(p.alunos[0].nivel, 3);
+  assert.strictEqual(p.alunos[1].valores, 18); assert.strictEqual(p.alunos[1].mencao, "Muito bom");
+  const csv = await (await fetch(servidor.address().port ? `http://127.0.0.1:${servidor.address().port}/api/periodos/${sec.per}/pauta.csv` : "", { headers: { cookie: adm.ck, "x-requested-with": "eink" } })).text();
+  assert.match(csv, /Classificação \(0 a 20\)/); assert.match(csv.split("\r\n")[1], /;47[,.]5;10;Suficiente/);
+  assert.strictEqual((await adm.chamar("GET", "/api/inicio")).d.turmas.find((x) => x.nome === "11.º A").escala, "valores");
+  const it = (await adm.chamar("GET", `/api/periodos/${sec.per}/intercalares?n=1`)).d;
+  assert.strictEqual(it.escala, "valores"); assert.strictEqual(it.alunos[0].valores, 10); assert.strictEqual(it.alunos[0].proposta, "st", "10 valores é positiva");
+  // 8.º ano: continua em níveis
+  await adm.chamar("PUT", "/api/eu/comportamento", { escala: "nivel" });
+  const bas = await cria("8.º A", 8);
+  await adm.chamar("PUT", `/api/avaliacoes/${bas.av}/notas`, { linhas: [{ aluno: bas.alunos[0], nota: "9,5" }] });
+  const b = (await adm.chamar("GET", `/api/periodos/${bas.per}/pauta`)).d;
+  assert.strictEqual(b.escala, "niveis"); assert.strictEqual(b.alunos[0].valores, undefined); assert.strictEqual(b.alunos[0].nivel, 2); assert.strictEqual(b.alunos[0].mencao, "Insuficiente");
+  assert.match(await (await fetch(`http://127.0.0.1:${servidor.address().port}/api/periodos/${bas.per}/pauta.csv`, { headers: { cookie: adm.ck, "x-requested-with": "eink" } })).text(), /;Nível;/);
+});

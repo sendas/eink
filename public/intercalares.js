@@ -14,7 +14,7 @@
       <p class="pequeno">A menção qualitativa propõe-se pela nota atual de cada aluno: níveis 1 e 2 = Não satisfaz, nível 3 = Satisfaz, níveis 4 e 5 = Satisfaz bastante. Podes mudá-la à mão e escrever uma descritiva para cada aluno; guarda-se ao sair do campo.</p>
       <div class="tabela-rolagem"><table><thead><tr><th class="num">N.º</th><th>Aluno</th><th class="num">Nota atual</th><th>Menção pela nota</th><th>Menção intercalar</th><th>Descritiva</th><th>Sugerir</th></tr></thead>
       <tbody>${d.alunos.map((a) => `<tr data-aluno="${a.id}"><td class="num">${a.numero ?? ""}</td><th scope="row">${esc(a.nome)}</th>
-        <td class="num">${a.final === null ? "" : num(a.final, d.casas) + (a.parcial ? "*" : "")}</td><td>${esc(a.mencaoNota || "")}</td>
+        <td class="num">${a.final === null ? "" : num(a.final, d.casas) + (a.parcial ? "*" : "") + (d.escala === "valores" && a.valores !== null ? ` <small>(${a.valores} val.)</small>` : "")}</td><td>${esc(a.mencaoNota || "")}</td>
         <td><select ${dis} data-m="${a.id}" aria-label="Menção de ${esc(a.nome)}"><option value="">–</option>${d.mencoes.map((m) => `<option value="${m.id}" ${a.mencao === m.id ? "selected" : ""}>${esc(m.nome)}</option>`).join("")}</select></td>
         <td><textarea ${dis} data-t="${a.id}" rows="2" maxlength="2000" style="min-width:26rem;min-height:3.2rem" aria-label="Descritiva de ${esc(a.nome)}">${esc(a.descritiva)}</textarea></td><td><button class="sec" type="button" data-sug="${a.id}" ${dis}>Sugerir texto</button></td></tr>`).join("") || '<tr><td colspan="7">Adiciona alunos à turma.</td></tr>'}</tbody></table></div>
       <p class="linha"><a class="botao sec" href="/api/periodos/${id}/pauta.xlsx">Descarregar Excel (.xlsx) com as intercalares</a></p>`);
