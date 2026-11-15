@@ -19,6 +19,7 @@ const registarSugestoes = require("./lib/m-sugestoes");
 const registarAcessos = require("./lib/m-acessos");
 const registarModelos = require("./lib/m-modelos");
 const registarDiretorio = require("./lib/m-diretorio");
+const { descritoresDe } = require("./lib/descritores-base");
 const CONTAS = require("./lib/contas");
 const VERSOES = require("./lib/versoes");
 const VERSAO = require("./package.json").version;
@@ -180,14 +181,16 @@ function criarServidor(env = process.env) {
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
     const niveis = new Map(db.prepare("SELECT criterio_id c, aluno_id l, nivel n FROM niveis WHERE periodo_id = ? AND nivel IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.n]));
     const percentagens = new Map(db.prepare("SELECT criterio_id c, aluno_id l, pct p FROM niveis WHERE periodo_id = ? AND pct IS NOT NULL").all(per.id).map((r) => [r.c + ":" + r.l, r.p]));
-    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, percentagens, casas: grupo.casas });
+    // Faixas dos níveis: as gerais da escola, ou as da disciplina quando o manual lhe dá outras (por exemplo Cidadania e Desenvolvimento).
+    const desc = descritoresDe(grupo.nome), lim = (desc && desc.limites) || NIVEIS;
+    const linhas = pauta({ alunos, criterios: grupo.criterios, avaliacoes, notas, niveis, percentagens, limites: lim, casas: grupo.casas });
     const fotos = new Map(db.prepare("SELECT f.aluno_id id, f.atualizada t FROM fotos f JOIN alunos a ON a.id = f.aluno_id WHERE a.turma_id = ?").all(per.turma_id).map((r) => [r.id, r.t]));
     for (const a of alunos) a.foto = fotos.get(a.id) || null;
     // Ensino secundário e cursos profissionais: a nota final é uma classificação de 0 a 20, e a menção sai da classificação já arredondada
     // (47,5 % são 10 valores, por isso «Suficiente» e não «Insuficiente»).
     const escala = escalaDe(turma.ano, (db.prepare("SELECT profissional p FROM grupos WHERE id = ?").get(turma.grupo_id) || {}).p);
-    if (escala === "valores") for (const l of linhas) { l.valores = valoresDe(l.final); if (l.valores !== null) { l.nivel = nivelDe(l.valores * 5); l.mencao = mencaoDe(l.nivel); } }
-    return { escala, periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: NIVEIS, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
+    if (escala === "valores") for (const l of linhas) { l.valores = valoresDe(l.final); if (l.valores !== null) { l.nivel = nivelDe(l.valores * 5, lim); l.mencao = mencaoDe(l.nivel); } }
+    return { escala, periodo: { ...per, turma_nome: turma.nome }, grupo, criterios: grupo.criterios, avaliacoes, limites: lim, descritores: desc ? { intro: desc.intro, fonte: desc.fonte, niveis: desc.niveis } : null, notas: Object.fromEntries(notas), alunos: alunos.map((a, i) => ({ ...a, ...linhas[i] })) };
   }
   const csv = (d) => {
     const c = (v) => { let s = v === null || v === undefined ? "" : String(v); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -500,7 +503,7 @@ function criarServidor(env = process.env) {
     const generos = new Map(db.prepare("SELECT id, genero FROM alunos WHERE turma_id = ?").all(per.turma_id).map((r) => [r.id, r.genero]));
     return {
       escala: d.escala, periodo: per, n, mencoes: INTERCALAR, casas: d.grupo.casas, criterios: APR.CRITERIOS.map((k) => ({ id: k.id, nome: k.nome })), etiquetas: APR.ETIQUETAS,
-      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, genero: generos.get(a.id) || "", final: a.final, valores: a.valores ?? null, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(d.escala === "valores" && a.valores != null ? a.valores * 5 : a.final), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "", niveis: linhas.get(a.id)?.v ? JSON.parse(linhas.get(a.id).v) : {} })),
+      alunos: d.alunos.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, genero: generos.get(a.id) || "", final: a.final, valores: a.valores ?? null, parcial: a.parcial, nivel: a.nivel, mencaoNota: a.mencao, proposta: propostaInter(d.escala === "valores" && a.valores != null ? a.valores * 5 : a.final, d.limites), mencao: linhas.get(a.id)?.m || null, descritiva: linhas.get(a.id)?.t || "", niveis: linhas.get(a.id)?.v ? JSON.parse(linhas.get(a.id).v) : {} })),
     };
   }
   rota("GET", "/api/periodos/:id/intercalares", (c, u) => dadosInter(existe(periodoDe(c.p, c.id[0])), lerN(u.searchParams.get("n") || 1)));

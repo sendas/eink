@@ -1474,3 +1474,30 @@ test("Ensino secundário: nota final de 0 a 20 (o básico continua em níveis de
   assert.strictEqual(b.escala, "niveis"); assert.strictEqual(b.alunos[0].valores, undefined); assert.strictEqual(b.alunos[0].nivel, 2); assert.strictEqual(b.alunos[0].mencao, "Insuficiente");
   assert.match(await (await fetch(`http://127.0.0.1:${servidor.address().port}/api/periodos/${bas.per}/pauta.csv`, { headers: { cookie: adm.ck, "x-requested-with": "eink" } })).text(), /;Nível;/);
 });
+
+test("Cidadania e Desenvolvimento: faixas e descritores do manual (as outras disciplinas ficam com as gerais)", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  const grupos = (await adm.chamar("GET", "/api/grupos")).d;
+  const cid = grupos.find((g) => g.nome === "Cidadania e Desenvolvimento"), outro = grupos.find((g) => /^Matemática/.test(g.nome)) || grupos.find((g) => g.id !== cid.id);
+  assert.ok(cid, "a disciplina existe na lista de base");
+  const cria = async (nome, grupo_id) => {
+    const tu = (await adm.chamar("POST", "/api/turmas", { nome, ano_letivo: "2026/2027", ano: 7, grupo_id })).d;
+    await adm.chamar("POST", `/api/turmas/${tu.id}/alunos`, { texto: "1 Ana\n2 Rui\n3 Eva\n4 Leo" });
+    const per = (await adm.chamar("GET", "/api/atalhos")).d.find((x) => x.id === tu.id).periodos[0].id;
+    const pa = (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d, k = pa.criterios.filter((x) => x.tipo === "testes");
+    // um só critério com notas: a nota final (parcial) é a própria percentagem do teste
+    const av = (await adm.chamar("POST", `/api/periodos/${per}/avaliacoes`, { titulo: "T1", criterio: k[0].id, tipo: "teste", peso: 1, maximo: 100 })).d.id;
+    await adm.chamar("PUT", `/api/avaliacoes/${av}/notas`, { linhas: pa.alunos.map((a, i) => ({ aluno: a.id, nota: ["20", "21", "70", "71"][i] })) });
+    return (await adm.chamar("GET", `/api/periodos/${per}/pauta`)).d;
+  };
+  const c = await cria("7.º C", cid.id);
+  assert.deepStrictEqual(c.limites, [21, 50, 71, 90]);
+  assert.deepStrictEqual(c.alunos.map((a) => [a.final, a.nivel]), [[20, 1], [21, 2], [70, 3], [71, 4]], "0 a 20 é nível 1 e 50 a 70 é nível 3");
+  assert.strictEqual(c.descritores.niveis.length, 5); assert.ok(c.descritores.niveis.every((n) => n.length === 5));
+  assert.match(c.descritores.niveis[4][4], /ótima relação interpessoal/); assert.match(c.descritores.niveis[0][3], /não participa nas atividades/);
+  const m = await cria("7.º M", outro.id);
+  assert.deepStrictEqual(m.limites, [20, 50, 70, 90]); assert.strictEqual(m.descritores, null);
+  assert.deepStrictEqual(m.alunos.map((a) => a.nivel), [2, 2, 4, 4], "regra geral: 20 já é nível 2 e 70 já é nível 4");
+});

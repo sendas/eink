@@ -613,3 +613,11 @@ body.projetar .pl-pontos { font-size: clamp(4rem, 12vh, 9rem); }
 .niveis-leg.leg-val i.lv { width: auto; min-width: 2.9rem; padding: 0 .35rem; font-size: .76rem; }
 .ln-niv span small { display: block; font-size: .8em; opacity: .85; margin-top: .1rem; }
 th small { font-weight: 500; }
+
+/* Descritores dos níveis de uma disciplina (pauta) */
+.descritores .desc-niveis { display: grid; gap: .7rem; margin-top: .8rem; }
+.desc-nivel { border: 1px solid var(--linha); border-radius: 14px; padding: .8rem 1rem; }
+.desc-nivel h3 { margin: 0 0 .4rem; font-size: 1rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.desc-nivel h3 .lv { width: 1.7rem; height: 1.7rem; border-radius: 8px; display: inline-grid; place-items: center; font-weight: 800; font-size: .9rem; }
+.desc-nivel h3 small { font-weight: 600; opacity: .85; }
+.desc-nivel ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .25rem; font-size: .95rem; line-height: 1.45; }
