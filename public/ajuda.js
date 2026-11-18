@@ -1,7 +1,7 @@
 "use strict";
 // Ajuda, «Como se faz»: uma lista de tarefas com os passos por palavras e o botão «Mostrar-me no ecrã», que abre o ecrã certo e
 // aponta para o sítio onde se clica (usa o guia de `guia.js`). Cada entrada: `tit`, `palavras` (para a procura), `passos`,
-// `ir` (um endereço «#/...», ou «pauta» / «turma» = a turma escolhida no cimo da página) e `guia` = [ecrã, título do passo do guia].
+// `ir` (um endereço «#/...», ou «pauta» / «turma» / «aluno» = a turma escolhida no cimo da página, ou o seu primeiro aluno) e `guia` = [ecrã, título do passo do guia].
 (() => {
   const { api, mostrar, esc, $ } = EINK;
   const GRUPOS = [
@@ -9,13 +9,33 @@
       { tit: "Criar uma turma", palavras: "nova turma adicionar turma ano letivo", ir: "#/turmas", guia: ["turmas", "Cria uma turma"],
         passos: ["Abre «Turmas» no menu do cimo.", "Escreve o nome (por exemplo «7.º A»), o ano letivo e o ano de escolaridade.", "Clica em «Criar turma»."] },
       { tit: "Pôr os alunos na turma", palavras: "lista alunos colar excel importar adicionar", ir: "turma", guia: ["turma", "Adiciona os alunos"],
-        passos: ["Abre «Turmas» e clica na turma.", "Cola a lista, um aluno por linha, com o número e o nome (por exemplo «12 Ana Silva»), ou escolhe um ficheiro Excel.", "Clica em «Adicionar alunos»."] },
+        passos: ["Abre «Turmas» e clica na turma.", "Numa turma nova, a caixa para colar a lista já está aberta. Numa turma com alunos, clica em «Adicionar alunos ou fotografias».", "Cola a lista, um aluno por linha, com o número e o nome (por exemplo «12 Ana Silva»), ou escolhe um ficheiro Excel, e clica em «Adicionar alunos»."] },
       { tit: "Pôr as fotografias dos alunos", palavras: "fotos retratos pdf imagem", ir: "turma", guia: ["turma", "Fotografias dos alunos"],
-        passos: ["Abre a turma.", "Abre «Fotografias da turma a partir de um PDF ou imagem» e escolhe o ficheiro da turma.", "Confirma na tabela a que aluno pertence cada fotografia e guarda."] },
+        passos: ["Abre a turma e clica em «Adicionar alunos ou fotografias».", "Abre «Fotografias da turma a partir de um PDF ou imagem» e escolhe o ficheiro da turma.", "Confirma na tabela a que aluno pertence cada fotografia e guarda. Para um só aluno, abre a ficha dele e clica na fotografia."] },
       { tit: "Escolher as disciplinas que leciono", palavras: "disciplina critérios documentos grupo", ir: "#/turmas", guia: ["turmas", "As tuas disciplinas"],
         passos: ["Abre «Turmas».", "Clica em «Escolher as minhas disciplinas».", "Escolhe o ciclo e marca as disciplinas. A plataforma passa a usar os critérios de avaliação dessas disciplinas."] },
     ] },
+    { nome: "Gerir os alunos", itens: [
+      { tit: "Ver tudo sobre um aluno (notas, faltas, intercalares)", palavras: "ficha aluno notas testes avaliações assiduidade resumo", ir: "aluno", guia: ["aluno", "Notas de todos os períodos"],
+        passos: ["Abre «Turmas» e clica na turma: cada aluno aparece num cartão, com a nota, as faltas e a participação.", "Clica no cartão do aluno para abrir a ficha.", "Na ficha vês as notas de todos os testes, por período, o comportamento, as intercalares, as faltas, a participação e as tuas observações."] },
+      { tit: "Encontrar os alunos em risco de negativa", palavras: "risco negativa filtro acompanhar sem notas faltas ordenar", ir: "turma", guia: ["turma", "Procurar e filtrar"],
+        passos: ["Abre a turma.", "Em «Mostrar», escolhe «Em risco de negativa» (ou «Sem notas», «Com notas em falta», «Com 3 ou mais faltas»).", "Em «Ordenar por», escolhe «Nota» para veres primeiro as notas mais baixas."] },
+      { tit: "Mudar um aluno de turma", palavras: "transferir transferência mudar turma levar notas média", ir: "aluno", guia: ["aluno", "Mudar de turma"],
+        passos: ["Abre a ficha do aluno e clica em «Mudar de turma».", "Escolhe a turma nova e o que o aluno leva: só o aluno, a média atual ou as notas de cada teste.", "Com as notas dos testes, cada nota vai para o teste com o mesmo nome; se não existir, é criado um teste novo só com a nota dele. Na turma antiga o aluno fica em «Saíram da turma», com as notas guardadas."] },
+      { tit: "Mudar vários alunos de turma de uma vez", palavras: "selecionar vários lote mudar apagar transferir", ir: "turma", guia: ["turma", "Vários alunos de uma vez"],
+        passos: ["Abre a turma e clica em «Selecionar vários».", "Clica nos cartões dos alunos (ou em «Selecionar todos os que estão à vista»).", "Clica em «Mudar de turma», «Saíram da turma» ou «Apagar»."] },
+      { tit: "Um aluno saiu da turma ou anulou a matrícula", palavras: "saiu anulou matrícula transferido remover apagar abandonou", ir: "aluno", guia: ["aluno", "Saiu da turma"],
+        passos: ["Abre a ficha do aluno e clica em «Saiu da turma».", "O aluno sai das listas, da chamada e da pauta, mas as notas ficam guardadas.", "Na turma, em «Saíram da turma», podes ver a ficha ou clicar em «Voltar a pôr na turma». Para apagar de vez, usa «Mais» e «Apagar o aluno e as notas»."] },
+      { tit: "Escrever uma observação privada sobre um aluno", palavras: "observações notas privadas apontamento encarregado reunião", ir: "aluno", guia: ["aluno", "Observações privadas"],
+        passos: ["Abre a ficha do aluno e desce até «Observações privadas».", "Escreve a observação, confirma a data e clica em «Guardar observação».", "Só tu a vês. Não aparece no projetor, nas exportações nem a colegas."] },
+      { tit: "Corrigir o nome ou o número de um aluno", palavras: "editar nome número email género maiúsculas numerar alfabética", ir: "aluno", guia: ["aluno", "Corrigir nome e número"],
+        passos: ["Abre a ficha do aluno e clica em «Corrigir nome e número».", "Muda o nome, o número, o email ou o género e guarda.", "Para a turma toda, na turma clica em «Mais»: «Numerar por ordem alfabética» ou «Corrigir as maiúsculas dos nomes»."] },
+      { tit: "Imprimir a ficha de um aluno", palavras: "imprimir ficha reunião encarregado educação pdf", ir: "aluno", guia: ["aluno", "Imprimir a ficha"],
+        passos: ["Abre a ficha do aluno.", "Clica em «Imprimir a ficha».", "Na janela de impressão escolhe a impressora ou «Guardar como PDF»."] },
+    ] },
     { nome: "Notas e pauta", itens: [
+      { tit: "Saber o que falta fazer em cada turma", palavras: "falta fazer por lançar tarefas pendente seguinte", ir: "#/", guia: ["inicio", "O que falta fazer"],
+        passos: ["Abre o «Início».", "O painel «O que falta fazer» diz, por turma, o passo seguinte: adicionar alunos, criar um teste, lançar notas ou dar o comportamento.", "Clica no botão da linha para ires direto ao sítio."] },
       { tit: "Criar um teste, uma ficha ou um trabalho", palavras: "avaliação nova coluna peso adicionar", ir: "pauta", guia: ["pauta", "Cria um teste, ficha ou trabalho"],
         passos: ["Abre «Notas» e escolhe o período da turma.", "No cabeçalho do critério (por exemplo «Testes e trabalhos») clica em «+ Adicionar avaliação».", "Escreve o título, o peso e a nota máxima e guarda. Aparece uma coluna nova na pauta."] },
       { tit: "Lançar as notas de um teste", palavras: "escrever nota classificação percentagem", ir: "pauta", guia: ["pauta", "Lança as notas"],
@@ -93,13 +113,16 @@
       $("#aj-vazio").hidden = n > 0;
     };
     const sel = $("#aj-t"); if (sel) sel.onchange = () => { try { localStorage.setItem("eink.ajudaTurma", sel.value); } catch { /* sem localStorage */ } };
-    document.querySelectorAll("#vista [data-mostrar]").forEach((b) => { b.onclick = () => {
+    document.querySelectorAll("#vista [data-mostrar]").forEach((b) => { b.onclick = async () => {
       const x = TODOS[+b.dataset.mostrar]; let destino = x.ir, guia = x.guia;
-      if (x.ir === "pauta" || x.ir === "turma") {
+      if (x.ir === "pauta" || x.ir === "turma" || x.ir === "aluno") {
         const t = turmas.find((y) => y.id === (sel ? +sel.value : escolhida));
         const per = t && (t.periodos.find((p) => !p.fechado) || t.periodos[0]);
         if (!t || (x.ir === "pauta" && !per)) { EINK.aviso("Para te mostrar isto é preciso teres uma turma. Começa por criar uma."); destino = "#/turmas"; guia = ["turmas", "Cria uma turma"]; }
-        else destino = x.ir === "pauta" ? "#/pauta/" + per.id : "#/turma/" + t.id;
+        else if (x.ir === "aluno") {
+          const al = (await api("GET", "/api/turmas/" + t.id)).alunos[0];
+          if (al) destino = "#/aluno/" + al.id; else { EINK.aviso("Esta turma ainda não tem alunos. Começa por adicioná-los."); destino = "#/turma/" + t.id; guia = ["turma", "Adiciona os alunos"]; }
+        } else destino = x.ir === "pauta" ? "#/pauta/" + per.id : "#/turma/" + t.id;
       }
       EINK.guia.pedir(guia[0], guia[1]); location.hash = destino;
     }; });

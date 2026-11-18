@@ -29,6 +29,7 @@ const registarQuiz = require("./lib/m-quiz");
 const registarNotas = require("./lib/m-notas");
 const registarPartilhas = require("./lib/m-partilhas");
 const registarAula = require("./lib/m-aula");
+const ALUNOS = require("./lib/m-alunos");
 const estatisticas = require("./lib/m-estatisticas");
 const criarPublico = require("./lib/m-publico");
 const VIVO = require("./lib/vivo");
@@ -172,10 +173,11 @@ function criarServidor(env = process.env) {
   const temDados = (turmaId) => !!(db.prepare("SELECT 1 FROM avaliacoes a JOIN periodos d ON d.id = a.periodo_id WHERE d.turma_id = ? LIMIT 1").get(turmaId) || db.prepare("SELECT 1 FROM niveis n JOIN periodos d ON d.id = n.periodo_id WHERE d.turma_id = ? LIMIT 1").get(turmaId));
   const turmasDoAno = (grupoId, ano) => db.prepare("SELECT id FROM turmas WHERE grupo_id = ? AND ano = ?").all(grupoId, ano);
 
-  function dadosPauta(per) {
+  function dadosPauta(per, tambem = 0) {
     const turma = db.prepare("SELECT * FROM turmas WHERE id = ?").get(per.turma_id);
     const grupo = esquemaDaTurma(turma);
-    const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(per.turma_id);
+    // Só os alunos que estão na turma; `tambem` junta um que já saiu (para a sua ficha).
+    const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? AND (estado = '' OR id = ?) ORDER BY COALESCE(numero, 9999), nome").all(per.turma_id, tambem);
     const avaliacoes = db.prepare("SELECT a.*, (SELECT COUNT(*) FROM itens WHERE avaliacao_id = a.id) AS n_itens FROM avaliacoes a WHERE periodo_id = ? ORDER BY ordem, id").all(per.id);
     const notas = new Map();
     for (const n of db.prepare("SELECT n.avaliacao_id a, n.aluno_id l, n.valor v FROM notas n JOIN avaliacoes av ON av.id = n.avaliacao_id WHERE av.periodo_id = ?").all(per.id)) notas.set(n.a + ":" + n.l, n.v);
@@ -243,7 +245,7 @@ function criarServidor(env = process.env) {
     if (!["nivel", "pct", "auto", "v20"].includes(c.b.escala)) throw erro(400, "Escolhe «1 a 5», «0 a 100 %», «0 a 20» ou «Automático».");
     db.prepare("UPDATE professores SET comp_escala = ? WHERE id = ?").run(c.b.escala, c.p.id); return { escala: c.b.escala };
   });
-  rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id) AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
+  rota("GET", "/api/turmas", (c, u) => db.prepare("SELECT t.*, g.nome AS grupo, (SELECT COUNT(*) FROM alunos WHERE turma_id = t.id AND estado = '') AS alunos FROM turmas t JOIN grupos g ON g.id = t.grupo_id WHERE prof_id = ? AND t.arquivada = ? ORDER BY t.nome").all(c.p.id, u.searchParams.get("arquivadas") === "1" ? 1 : 0));
   // Grupos disciplinares e critérios (leitura para todos os docentes; só o administrador os altera).
   rota("GET", "/api/grupos", () => db.prepare("SELECT id FROM grupos ORDER BY nome").all().map((g) => grupoCompleto(g.id)));
   rota("POST", "/api/turmas", (c) => {
@@ -265,7 +267,7 @@ function criarServidor(env = process.env) {
     return {
       ...t,
       grupo: esquemaDaTurma(t),
-      alunos: db.prepare("SELECT a.id, a.numero, a.nome, f.atualizada AS foto FROM alunos a LEFT JOIN fotos f ON f.aluno_id = a.id WHERE a.turma_id = ? ORDER BY COALESCE(a.numero, 9999), a.nome").all(t.id),
+      alunos: db.prepare("SELECT a.id, a.numero, a.nome, f.atualizada AS foto FROM alunos a LEFT JOIN fotos f ON f.aluno_id = a.id WHERE a.turma_id = ? AND a.estado = '' ORDER BY COALESCE(a.numero, 9999), a.nome").all(t.id),
       periodos: db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id),
     };
   });
@@ -276,7 +278,7 @@ function criarServidor(env = process.env) {
     const lista = lerAlunos(c.b.texto).slice(0, 300);
     if (!lista.length) throw erro(400, "Escreve pelo menos um nome.");
     const ins = db.prepare("INSERT INTO alunos (turma_id, numero, nome, email) VALUES (?, ?, ?, ?)");
-    transacao(() => { for (const a of lista) ins.run(t.id, a.numero, texto(a.nome, 120), a.email); });
+    transacao(() => { for (const a of lista) ins.run(t.id, a.numero, ALUNOS.nomeProprio(texto(a.nome, 120)), a.email); });
     return { adicionados: lista.length };
   });
   rota("DELETE", "/api/alunos/:id", (c) => { existe(alunoDe(c.p, c.id[0])); db.prepare("DELETE FROM alunos WHERE id = ?").run(c.id[0]); return { ok: true }; });
@@ -339,7 +341,7 @@ function criarServidor(env = process.env) {
     abertoOuErro(a.periodo_id);
     if (db.prepare("SELECT 1 FROM itens WHERE avaliacao_id = ? LIMIT 1").get(a.id)) throw erro(409, "Este teste tem grelha: lança as pontuações na grelha.");
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
-    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ? AND estado = ''").all(a.turma_id).map((x) => x.id));
     const ups = db.prepare("INSERT INTO notas (avaliacao_id, aluno_id, valor) VALUES (?, ?, ?) ON CONFLICT (avaliacao_id, aluno_id) DO UPDATE SET valor = excluded.valor");
     const del = db.prepare("DELETE FROM notas WHERE avaliacao_id = ? AND aluno_id = ?");
     transacao(() => {
@@ -366,7 +368,7 @@ function criarServidor(env = process.env) {
   }
   function dadosGrelha(a) {
     const itens = itensDe(a.id);
-    const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? ORDER BY COALESCE(numero, 9999), nome").all(a.turma_id);
+    const alunos = db.prepare("SELECT id, numero, nome FROM alunos WHERE turma_id = ? AND estado = '' ORDER BY COALESCE(numero, 9999), nome").all(a.turma_id);
     const marcas = new Map(db.prepare("SELECT ni.item_id i, ni.aluno_id l, ni.valor v FROM notas_itens ni JOIN itens it ON it.id = ni.item_id WHERE it.avaliacao_id = ? AND ni.valor IS NOT NULL").all(a.id).map((r) => [r.i + ":" + r.l, r.v]));
     const totais = new Map(db.prepare("SELECT aluno_id l, valor v FROM notas WHERE avaliacao_id = ?").all(a.id).map((r) => [r.l, r.v]));
     return {
@@ -457,7 +459,7 @@ function criarServidor(env = process.env) {
     abertoOuErro(a.periodo_id);
     const itens = new Map(itensDe(a.id).map((i) => [i.id, i]));
     if (!itens.size) throw erro(409, "Este teste ainda não tem grelha.");
-    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(a.turma_id).map((x) => x.id));
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ? AND estado = ''").all(a.turma_id).map((x) => x.id));
     const ups = db.prepare("INSERT INTO notas_itens (item_id, aluno_id, valor) VALUES (?, ?, ?) ON CONFLICT (item_id, aluno_id) DO UPDATE SET valor = excluded.valor");
     const del = db.prepare("DELETE FROM notas_itens WHERE item_id = ? AND aluno_id = ?");
     transacao(() => {
@@ -511,7 +513,7 @@ function criarServidor(env = process.env) {
   rota("PUT", "/api/periodos/:id/intercalares", (c) => {
     const per = existe(periodoDe(c.p, c.id[0])), n = lerN(c.b.n);
     abertoOuErro(per.id);
-    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(per.turma_id).map((x) => x.id));
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ? AND estado = ''").all(per.turma_id).map((x) => x.id));
     const ids = new Set(INTERCALAR.map((m) => m.id));
     const linhas = Array.isArray(c.b.linhas) ? c.b.linhas.slice(0, 200) : [];
     transacao(() => {
@@ -551,12 +553,7 @@ function criarServidor(env = process.env) {
     return dadosInter(per, n);
   });
   // Género do aluno (só para os textos das apreciações): M, F ou vazio.
-  rota("PATCH", "/api/alunos/:id", (c) => {
-    const a = existe(alunoDe(c.p, c.id[0]));
-    const g = c.b.genero === "M" || c.b.genero === "F" ? c.b.genero : "";
-    db.prepare("UPDATE alunos SET genero = ? WHERE id = ?").run(g, a.id);
-    return { ok: true };
-  });
+  ALUNOS.registar({ rota, db, erro, texto, inteiro, existe, turmaDe, alunoDe, transacao, dadosPauta, esquemaDaTurma, auditar, INTERCALAR });
 
   // Folha de Excel (.xlsx): a pauta e, em folhas à parte, as avaliações intercalares com as descritivas.
   function xlsxPauta(per) {
@@ -598,7 +595,7 @@ function criarServidor(env = process.env) {
   rota("PUT", "/api/turmas/:id/presencas", (c) => {
     const t = existe(turmaDe(c.p, c.id[0]));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.b.data || "")) throw erro(400, "Data inválida.");
-    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ?").all(t.id).map((x) => x.id));
+    const doTurma = new Set(db.prepare("SELECT id FROM alunos WHERE turma_id = ? AND estado = ''").all(t.id).map((x) => x.id));
     const ups = db.prepare("INSERT INTO presencas (aluno_id, data, estado) VALUES (?, ?, ?) ON CONFLICT (aluno_id, data) DO UPDATE SET estado = excluded.estado");
     transacao(() => {
       for (const [al, e] of Object.entries(c.b.estados || {})) {
@@ -633,14 +630,19 @@ function criarServidor(env = process.env) {
       const periodos = db.prepare("SELECT * FROM periodos WHERE turma_id = ? ORDER BY ordem, id").all(t.id);
       let foco = periodos[0] || null;
       for (const p of periodos) if (db.prepare("SELECT 1 FROM avaliacoes WHERE periodo_id = ? LIMIT 1").get(p.id)) foco = p;
-      const alunos = db.prepare("SELECT COUNT(*) AS n FROM alunos WHERE turma_id = ?").get(t.id).n;
+      const alunos = db.prepare("SELECT COUNT(*) AS n FROM alunos WHERE turma_id = ? AND estado = ''").get(t.id).n;
       const r = { ...t, alunos, periodos: periodos.map((d) => ({ id: d.id, nome: d.nome, fechado: !!d.fechado })), foco: foco ? { id: foco.id, nome: foco.nome } : null, media: null, escala: escalaDe(t.ano, false), niveis: [0, 0, 0, 0, 0], acompanhar: 0, avaliacoes: 0, notas: 0, esperadas: 0 };
       if (foco && alunos) {
         const d = dadosPauta(foco), fin = d.alunos.filter((a) => a.final !== null); r.escala = d.escala;
         r.media = fin.length ? Math.round((fin.reduce((z, a) => z + a.final, 0) / fin.length) * 10) / 10 : null;
         for (const a of d.alunos) if (a.nivel) r.niveis[a.nivel - 1]++;
         r.acompanhar = r.niveis[0] + r.niveis[1];
-        r.avaliacoes = d.avaliacoes.length; r.notas = Object.keys(d.notas).length; r.esperadas = d.avaliacoes.length * d.alunos.length;
+        const proprias = d.avaliacoes.filter((x) => !x.trazida);
+        r.avaliacoes = proprias.length; r.esperadas = proprias.length * d.alunos.length;
+        r.notas = proprias.reduce((z, x) => z + d.alunos.filter((a) => d.notas[x.id + ":" + a.id] != null).length, 0);
+        r.semNotas = proprias.filter((x) => !d.alunos.some((a) => d.notas[x.id + ":" + a.id] != null)).map((x) => x.titulo);
+        r.porLancar = proprias.filter((x) => d.alunos.some((a) => d.notas[x.id + ":" + a.id] != null)).reduce((z, x) => z + d.alunos.filter((a) => d.notas[x.id + ":" + a.id] == null).length, 0);
+        r.semComportamento = d.criterios.some((k) => k.tipo === "nivel") && proprias.length ? d.alunos.filter((a) => d.criterios.some((k) => k.tipo === "nivel" && a.niveis[k.id] == null)).length : 0;
       }
       return r;
     });

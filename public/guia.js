@@ -4,6 +4,8 @@
 (() => {
   const { esc } = EINK;
   // Procura um elemento da vista pelo seletor e, se quiseres, pelo texto.
+  // O primeiro dos seletores que estiver à vista (por exemplo, o formulário aberto ou, com ele fechado, o botão que o abre).
+  const vis = (...sels) => () => sels.map((x) => document.querySelector("#vista " + x)).find((e) => e && e.getClientRects().length);
   const q = (sel, re) => () => { const l = [...document.querySelectorAll("#vista " + sel)]; return re ? l.find((e) => re.test(e.textContent)) : l[0]; };
 
   // Cada passo: onde (`alvo`), título, explicação (`txt`) e o que fazer (`acao`).
@@ -12,6 +14,7 @@
       { alvo: q("#heroi-acoes a.botao", /Abrir|Continuar/), tit: "Atalho para continuar", txt: "Abre logo a pauta onde estavas. Para ver todas as turmas e períodos, usa «Todas as notas».", acao: "Clica no botão grande para continuar o trabalho." },
       { alvo: q("button", /Criar (a primeira )?turma/), tit: "Cria a tua primeira turma", txt: "Sem turmas não há pauta. Depois de criada, colas a lista de alunos e podes começar a lançar notas.", acao: "Clica em «Criar a primeira turma»." },
       { alvo: q("#turmas .turma-cartao .botao.periodo"), tit: "Escolhe o período", txt: "A pauta abre-se pelo período da turma. Tocar no cartão abre o período atual.", acao: "Clica em «1.º período» (ou no que quiseres) para lançar notas." },
+      { alvo: q("#por-fazer .pf"), tit: "O que falta fazer", txt: "Em cada turma, o passo seguinte: adicionar alunos, criar um teste, lançar as notas que faltam ou dar o comportamento.", acao: "Clica no botão de uma linha para ires direto ao sítio." },
       { alvo: q("#cg-escolher"), tit: "Diz que disciplina lecionas", txt: "Com a disciplina escolhida, vês os critérios de avaliação e os documentos da escola.", acao: "Clica em «Escolher disciplinas»." },
       { alvo: q("h2", /Ferramentas de sala/), tit: "Ferramentas para a aula", txt: "«Começar a aula» junta a chamada, o plano de hoje e os lembretes. As tuas 4 favoritas aparecem aqui; as outras estão em «Sala de aula». Os alunos não precisam de conta.", acao: "Clica em «Começar a aula» ou em «Todas as ferramentas»." },
     ],
@@ -24,9 +27,24 @@
       { alvo: q("#arq-ano"), tit: "No fim do ano letivo", txt: "Arquiva as turmas do ano que acabou. Ficam guardadas e deixam de aparecer na lista.", acao: "Clica em «Arquivar um ano letivo» quando for altura." },
     ],
     turma: [
-      { alvo: q("#f-alunos"), tit: "Adiciona os alunos", txt: "Cola a lista, um aluno por linha, com o número e o nome (por exemplo «12 Ana Silva»). Também podes escolher um ficheiro Excel.", acao: "Cola a lista e clica em «Adicionar alunos»." },
-      { alvo: q("a.botao", /Abrir pauta/), tit: "Abre a pauta", txt: "A pauta é onde lanças as notas de cada período.", acao: "Clica em «Abrir pauta» no período que quiseres." },
-      { alvo: q("#fotos-pdf summary"), tit: "Fotografias dos alunos", txt: "Se tiveres um PDF da turma com fotografias, a plataforma associa cada fotografia ao aluno. É opcional.", acao: "Clica aqui para abrir e escolher o ficheiro." },
+      { alvo: vis("#f-alunos", "#tu-add"), tit: "Adiciona os alunos", txt: "Cola a lista, um aluno por linha, com o número e o nome (por exemplo «12 Ana Silva»), ou escolhe um ficheiro Excel. Numa turma que já tem alunos, o formulário abre com o botão «Adicionar alunos ou fotografias».", acao: "Cola a lista e clica em «Adicionar alunos»." },
+      { alvo: q(".tu-cartao .tu-abre"), tit: "Cada aluno num cartão", txt: "O cartão mostra a fotografia, a nota do período, as faltas, a participação e a última intercalar.", acao: "Clica no cartão para abrir a ficha completa do aluno." },
+      { alvo: q("#tu-filtro"), tit: "Procurar e filtrar", txt: "Procura pelo nome ou mostra só quem está em risco de negativa, sem notas, com notas em falta, com 3 ou mais faltas ou sem fotografia. Ao lado, ordenas por número, nome ou nota.", acao: "Escolhe «Em risco de negativa» para veres quem precisa de atenção." },
+      { alvo: q("#tu-selecionar"), tit: "Vários alunos de uma vez", txt: "Marca os alunos e, de uma vez, muda-os de turma, regista que saíram ou apaga-os.", acao: "Clica em «Selecionar vários» e depois nos cartões." },
+      { alvo: vis("#fotos-pdf summary", "#tu-add"), tit: "Fotografias dos alunos", txt: "Se tiveres um PDF da turma com fotografias, a plataforma liga cada fotografia ao aluno. Também podes escolher várias imagens de uma vez. Está em «Adicionar alunos ou fotografias».", acao: "Abre «Fotografias da turma a partir de um PDF ou imagem» e escolhe o ficheiro." },
+      { alvo: q(".tu-mais summary"), tit: "Mais opções", txt: "Numerar os alunos por ordem alfabética, corrigir as maiúsculas dos nomes e imprimir a lista.", acao: "Clica em «Mais»." },
+      { alvo: q(".tu-sep a", /^Pauta$/), tit: "Abre a pauta", txt: "A pauta é onde crias os testes e lanças as notas de cada período.", acao: "Clica em «Pauta» e depois em «Abrir pauta» no período que quiseres." },
+      { alvo: q(".tu-sep"), tit: "Tudo sobre a turma", txt: "Alunos, Pauta, Intercalares, Aula (chamada, sorteio, mapa de sala) e Definições (critérios, arquivar ou apagar a turma).", acao: "Clica num separador." },
+    ],
+    aluno: [
+      { alvo: q(".fi-nav"), tit: "Passa de aluno em aluno", txt: "Sem voltares à turma, vai para o aluno anterior ou para o seguinte.", acao: "Clica em «Seguinte»." },
+      { alvo: q(".fi-periodo"), tit: "Notas de todos os períodos", txt: "Cada período mostra a nota final, as notas de cada teste e trabalho, o comportamento e as intercalares.", acao: "Lê as notas; para as mudar, clica em «Abrir a pauta»." },
+      { alvo: q("[data-foto]"), tit: "Fotografia do aluno", txt: "Podes pôr, mudar ou tirar a fotografia. Só tu a vês.", acao: "Clica na fotografia." },
+      { alvo: q("#fi-editar"), tit: "Corrigir nome e número", txt: "Muda o nome, o número, o email e o género (usado nos textos das intercalares).", acao: "Clica em «Corrigir nome e número»." },
+      { alvo: q("#fi-mover"), tit: "Mudar de turma", txt: "Escolhes a turma nova e o que o aluno leva: nada, a média atual ou as notas de cada teste. Na turma antiga as notas ficam guardadas.", acao: "Clica em «Mudar de turma»." },
+      { alvo: q("#fi-sair"), tit: "Saiu da turma", txt: "Para quem anulou a matrícula ou saiu da escola. Sai das listas e da pauta, mas as notas ficam guardadas e o aluno pode voltar.", acao: "Clica em «Saiu da turma»." },
+      { alvo: q("#fi-imprimir"), tit: "Imprimir a ficha", txt: "Imprime as notas, a assiduidade e as observações do aluno, por exemplo para uma reunião com o encarregado de educação.", acao: "Clica em «Imprimir a ficha»." },
+      { alvo: q("#f-obs"), tit: "Observações privadas", txt: "Notas tuas sobre o aluno, com data. Só tu as vês: não aparecem no projetor, nas exportações nem a colegas.", acao: "Escreve a observação e clica em «Guardar observação»." },
     ],
     pauta: [
       { alvo: q("#troca"), tit: "Muda de turma sem sair daqui", txt: "Em vez de voltares atrás, escolhe outra turma ou outro período.", acao: "Clica na lista e escolhe." },

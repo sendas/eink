@@ -110,41 +110,9 @@ function ligarFotosLote(alunos, turmaId) {
   };
 }
 
-async function turma(id) {
-  const t = await api("GET", "/api/turmas/" + id);
-  mostrar(`<p><a href="#/turmas">← Turmas</a></p><h1>${esc(t.nome)} <small class="pequeno">${esc(t.ano_letivo)}</small></h1>
-    <h2>Critérios de avaliação · ${esc(t.grupo.nome)} · ${t.grupo.ano ? t.grupo.ano + ".º ano" : "todos os anos"}</h2>
-    <div class="painel"><ul class="lista">${t.grupo.criterios.map((k) => `<li><span>${esc(k.nome)} <span class="pequeno">${k.tipo === "nivel" ? "nível 1 a 5, dado por ti" : "média dos testes e trabalhos que lançares"}</span></span><strong>${k.peso} %</strong></li>`).join("")}</ul>
-      <p class="pequeno">Definidos pelo administrador para esta disciplina e ano. A nota final é a média destes critérios pelos seus pesos.</p></div>
-    <h2>Períodos e avaliação</h2>
-    <div class="painel"><ul class="lista">${t.periodos.map((p) => `<li><a href="#/pauta/${p.id}"><strong>${esc(p.nome)}</strong></a><a class="botao sec" href="#/pauta/${p.id}">Abrir pauta</a></li>`).join("")}</ul>
-      <form class="linha" id="f-periodo"><label>Novo período<input name="nome" required maxlength="60" placeholder="Intercalar"></label><button class="sec">Adicionar</button></form></div>
-    <h2>Alunos (${t.alunos.length})</h2>
-    <div class="painel"><ul class="lista">${t.alunos.map((a) => `<li><span>${a.numero ?? ""} ${esc(a.nome)}</span><button class="perigo" data-apagar="${a.id}" aria-label="Remover ${esc(a.nome)}">Remover</button></li>`).join("") || '<li class="pequeno">Sem alunos.</li>'}</ul></div>
-    <details class="painel" id="fotos-pdf"><summary><strong>Fotografias da turma a partir de um PDF ou imagem</strong> <span class="pequeno">reconhece cada fotografia e o nome por baixo</span></summary>
-      <p class="pequeno">Escolhe o PDF (ou uma imagem) com as fotografias da turma. Encontro as fotografias, leio os nomes e ligo cada uma ao aluno. Vês tudo antes de guardar. O ficheiro nunca sai do teu computador: só ficam guardados os recortes das fotografias.</p>
-      <p class="linha"><label>PDF ou imagem da turma<input type="file" id="f-fotos-pdf" accept="application/pdf,image/*"></label></p><p id="fotos-pdf-estado" class="pequeno" role="status"></p><div id="fotos-pdf-res"></div></details>
-    <details class="painel" id="fotos-lote"><summary><strong>Fotografias dos alunos (várias de uma vez)</strong> <span class="pequeno">o nome de cada ficheiro diz de quem é</span></summary>
-      <p class="pequeno">Escolhe várias fotografias. Cada ficheiro deve chamar-se com o <strong>número do aluno</strong> (por exemplo <code>12.jpg</code>) ou com o <strong>nome</strong> (<code>Ana Silva.jpg</code>). Antes de guardar, vês a quem cada uma foi ligada e podes corrigir. As imagens são cortadas e reduzidas no navegador.</p>
-      <p class="linha"><label>Fotografias<input type="file" id="f-fotos-lote" accept="image/*" multiple></label></p><div id="fotos-lote-res"></div></details>
-    <form class="painel" id="f-alunos"><label>Adicionar alunos: um por linha («12 Ana Silva»), ou cola do Excel (colunas número, nome e email)<textarea name="texto" placeholder="1 Ana Silva&#10;2 Bruno Costa"></textarea></label>
-      <p class="linha"><label>Ou escolhe um ficheiro Excel (.xlsx) ou CSV<input type="file" id="f-ficheiro" accept=".xlsx,.csv,.txt"></label></p>
-      <p class="pequeno">O ficheiro é lido e os nomes aparecem acima para os reveres antes de adicionares.</p><p><button>Adicionar alunos</button></p></form>
-    <p class="linha"><button class="sec" id="arquivar-turma">${t.arquivada ? "Voltar a ativar a turma" : "Arquivar turma"}</button><button class="perigo" id="apagar-turma">Apagar turma</button></p>`);
-  $("#arquivar-turma").onclick = async () => { await api("POST", `/api/turmas/${id}/arquivar`, { arquivada: !t.arquivada }); location.hash = "#/turmas"; };
-  $("#f-periodo").onsubmit = async (e) => { e.preventDefault(); await api("POST", `/api/turmas/${id}/periodos`, { nome: new FormData(e.target).get("nome") }); turma(id); };
-  $("#f-ficheiro").onchange = async (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    if (f.size > 700000) return aviso("O ficheiro é demasiado grande (máximo 700 KB).", true);
-    const b = new Uint8Array(await f.arrayBuffer()); let bin = ""; for (let i = 0; i < b.length; i += 8192) bin += String.fromCharCode(...b.subarray(i, i + 8192));
-    try { const r = await api("POST", "/api/importar/alunos", { nome: f.name, base64: btoa(bin) }); $("#f-alunos textarea").value = r.texto; aviso(`${r.total} alunos lidos. Revê e carrega em «Adicionar alunos».`); } catch { /* aviso mostrado */ }
-  };
-  $("#f-alunos").onsubmit = async (e) => { e.preventDefault(); const r = await api("POST", `/api/turmas/${id}/alunos`, { texto: new FormData(e.target).get("texto") }); aviso(`${r.adicionados} alunos adicionados.`); turma(id); };
-  $$("[data-apagar]").forEach((b) => { b.onclick = async () => { if (confirm("Remover este aluno e as suas notas?")) { await api("DELETE", "/api/alunos/" + b.dataset.apagar); turma(id); } }; });
-  ligarFotosLote(t.alunos, id);
-  if (EINK.ligarFotosPdf) EINK.ligarFotosPdf(t.alunos, () => turma(id));
-  $("#apagar-turma").onclick = async () => { if (confirm(`Apagar a turma ${t.nome}, os alunos e todas as notas? Não se pode desfazer.`)) { await api("DELETE", "/api/turmas/" + id); location.hash = "#/turmas"; } };
-}
+// O ecrã da turma (alunos em cartões, separadores e ficha do aluno) está em turma.js.
+const turma = (id) => EINK.turmaVista(id);
+EINK.ligarFotosLote = ligarFotosLote;
 
 // ---------- partilhado pelas ferramentas de sala ----------
 // Catálogo das ferramentas de sala, por categoria: com telemóvel (os alunos entram com um código), sem telemóvel (projetor) e gestão da aula.

@@ -1514,3 +1514,90 @@ test("Ajuda «como se faz»: cada resposta aponta para um ecrã e um passo do gu
   }
   assert.ok(!/[\u2014\u2013]/.test(ajuda), "sem travessões");
 });
+
+test("Gestão da turma: cartões, ficha do aluno, observações privadas, saída e mudança de turma com notas", async (t) => {
+  const { servidor, entrar } = await arrancar();
+  t.after(() => servidor.close());
+  const adm = await entrar("admin@escola.pt");
+  await adm.chamar("POST", "/api/admin/professores", { upn: "rui@escola.pt", nome: "Rui" });
+  const rui = await entrar("rui@escola.pt");
+  const nova = async (nome) => { const id = (await adm.chamar("POST", "/api/turmas", { nome, ano_letivo: "2026/2027", ano: 7 })).d.id; return { id, per: (await adm.chamar("GET", "/api/turmas/" + id)).d.periodos.map((p) => p.id) }; };
+  const A = await nova("7.º A"), B = await nova("7.º B");
+  await adm.chamar("POST", `/api/turmas/${A.id}/alunos`, { texto: "1 ana silva\n2 BRUNO DA COSTA\n3 Carla Dias" });
+  let g = (await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d;
+  assert.deepStrictEqual(g.alunos.map((a) => a.nome), ["Ana Silva", "Bruno da Costa", "Carla Dias"], "nomes em minúsculas ou maiúsculas ficam com maiúscula inicial");
+  const [ana, bruno, carla] = g.alunos.map((a) => a.id);
+  const k = g.grupo.criterios, kT = k.find((x) => x.tipo === "testes").id, kN = k.find((x) => x.tipo === "nivel").id;
+  const t1 = (await adm.chamar("POST", `/api/periodos/${A.per[0]}/avaliacoes`, { titulo: "Teste 1", maximo: 100 })).d.id;
+  const t2 = (await adm.chamar("POST", `/api/periodos/${A.per[0]}/avaliacoes`, { titulo: "Trabalho", maximo: 20 })).d.id;
+  await adm.chamar("PUT", `/api/avaliacoes/${t1}/notas`, { linhas: [{ aluno: ana, nota: "80" }, { aluno: bruno, nota: "40" }] });
+  await adm.chamar("PUT", `/api/avaliacoes/${t2}/notas`, { linhas: [{ aluno: ana, nota: "10" }] });
+  await adm.chamar("PUT", `/api/periodos/${A.per[0]}/niveis`, { aluno: ana, criterio: kN, nivel: 4 });
+  await adm.chamar("PUT", `/api/turmas/${A.id}/presencas`, { data: "2026-10-01", estados: { [ana]: "F", [bruno]: "A" } });
+
+  // Cartões
+  g = (await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d;
+  const cAna = g.alunos[0], cCarla = g.alunos[2];
+  assert.strictEqual(g.periodo.id, A.per[0]); assert.strictEqual(cAna.notas, 2); assert.strictEqual(cAna.faltas, 1); assert.strictEqual(g.alunos[1].atrasos, 1);
+  assert.ok(cAna.final > 60 && cAna.nivel >= 3); assert.strictEqual(cCarla.final, null); assert.strictEqual(cCarla.emFalta, 2);
+  assert.deepStrictEqual(g.outras.map((x) => x.nome), ["7.º B"]);
+  assert.strictEqual((await rui.chamar("GET", `/api/turmas/${A.id}/gestao`)).estado, 404, "só o docente da turma");
+
+  // Ficha e observações privadas
+  assert.strictEqual((await adm.chamar("POST", `/api/alunos/${ana}/observacoes`, { texto: "  " })).estado, 400);
+  const o = (await adm.chamar("POST", `/api/alunos/${ana}/observacoes`, { texto: "Falei com a encarregada de educação.", data: "2026-10-02" })).d;
+  let f = (await adm.chamar("GET", `/api/alunos/${ana}/ficha`)).d;
+  assert.strictEqual(f.periodos[0].criterios.find((x) => x.id === kT).avaliacoes.length, 2); assert.strictEqual(f.periodos[0].criterios.find((x) => x.id === kN).nivel, 4);
+  assert.deepStrictEqual(f.presencas.faltas, ["2026-10-01"]); assert.strictEqual(f.observacoes[0].texto, "Falei com a encarregada de educação.");
+  assert.strictEqual(f.anterior, null); assert.strictEqual(f.seguinte, bruno);
+  assert.strictEqual((await rui.chamar("GET", `/api/alunos/${ana}/ficha`)).estado, 404); assert.strictEqual((await rui.chamar("DELETE", `/api/observacoes/${o.id}`)).estado, 404, "as observações são só do docente");
+  assert.strictEqual((await rui.chamar("POST", `/api/alunos/${ana}/observacoes`, { texto: "x" })).estado, 404);
+
+  // Dados do aluno (mudar só o que vem no pedido) e numeração
+  await adm.chamar("PATCH", `/api/alunos/${ana}`, { genero: "F" }); await adm.chamar("PATCH", `/api/alunos/${ana}`, { nome: "Ana Sofia Silva", numero: 9, email: "ANA@escola.pt" });
+  f = (await adm.chamar("GET", `/api/alunos/${ana}/ficha`)).d;
+  assert.deepStrictEqual([f.aluno.nome, f.aluno.numero, f.aluno.email, f.aluno.genero], ["Ana Sofia Silva", 9, "ana@escola.pt", "F"], "mudar o nome não apaga o género");
+  assert.strictEqual((await adm.chamar("PATCH", `/api/alunos/${ana}`, { numero: 0 })).estado, 400); assert.strictEqual((await adm.chamar("PATCH", `/api/alunos/${ana}`, { email: "sem-arroba" })).estado, 400);
+  assert.strictEqual((await adm.chamar("POST", `/api/turmas/${A.id}/alunos/numerar`, {})).d.numerados, 3);
+  assert.deepStrictEqual((await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d.alunos.map((a) => [a.numero, a.nome]), [[1, "Ana Sofia Silva"], [2, "Bruno da Costa"], [3, "Carla Dias"]]);
+
+  // Saiu da turma (matrícula anulada): sai das listas e da pauta, mas a ficha e as notas ficam; pode voltar
+  await adm.chamar("PATCH", `/api/alunos/${carla}`, { estado: "anulou" });
+  g = (await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d;
+  assert.strictEqual(g.alunos.length, 2); assert.strictEqual(g.inativos[0].estadoNome, "Anulou a matrícula");
+  assert.strictEqual((await adm.chamar("GET", `/api/periodos/${A.per[0]}/pauta`)).d.alunos.length, 2); assert.strictEqual((await adm.chamar("GET", "/api/turmas/" + A.id)).d.alunos.length, 2);
+  assert.strictEqual((await adm.chamar("GET", `/api/alunos/${carla}/ficha`)).d.aluno.estado, "anulou");
+  await adm.chamar("PATCH", `/api/alunos/${carla}`, { estado: "" }); assert.strictEqual((await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d.alunos.length, 3);
+
+  // Mudar de turma levando as notas dos testes: usa o teste com o mesmo título e cria os que faltam (só contam para quem tem nota)
+  await adm.chamar("POST", `/api/turmas/${B.id}/alunos`, { texto: "1 Duarte Lima" });
+  const tB = (await adm.chamar("POST", `/api/periodos/${B.per[0]}/avaliacoes`, { titulo: "teste 1", maximo: 20 })).d.id;
+  assert.strictEqual((await adm.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [ana], destino: A.id, levar: "testes" })).estado, 400);
+  assert.strictEqual((await rui.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [ana], destino: B.id })).estado, 404);
+  let m = (await adm.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [ana], destino: B.id, levar: "testes" })).d;
+  assert.deepStrictEqual([m.movidos, m.notas, m.testesNovos, m.comportamento], [1, 2, 1, 1]);
+  let pB = (await adm.chamar("GET", `/api/periodos/${B.per[0]}/pauta`)).d;
+  const anaB = pB.alunos.find((a) => a.nome === "Ana Sofia Silva"), duarte = pB.alunos.find((a) => a.nome === "Duarte Lima");
+  assert.strictEqual(pB.notas[tB + ":" + anaB.id], 16, "80 em 100 passam a 16 em 20 no teste com o mesmo título");
+  const trazido = pB.avaliacoes.find((x) => x.trazida); assert.strictEqual(trazido.titulo, "Trabalho (de 7.º A)"); assert.strictEqual(pB.notas[trazido.id + ":" + anaB.id], 10);
+  assert.strictEqual(anaB.niveis[kN], 4, "o comportamento também passa"); assert.strictEqual(anaB.numero, null, "o número 1 já estava ocupado na turma nova");
+  assert.strictEqual(duarte.em_falta, 1, "ao colega só falta o teste da turma, não o que veio de fora");
+  assert.strictEqual((await adm.chamar("GET", `/api/alunos/${anaB.id}/ficha`)).d.observacoes.length, 1, "as observações acompanham o aluno");
+  g = (await adm.chamar("GET", `/api/turmas/${A.id}/gestao`)).d;
+  assert.strictEqual(g.inativos.find((x) => x.id === ana).saiu_nota, "Passou para 7.º B"); assert.strictEqual((await adm.chamar("GET", `/api/alunos/${ana}/ficha`)).d.periodos[0].criterios.find((x) => x.id === kT).avaliacoes.length, 2, "na turma antiga as notas ficam guardadas");
+  assert.strictEqual((await adm.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [ana], destino: B.id })).estado, 400, "quem já saiu não se muda outra vez");
+
+  // Levar só a média: uma avaliação «Média trazida de …» com a média dos testes
+  m = (await adm.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [bruno], destino: B.id, levar: "media" })).d;
+  assert.deepStrictEqual([m.movidos, m.notas, m.testesNovos], [1, 1, 1]);
+  pB = (await adm.chamar("GET", `/api/periodos/${B.per[0]}/pauta`)).d;
+  const media = pB.avaliacoes.find((x) => x.titulo === "Média trazida de 7.º A"), brunoB = pB.alunos.find((a) => a.nome === "Bruno da Costa");
+  assert.strictEqual(pB.notas[media.id + ":" + brunoB.id], 40); assert.strictEqual(brunoB.final, 40);
+  // Sem notas: só o aluno; período fechado no destino fica de fora e é dito
+  await adm.chamar("PUT", `/api/avaliacoes/${t1}/notas`, { linhas: [{ aluno: carla, nota: "55" }] });
+  assert.strictEqual((await adm.chamar("POST", "/api/admin/periodos/fechar", { ids: [B.per[0]], fechado: true })).estado, 200);
+  m = (await adm.chamar("POST", `/api/turmas/${A.id}/alunos/mover`, { alunos: [carla], destino: B.id, levar: "testes" })).d;
+  assert.deepStrictEqual([m.movidos, m.notas, m.fechados], [1, 0, ["1.º período"]]);
+  const ini = (await adm.chamar("GET", "/api/inicio")).d.turmas.find((x) => x.id === B.id);
+  assert.strictEqual(ini.alunos, 4); assert.strictEqual(ini.avaliacoes, 1, "as avaliações trazidas não contam como testes por lançar");
+});

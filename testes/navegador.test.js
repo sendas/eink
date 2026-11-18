@@ -22,7 +22,9 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
     page.setDefaultTimeout(15000);
     page.on("pageerror", (e) => erros.push(`${quem}: ${e.message}`));
     // Um 409 faz parte de um fluxo normal (pede confirmação antes de apagar notas), por isso não conta como erro.
-    page.on("console", (m) => { if (m.type() === "error" && !/status of 409/.test(m.text()) && !(quem === "docente local" && /status of 401/.test(m.text()))) erros.push(`${quem}: ${m.text()}`); });
+    // Os 404 contam-se pelo endereço (a consola não o diz). Um jogo que acabou responde 404 ao telemóvel que ainda pergunta por ele: é o esperado.
+    page.on("response", (r) => { if (r.status() === 404 && !/\/j\/api\/\d+/.test(r.url())) erros.push(`${quem}: 404 em ${r.url()}`); });
+    page.on("console", (m) => { if (m.type() === "error" && !/status of 40[49]/.test(m.text()) && !(quem === "docente local" && /status of 401/.test(m.text()))) erros.push(`${quem}: ${m.text()}`); });
     page.on("dialog", (d) => (d.type() === "prompt" ? d.accept(d.defaultValue()) : d.accept())); // confirmações e pedidos de texto (aceita o valor sugerido)
   };
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -119,7 +121,7 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
     const cx = ["#0f766e", "#b4532a", "#6b4e9b"].map((c) => `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='400'><rect width='300' height='400' fill='${c}'/><circle cx='150' cy='150' r='70' fill='#f3e6d8'/></svg>`);
     const html = `<body style="margin:30px;font-family:Arial"><div style="display:grid;grid-template-columns:repeat(3,180px);gap:36px 40px">${["Carla Mendes", "Ana Silva", "Bruno Costa"].map((n, i) => `<div style="text-align:center"><img src="data:image/svg+xml;base64,${Buffer.from(cx[i]).toString("base64")}" width="150" height="200"><div style="font-size:15px">${n}</div></div>`).join("")}</div></body>`;
     await g.setContent(html); const pdf = await g.pdf({ format: "A4" }); await g.context().close();
-    await p.waitForSelector("#fotos-pdf"); await p.click("#fotos-pdf summary");
+    await p.click("#tu-add"); await p.waitForSelector("#fotos-pdf"); await p.click("#fotos-pdf summary");
     await p.setInputFiles("#f-fotos-pdf", { name: "turma.pdf", mimeType: "application/pdf", buffer: pdf });
     await p.waitForSelector("#fotos-pdf-ok", { timeout: 60000 });
     const lig = await p.evaluate(() => [...document.querySelectorAll("#fotos-pdf-res tbody tr")].map((tr) => tr.children[2].textContent.trim().split(" certeza")[0] + ">" + tr.querySelector("select").selectedOptions[0].textContent.trim()));
@@ -127,6 +129,21 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
     await p.click("#fotos-pdf-ok"); await p.waitForFunction(() => document.querySelectorAll("img.foto, .foto img, img[src^='data:image/jpeg']").length >= 3 || !document.querySelector("#fotos-pdf-ok"), null, { timeout: 15000 });
     await p.goto(turmaUrl); await p.waitForSelector("text=Carla Mendes");
   }
+  // Turma como centro de gestão: cartões, procura, ficha do aluno com observação privada, dados e saída da turma
+  await p.waitForSelector(".tu-cartao"); assert.strictEqual(await p.locator(".tu-cartao").count(), 3);
+  assert.ok(await p.locator(".tu-cartao img.foto-ch").count() >= 1, "os cartões mostram as fotografias");
+  await p.fill("#tu-q", "bruno"); assert.strictEqual(await p.locator(".tu-cartao").count(), 1); await p.fill("#tu-q", "");
+  await p.selectOption("#tu-filtro", "semnotas"); assert.strictEqual(await p.locator(".tu-cartao").count(), 3);
+  await p.click("#tu-selecionar"); await p.click(".tu-cartao >> nth=0"); assert.match(await p.textContent("#tu-lote-n"), /1 selecionado/); await p.click("#tu-selecionar");
+  await p.click(".tu-cartao:has-text('Bruno Costa') .tu-abre"); await p.waitForSelector("#f-obs");
+  assert.match(await p.textContent(".fi-topo"), /2 de 3/);
+  await p.fill("#f-obs textarea", "Falei com a encarregada de educação."); await p.click("#f-obs button"); await p.waitForSelector(".fi-obs-lista li p");
+  assert.match(await p.textContent(".fi-obs-lista"), /Falei com a encarregada/);
+  await p.click("#fi-editar"); await p.fill("#f-dados [name=nome]", "Bruno Miguel Costa"); await p.click("#f-dados button"); await p.waitForSelector("h1:has-text('Bruno Miguel Costa')");
+  await p.click("#fi-sair"); await p.waitForSelector("#tu-sairam"); assert.strictEqual(await p.locator(".tu-cartao").count(), 2, "quem saiu deixa de estar nos cartões");
+  await p.click("#tu-sairam summary"); await p.click("[data-voltar]"); await p.waitForFunction(() => document.querySelectorAll(".tu-cartao").length === 3);
+  assert.match(await p.textContent(".tu-cartao:has-text('Bruno Miguel Costa')"), /1 observação/);
+  for (const sep of ["Intercalares", "Aula", "Definições", "Pauta"]) { await p.click(`.tu-sep a:has-text('${sep}')`); await p.waitForSelector(`.tu-sep a[aria-current]:has-text('${sep}')`); }
   await p.click("a:has-text('Abrir pauta') >> nth=0"); await p.waitForSelector("#f-aval");
   await p.fill("#f-aval [name=titulo]", "Teste 1"); await p.fill("#f-aval [name=maximo]", "20"); await p.click("#f-aval button");
   await p.waitForSelector("input.nota"); await p.waitForTimeout(500); // a pauta ainda se redesenha depois do primeiro aparecimento

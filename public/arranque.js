@@ -3,7 +3,10 @@
 (async () => {
   try { EINK.eu = await EINK.api("GET", "/api/eu"); } catch { return; }
   document.getElementById("nome").textContent = EINK.eu.nome || EINK.eu.upn;
-  if (EINK.eu.admin) document.getElementById("nav-gestao").hidden = false;
+  if (EINK.eu.admin) { document.getElementById("nav-gestao").hidden = false; document.querySelectorAll('[data-so="admin"]').forEach((x) => { x.hidden = false; }); }
+  if (EINK.eu.local) document.querySelectorAll('[data-so="local"]').forEach((x) => { x.hidden = false; });
+  // Menu «Mais» da barra de baixo (telemóvel): fecha ao escolher e ao tocar fora.
+  document.addEventListener("click", (e) => { const m = document.querySelector(".nb-mais[open]"); if (m && (!e.target.closest(".nb-mais") || e.target.closest(".nb-lista a, .nb-lista button"))) m.open = false; });
   if (EINK.eu.versao) { const v = document.getElementById("versao"); v.textContent = "v" + EINK.eu.versao; v.hidden = false; }
   if (EINK.eu.grelhas_novas) {
     const b = document.getElementById("nav-modelos-n"); b.textContent = EINK.eu.grelhas_novas; b.hidden = false;
@@ -34,7 +37,7 @@
     if (EINK.eu.trocar && caminho !== "/senha") { location.hash = "#/senha"; return; }
     contarEcra(caminho);
     const area = "#/" + (caminho.split("/")[1] || "");
-    document.querySelectorAll(".topo nav a").forEach((a) => { if (a.getAttribute("href") === area || (area === "#/pauta" && a.getAttribute("href") === "#/notas") || ((area === "#/turma") && a.getAttribute("href") === "#/turmas") || (a.getAttribute("href") === "#/sala" && EINK.FERRAMENTAS.some((f) => f[3] === area))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    document.querySelectorAll(".topo nav a, .nav-baixo > a").forEach((a) => { if (a.getAttribute("href") === area || ((area === "#/pauta" || area === "#/grelha" || area === "#/intercalares") && a.getAttribute("href") === "#/notas") || ((area === "#/turma" || area === "#/aluno") && a.getAttribute("href") === "#/turmas") || (a.getAttribute("href") === "#/sala" && EINK.FERRAMENTAS.some((f) => f[3] === area))) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     for (const [re, fn] of EINK.rotas) {
       const m = re.exec(caminho);
       if (m) { try { await fn(...m.slice(1)); } catch (e) { if (!e || !e.mostrado) { console.error(e); EINK.aviso("Esta página não abriu por um erro do programa. Recarrega com Ctrl+Shift+R; se continuar, diz-me qual era a página.", true); } } document.getElementById("vista").focus(); if (EINK.guia) EINK.guia.aoAbrirEcra(); return; }

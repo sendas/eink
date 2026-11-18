@@ -31,9 +31,18 @@
 </header>
 <div class="regua" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <main id="vista" tabindex="-1"></main>
+<nav class="nav-baixo" aria-label="Menu principal">
+  <a href="#/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Início</a>
+  <a href="#/notas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Notas</a>
+  <a href="#/turmas"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5.2a3.5 3.5 0 010 5.6M18 14.5c2 .8 3.5 2.7 3.5 5.5"/></svg>Turmas</a>
+  <a href="#/sala"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Aula</a>
+  <details class="nb-mais"><summary><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Mais</summary>
+    <div class="nb-lista"><a href="#/ajuda">Ajuda: como se faz</a><a href="#/modelos">Modelos de grelhas</a><a href="#/gestao" data-so="admin" hidden>Gestão</a><a href="#/senha" data-so="local" hidden>Palavra-passe</a><button type="button" class="ligacao" data-abrir-tutorial>Tutorial</button><a href="#/versoes">O que mudou</a><a href="/auth/sair">Sair</a></div></details>
+</nav>
 <footer class="rodape"><span>Cada docente só vê as suas turmas. Os dados não são partilhados com terceiros.</span> <a href="/privacidade.html">Privacidade</a> <span class="so-movel"><a href="#/ajuda">Ajuda</a> · <span data-guia-caixa hidden><button type="button" class="ligacao" data-abrir-guia>Guia do ecrã</button> · </span><button type="button" class="ligacao" data-abrir-tutorial>Tutorial</button></span></footer>
 <div id="aviso" role="status" aria-live="polite"></div>
 <script src="/app.js?v=__V__"></script>
+<script src="/turma.js?v=__V__"></script>
 <script src="/apreciacao.js?v=__V__"></script>
 <script src="/folha.js?v=__V__"></script>
 <script src="/notas.js?v=__V__"></script>
