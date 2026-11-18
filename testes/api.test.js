@@ -1501,3 +1501,16 @@ test("Cidadania e Desenvolvimento: faixas e descritores do manual (as outras dis
   assert.deepStrictEqual(m.limites, [20, 50, 70, 90]); assert.strictEqual(m.descritores, null);
   assert.deepStrictEqual(m.alunos.map((a) => a.nivel), [2, 2, 4, 4], "regra geral: 20 já é nível 2 e 70 já é nível 4");
 });
+
+test("Ajuda «como se faz»: cada resposta aponta para um ecrã e um passo do guia que existem", () => {
+  const fs = require("node:fs"), ler = (f) => fs.readFileSync(require("node:path").join(__dirname, "..", "public", f), "utf8");
+  const ajuda = ler("ajuda.js"), guia = ler("guia.js");
+  const pares = [...ajuda.matchAll(/guia: \["([a-z-]+)", "([^"]+)"\]/g)];
+  assert.ok(pares.length >= 20, "há pelo menos 20 respostas");
+  for (const [, ecra, passo] of pares) {
+    const ini = guia.search(new RegExp(`\\n    "?${ecra}"?: \\[`)); assert.ok(ini > 0, "o guia tem o ecrã " + ecra);
+    const bloco = guia.slice(ini, guia.indexOf("\n    ],", ini));
+    assert.ok(bloco.includes(`tit: "${passo}"`), `o guia de ${ecra} tem o passo «${passo}»`);
+  }
+  assert.ok(!/[\u2014\u2013]/.test(ajuda), "sem travessões");
+});

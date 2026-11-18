@@ -49,6 +49,16 @@ test("navegador: percurso do docente, do administrador e dos alunos", { skip: !c
   await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector(".guia-pop"));
   await p.click("#nav-guia"); await p.waitForSelector(".guia-pop"); await p.click(".guia-nunca"); await p.waitForFunction(() => !document.querySelector(".guia-pop"));
   assert.deepStrictEqual(await p.evaluate(() => EINK.eu.guias), ["*"], "«Não mostrar mais guias» fica guardado");
+  // Ajuda «como se faz»: procura, passos e «Mostrar-me no ecrã», que abre o ecrã certo com o guia no passo pedido (mesmo com os guias desligados)
+  await p.click("#nav-ajuda"); await p.waitForSelector("#aj-q");
+  await p.fill("#aj-q", "temporizador"); assert.strictEqual(await p.locator(".aj-item:not([hidden])").count(), 1, "a procura deixa só a resposta certa");
+  assert.ok(await p.locator(".aj-item:not([hidden])").evaluate((d) => d.open && d.querySelectorAll("ol li").length >= 2), "abre com os passos");
+  await p.click(".aj-item:not([hidden]) .aj-mostrar"); await p.waitForSelector(".guia-pop", { timeout: 8000 });
+  assert.strictEqual(await p.evaluate(() => location.hash), "#/temporizador");
+  assert.match(await p.textContent(".guia-pop h3"), /Projetar/, "o guia abre no passo pedido");
+  await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector(".guia-pop"));
+  await p.goto(base + "/#/ajuda"); await p.waitForSelector("#aj-q"); await p.fill("#aj-q", "zzzz"); assert.ok(await p.isVisible("#aj-vazio"), "sem resultados, diz o que fazer");
+  await p.goto(base + "/#/"); await p.waitForSelector(".cartoes");
   const cartoes = await p.locator(".cartao").allTextContents();
   assert.ok(cartoes.some((c) => c.includes("Sondagem")) && cartoes.some((c) => c.includes("Quizzes")));
   assert.ok(!cartoes.some((c) => /ruído/i.test(c)), "o medidor de ruído foi retirado");

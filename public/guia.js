@@ -108,6 +108,10 @@
       { alvo: q(".pa-al"), tit: "Um toque por registo", txt: "Toca no aluno e escolhe o tipo (por exemplo «Participou»). Os totais aparecem na pauta, como apoio ao nível.", acao: "Toca no cartão de um aluno." },
       { alvo: q("[data-tab]", /Tipos/), tit: "Os teus tipos", txt: "Até 8 tipos, positivos ou a melhorar.", acao: "Clica em «Tipos de registo» para os mudar." },
     ],
+    ajuda: [
+      { alvo: q("#aj-q"), tit: "Procura o que queres fazer", txt: "Escreve uma ou duas palavras, como «notas» ou «chamada», e ficam só as respostas que interessam.", acao: "Escreve aqui o que procuras." },
+      { alvo: q(".aj-item summary"), tit: "Passos e «Mostrar-me no ecrã»", txt: "Cada resposta tem os passos por palavras e um botão que te leva ao ecrã certo e aponta para onde deves clicar.", acao: "Clica numa pergunta para a abrir e depois em «Mostrar-me no ecrã»." },
+    ],
     quizzes: [
       { alvo: q("[data-vivo]"), tit: "Jogar ao vivo", txt: "Os alunos entram no telemóvel com um código e uma alcunha.", acao: "Clica em «Jogar ao vivo»." },
       { alvo: q("[data-opcoes]"), tit: "Outras formas de jogar", txt: "Por equipas, com perguntas baralhadas, revisão ao próprio ritmo (para casa) ou no projetor sem telemóveis.", acao: "Clica em «Outras formas de jogar»." },
@@ -139,7 +143,7 @@
     const anel = document.createElement("div"); anel.className = "guia-anel"; anel.setAttribute("aria-hidden", "true");
     const pop = document.createElement("div"); pop.className = "guia-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Guia do ecrã");
     document.body.append(anel, pop);
-    const a = ativo = { chave, passos, i: 0, pop, anel };
+    const a = ativo = { chave, passos, i: Math.max(0, passos.findIndex((p) => p.tit === opc.passo)), pop, anel };
     const pos = () => {
       const p = a.passos[a.i]; if (!p || !p.el.isConnected) return;
       const r = p.el.getBoundingClientRect(), pad = 6, L = innerWidth, A = innerHeight;
@@ -162,7 +166,7 @@
         <h3>${esc(p.tit)}</h3><p>${esc(p.txt)}</p><p class="guia-acao"><strong>Faz assim:</strong> ${esc(p.acao)}</p>
         <div class="guia-pe"><button type="button" class="ligacao guia-nunca">Não mostrar mais guias</button><span class="guia-bot">${a.i ? '<button type="button" class="sec" id="guia-ant">Anterior</button>' : ""}<button type="button" id="guia-seg">${ultimo ? "Entendi" : "Seguinte"}</button></span></div>`;
       pop.querySelector(".guia-x").onclick = () => fechar();
-      pop.querySelector(".guia-nunca").onclick = () => { fechar(false); if (EINK.eu) EINK.eu.guias = ["*"]; EINK.api("POST", "/api/eu/guia", { chave: "*" }).catch(() => {}); EINK.aviso("Pronto. Os guias não voltam a aparecer sozinhos. Podes vê-los no botão «Guia do ecrã»."); };
+      pop.querySelector(".guia-nunca").onclick = () => { fechar(false); if (EINK.eu) EINK.eu.guias = ["*"]; EINK.api("POST", "/api/eu/guia", { chave: "*" }).catch(() => {}); EINK.aviso("Pronto. Os guias não voltam a aparecer sozinhos. Podes vê-los no botão «Guia do ecrã» e em «Ajuda»."); };
       const ant = pop.querySelector("#guia-ant"); if (ant) ant.onclick = () => { a.i--; mostrar(); };
       pop.querySelector("#guia-seg").onclick = () => { if (ultimo) fechar(); else { a.i++; mostrar(); } };
       pop.querySelector("#guia-seg").focus({ preventScroll: true });
@@ -178,22 +182,41 @@
   }
 
   // Chamado depois de cada ecrã abrir: mostra o guia se ainda não foi visto (espera um pouco, porque os ecrãs carregam dados).
-  let temporizador = 0;
+  let temporizador = 0, pedido = null, aEspera = false, ultimoHash = null;
+  const daqui = (fn, ms) => { aEspera = true; temporizador = setTimeout(() => { aEspera = false; fn(); }, ms); };
+  const pedir = (chave, passo) => { pedido = { chave, passo, ate: Date.now() + 15000 }; };
   function aoAbrirEcra() {
-    clearTimeout(temporizador); fechar(false);
+    // Uma segunda chamada no mesmo ecrã (por exemplo, ao fechar o tutorial) não desfaz um guia aberto nem um que está para abrir.
+    if (location.hash === ultimoHash && !pedido && (ativo || aEspera)) return;
+    ultimoHash = location.hash;
+    clearTimeout(temporizador); aEspera = false; fechar(false);
     const chave = chaveDe();
     document.querySelectorAll("[data-guia-caixa]").forEach((cx) => { cx.hidden = !GUIAS[chave]; });
+    // Pedido da página de Ajuda («Mostrar-me no ecrã»): abre o guia deste ecrã no passo pedido, mesmo que já tenha sido visto.
+    if (pedido && pedido.chave === chave && Date.now() < pedido.ate && EINK.eu && !EINK.eu.trocar) {
+      const ped = pedido; pedido = null; let n = 0;
+      const espera = () => {
+        if (chaveDe() !== chave || document.querySelector("dialog[open]")) return;
+        const ha = encontrar(chave);
+        if (ha.some((p) => p.tit === ped.passo)) { abrir(chave, { passo: ped.passo }); return; }
+        if (++n < 8) { daqui(espera, 400); return; }
+        EINK.aviso("Estás no ecrã certo, mas o que eu queria apontar ainda não existe aqui (por exemplo, falta criar uma avaliação ou pôr os alunos)." + (ha.length ? " Mostro-te o guia deste ecrã desde o início." : ""));
+        if (ha.length) abrir(chave);
+      };
+      daqui(espera, 500); return;
+    }
+    pedido = null;
     if (!GUIAS[chave] || !EINK.eu || EINK.eu.trocar || EINK.eu.tutorial || vistos().has("*") || vistos().has(chave)) return;
     let tentativas = 0;
     const tenta = () => {
       if (document.querySelector("dialog[open]") || ativo) return;
       if (chaveDe() !== chave) return;
       if (encontrar(chave).length) { abrir(chave); return; }
-      if (++tentativas < 8) temporizador = setTimeout(tenta, 400);
+      if (++tentativas < 8) daqui(tenta, 400);
     };
-    temporizador = setTimeout(tenta, 700);
+    daqui(tenta, 700);
   }
   const ligar = () => document.querySelectorAll("[data-abrir-guia]").forEach((bt) => { bt.onclick = () => abrir(chaveDe(), { manual: true }); });
 
-  EINK.guia = { abrir, fechar, aoAbrirEcra, ligar, chaveDe, tem: (k) => !!GUIAS[k] };
+  EINK.guia = { abrir, fechar, aoAbrirEcra, ligar, pedir, chaveDe, tem: (k) => !!GUIAS[k] };
 })();

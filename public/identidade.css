@@ -629,3 +629,16 @@ th small { font-weight: 500; }
 .ln-ensinos li { display: inline-flex; align-items: baseline; gap: .45rem; padding: .45rem .85rem; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--marca) 35%, transparent); background: var(--marca-fundo); color: var(--texto); }
 .ln-ensinos li strong { font-size: .95rem; }
 .ln-ensinos li span { font-size: .85rem; color: var(--suave); }
+
+/* Ajuda: «como se faz» */
+.aj-topo { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; }
+.aj-topo label { display: grid; gap: .3rem; font-weight: 600; }
+.aj-procura { flex: 1 1 18rem; }
+.aj-procura input { width: 100%; box-sizing: border-box; min-height: 48px; font-size: 1.05rem; }
+.aj-grupo h2 { margin: 1.4rem 0 .5rem; }
+.aj-item { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; margin: .45rem 0; }
+.aj-item summary { cursor: pointer; padding: .8rem 1rem; font-weight: 600; min-height: 44px; box-sizing: border-box; }
+.aj-item[open] summary { color: var(--marca); }
+.aj-item ol { margin: 0 1rem .6rem 2.4rem; padding: 0; display: grid; gap: .35rem; }
+.aj-item p { margin: 0 1rem 1rem; }
+.aj-outras p { margin: .3rem 0; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
