@@ -621,3 +621,11 @@ th small { font-weight: 500; }
 .desc-nivel h3 .lv { width: 1.7rem; height: 1.7rem; border-radius: 8px; display: inline-grid; place-items: center; font-weight: 800; font-size: .9rem; }
 .desc-nivel h3 small { font-weight: 600; opacity: .85; }
 .desc-nivel ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .25rem; font-size: .95rem; line-height: 1.45; }
+
+/* Entrada: níveis de ensino abrangidos (básico, secundário e profissional) */
+.ln-ensinos { display: grid; gap: .55rem; }
+.ln-ensinos-tit { margin: 0; font-weight: 700; color: var(--texto); font-size: 1rem; }
+.ln-ensinos ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .5rem; }
+.ln-ensinos li { display: inline-flex; align-items: baseline; gap: .45rem; padding: .45rem .85rem; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--marca) 35%, transparent); background: var(--marca-fundo); color: var(--texto); }
+.ln-ensinos li strong { font-size: .95rem; }
+.ln-ensinos li span { font-size: .85rem; color: var(--suave); }
