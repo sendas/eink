@@ -1,0 +1,13 @@
+{
+  "name": "plateia",
+  "version": "0.1.0",
+  "description": "Organiza filmes e séries de um disco para o Plex, o Jellyfin e o Emby.",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": { "node": ">=22" },
+  "bin": { "plateia": "cli.js" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"testes/*.test.js\""
+  }
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plateia</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header class="topo">
+  <h1>Plateia <small id="versao"></small></h1>
+  <nav id="nav">
+    <button type="button" data-vista="organizar" class="ativo">Organizar</button>
+    <button type="button" data-vista="biblioteca">Biblioteca</button>
+    <button type="button" data-vista="historico">Histórico</button>
+  </nav>
+</header>
+
+<main>
+  <p id="pastas" class="pastas"></p>
+  <p id="aviso" class="aviso" hidden></p>
+
+  <section id="organizar">
+    <div class="barra">
+      <div id="filtros" class="filtros"></div>
+      <input id="procura" type="search" placeholder="Procurar por nome" aria-label="Procurar por nome">
+      <button type="button" id="reler">Ler o disco outra vez</button>
+    </div>
+    <p id="vazio" class="vazio" hidden></p>
+    <div class="rolo">
+      <table id="tabela">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="todos" aria-label="Escolher todos os visíveis"></th>
+            <th>Agora</th>
+            <th>Depois de arrumar</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p id="corte" class="nota" hidden></p>
+    <div class="rodape">
+      <span id="escolhidos"></span>
+      <button type="button" id="aplicar" class="principal" disabled>Arrumar os escolhidos</button>
+    </div>
+  </section>
+
+  <section id="biblioteca" hidden></section>
+  <section id="historico" hidden></section>
+</main>
+
+<dialog id="confirmar">
+  <h2>Arrumar os ficheiros escolhidos?</h2>
+  <p id="confirmar-texto"></p>
+  <p class="nota">Nenhum ficheiro é apagado nem substituído. Pode repor tudo no Histórico.</p>
+  <div class="rodape">
+    <button type="button" id="confirmar-nao">Cancelar</button>
+    <button type="button" id="confirmar-sim" class="principal">Arrumar</button>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
